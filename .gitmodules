@@ -1,0 +1,6 @@
+[submodule ".reference/bips"]
+	path = .reference/bips
+	url = https://github.com/CarlosQ96/Bips.git
+[submodule ".reference/openclaw"]
+	path = .reference/openclaw
+	url = https://github.com/openclaw/openclaw.git
