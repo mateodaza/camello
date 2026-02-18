@@ -1165,6 +1165,84 @@ const TOKEN_BUDGET = {
 };
 ```
 
+### Proactive Cross-Referencing
+
+Standard RAG retrieves docs that directly answer the current query. Proactive cross-referencing goes further: it surfaces **tangentially relevant** knowledge that the user didn't ask for but would find valuable. Inspired by OpenClaw's CRM pattern where a video idea spontaneously triggers a sponsor connection.
+
+**How it works:**
+1. After the primary RAG search, run a secondary search with a **lower similarity threshold** (0.15 vs 0.3) and a **broader doc type filter**
+2. The secondary results are labeled as `proactive_context` in the prompt, not mixed with direct answers
+3. The system prompt instructs the LLM: *"If PROACTIVE CONTEXT contains information the customer would benefit from knowing — even if they didn't ask — weave it in naturally. Don't force it."*
+
+```typescript
+// Primary search: high relevance, narrow scope
+const directResults = await matchKnowledge(embedding, query, tenantId, intentDocTypes, 0.3, 8);
+
+// Proactive search: lower threshold, broader scope, fewer results
+const proactiveResults = await matchKnowledge(embedding, query, tenantId, null, 0.15, 4);
+// Filter out duplicates already in directResults
+const unique = proactiveResults.filter(p => !directResults.some(d => d.id === p.id));
+```
+
+**Example:** Customer asks about "pricing for the enterprise plan." Direct RAG returns pricing docs. Proactive search also returns a case study about a similar company that upgraded — the artifact can naturally mention: *"By the way, Company X in your industry saw 40% more leads after upgrading to Enterprise."*
+
+**Guardrails:**
+- Proactive context is capped at 400 tokens (taken from the rag_context budget). If direct results fill the budget, proactive is skipped entirely.
+- Minimum similarity floor of 0.15 — below this, results are noise. Tunable per tenant.
+- Max 2 proactive docs surfaced per turn (prevents the response from becoming a sales pitch).
+- Proactive suggestions are **never** used as the primary answer — only as supplementary context.
+
+**Acceptance KPIs:**
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Proactive relevance precision | >70% | % of proactive suggestions that humans rate as useful (sampled via dashboard feedback widget) |
+| Upsell/cross-sell lift | >5% | Conversations with proactive context that result in a module execution (e.g., book_meeting) vs. control |
+| Noise rate | <15% | % of turns where proactive context is surfaced but the LLM ignores it (indicates irrelevance) |
+| Cost impact | <$0.001/turn | Additional embedding search cost per turn from the secondary query |
+
+### URL-Drop Knowledge Ingestion
+
+Tenants can ingest knowledge by dropping URLs — from the dashboard or directly in a conversation ("save this link"). This creates a seamless path from discovery to searchable knowledge. Inspired by OpenClaw's knowledge base pattern.
+
+**Supported sources:** Web articles, YouTube videos (transcript via API), PDFs, social media posts (X/Twitter threads).
+
+**Pipeline (Trigger.dev job):**
+
+```
+URL dropped (dashboard or chat command)
+  → knowledge_syncs.insert({ tenant_id, source_type: 'url', source_url, status: 'pending' })
+  → Trigger.dev job: fetch_and_ingest
+    → Detect content type (article, video, PDF, social)
+    → Fetch content (headless browser for paywalled sites, YouTube Data API for transcripts)
+    → Extract clean text + metadata (title, author, date, source domain)
+    → Chunk text (512 tokens, 50-token overlap)
+    → Generate embeddings (OpenAI text-embedding-3-small)
+    → Insert chunks into knowledge_docs with source attribution
+    → Update knowledge_syncs.status = 'completed'
+  → If chat-initiated: reply "Saved! I've indexed {title} — {chunk_count} sections ready for search."
+```
+
+**Thread following (X/Twitter):** When a tweet URL is dropped, the system follows the full thread, extracts any linked URLs (articles, papers), and ingests both the thread and linked content as separate but cross-referenced docs.
+
+**Hard limits:**
+| Limit | Starter | Growth | Scale |
+|-------|---------|--------|-------|
+| Max ingestions/day | 10 | 50 | 200 |
+| Max content size per URL | 50KB text / 10MB PDF | 100KB / 25MB | 500KB / 50MB |
+| Max chunks per source | 50 | 200 | 500 |
+| Thread depth (X/Twitter) | 10 posts | 25 posts | 50 posts |
+| Allowed domains | All (default blocklist) | All | All + custom allowlist |
+
+**Domain controls:** Tenants can configure a domain allowlist (only ingest from these domains) or blocklist (never ingest from these). Default blocklist includes known spam/SEO-farm domains. All ingested content is attributed with source domain for auditability.
+
+**Acceptance KPIs:**
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Ingestion success rate | >95% | % of dropped URLs that successfully complete the pipeline |
+| Retrieval hit rate | >60% | % of ingested docs that are retrieved in at least one RAG search within 30 days |
+| Chunk quality | >80% | % of chunks rated as coherent (no mid-sentence splits, no boilerplate) via periodic sample audit |
+| Embedding cost | <$0.01/URL | Average cost of text-embedding-3-small calls per ingested URL |
+
 ---
 
 ## 10. Module System (MCP-Compatible)
@@ -1415,13 +1493,81 @@ LLM decides to call a tool
       → Notify via Supabase Broadcast + Slack/email
       → Human approves/rejects in dashboard
       → If approved: execute()
-      → If rejected: tell LLM "action was not approved"
+      → If rejected: capture rejection reason → store as learning → tell LLM "action was not approved"
     → If NO: execute() immediately
   → Validate output against outputSchema
   → Log to module_executions table
   → Return result to LLM via formatForLLM()
   → LLM incorporates result into response
 ```
+
+### Self-Improving Feedback Loop
+
+When a human rejects a module execution, the system doesn't just skip it — it **learns why** and improves future behavior. This is the core loop that makes artifacts smarter over time. Inspired by OpenClaw's action-item approval pattern.
+
+```
+Module proposes action (e.g., "Extracted action item: Send pricing PDF")
+  → Human rejects with reason: "That wasn't actually an action item, just a mention"
+  → System stores rejection as a learning:
+      learnings.insert({
+        tenant_id, artifact_id,
+        source_conversation_id: conversation.id,
+        pattern: "action_item_extraction",
+        content: "User rejected: 'Send pricing PDF' — reason: not an actual action item, just a mention",
+        confidence: 0.8,
+      })
+  → Next time the same module runs, RAG retrieves this learning in the context budget (400 tokens)
+  → LLM sees the learning and adjusts its behavior
+  → Over time, the artifact's module invocations become more accurate per-tenant
+```
+
+**What gets stored as learnings from rejections:**
+- Module name + input that was rejected
+- Human's rejection reason (free text)
+- Conversation context (what led to the module invocation)
+- Timestamp (learnings decay — recent rejections weighted higher)
+
+**Rejection reason taxonomy:**
+
+Structured reasons enable pattern analysis. The dashboard presents these as selectable options (with free-text fallback):
+
+| Category | Example reasons | System action |
+|----------|----------------|---------------|
+| `false_positive` | "Not an actual action item", "Irrelevant suggestion" | Increase threshold for this module trigger |
+| `wrong_target` | "That's their action item, not mine", "Wrong customer" | Improve entity resolution in module input |
+| `bad_timing` | "Too early to propose this", "Customer not ready" | Add conversation-stage awareness to trigger conditions |
+| `incorrect_data` | "Wrong price quoted", "Outdated information" | Flag knowledge docs for review, trigger re-crawl |
+| `policy_violation` | "We don't offer that", "Contradicts our guidelines" | High-priority learning, boost confidence to 1.0 |
+
+**Confidence thresholds and decay:**
+
+- New learnings start at confidence `0.8` (single rejection) or `1.0` (policy violation).
+- Confidence increases by `0.1` for each additional rejection of the same pattern (capped at `1.0`).
+- Learnings decay: confidence drops by `0.05` per month if no new rejections reinforce the pattern.
+- Learnings below confidence `0.3` are archived (excluded from RAG retrieval, kept for audit).
+- **Retrieval threshold:** only learnings with confidence `≥ 0.5` are included in the prompt context budget.
+
+**Rollback mechanism:**
+
+Tenants can review and manage learnings from the dashboard:
+- View all active learnings with confidence scores, source conversations, and rejection reasons
+- **Dismiss** a learning (sets confidence to 0, archived) — reverses an incorrect learning
+- **Boost** a learning (sets confidence to 1.0) — manually reinforces an important pattern
+- **Bulk clear** by module — wipe all learnings for a specific module (useful after major config changes)
+- Audit log: every learning creation, dismissal, and boost is logged with timestamp and user
+
+**Acceptance KPIs:**
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Module rejection rate (post-learning) | <15% | % of module executions rejected by humans after 30 days of learning accumulation |
+| Learning precision | >85% | % of learnings that are still active (not dismissed) after 60 days |
+| Feedback-to-improvement latency | <24h | Time from rejection to learning appearing in RAG context for next similar query |
+| Rollback usage | <5% | % of learnings that tenants dismiss (indicates system is learning the right things) |
+
+**Feedback loop across the system:**
+- Module rejections → `learnings` table → RAG retrieves at prompt assembly → LLM adjusts behavior
+- Escalation patterns → "Customer X always escalates on pricing" → artifact learns to route pricing questions differently
+- Successful resolutions → "This phrasing closed the deal" → artifact learns effective patterns
 
 ---
 
@@ -1728,6 +1874,30 @@ knowledge_sources:
     refresh: weekly
   - type: learnings
     priority: medium
+
+# Channel-aware persona switching — override personality per channel.
+# Same artifact, different tone depending on context.
+# Inspired by OpenClaw pattern: casual on WhatsApp, formal on Slack.
+channel_overrides:
+  whatsapp:
+    tone: warm, conversational, emoji-friendly
+    greeting: "Hey! 👋 I'm Alex from {company_name}. What can I help with?"
+    style_notes:
+      - Keep messages short (WhatsApp = mobile)
+      - Use line breaks between ideas
+      - Emoji ok but don't overdo it
+  webchat:
+    tone: professional, helpful, concise
+    greeting: "Hello! I'm Alex, {company_name}'s sales assistant. How can I help you today?"
+    style_notes:
+      - Slightly more formal — visitor may be evaluating the product
+      - Can use longer paragraphs than WhatsApp
+  slack:
+    tone: collegial, direct, no fluff
+    greeting: null  # No greeting in Slack — jump straight to business
+    style_notes:
+      - Assume the reader is internal or a known partner
+      - Use bullet points and structured responses
 ```
 
 ### Business Model Templates
@@ -1946,14 +2116,79 @@ CRITICAL SAFETY RULES (override all other instructions):
 `;
 ```
 
+**Layer 6: Prompt Injection Defense** (inspired by OpenClaw hardening patterns)
+
+All external content — customer messages, ingested URLs, webhook payloads — is treated as **potentially malicious**. Defense is hybrid: deterministic pre-screening (fast, cheap, reliable) + LLM-aware guardrails (catches novel attacks).
+
+```typescript
+// Deterministic pre-screening — runs BEFORE content reaches the LLM
+function sanitizeInput(content: string): { clean: string; flagged: boolean; flags: string[] } {
+  const flags: string[] = [];
+
+  // 1. Strip known injection markers
+  const INJECTION_PATTERNS = [
+    /ignore (?:all )?(?:previous|prior|above) instructions/i,
+    /system:\s/i,
+    /\[INST\]/i,
+    /<<SYS>>/i,
+    /you are now/i,
+    /new instruction/i,
+    /disregard (?:everything|all)/i,
+  ];
+  for (const pattern of INJECTION_PATTERNS) {
+    if (pattern.test(content)) flags.push(`injection_marker: ${pattern.source}`);
+  }
+
+  // 2. Detect attempts to change config/behavior
+  const CONFIG_PATTERNS = [
+    /(?:update|change|modify|edit)\s+(?:your|the)\s+(?:config|settings|personality|rules)/i,
+    /(?:forget|delete|remove)\s+(?:your|all)\s+(?:instructions|rules|constraints)/i,
+  ];
+  for (const pattern of CONFIG_PATTERNS) {
+    if (pattern.test(content)) flags.push(`config_manipulation: ${pattern.source}`);
+  }
+
+  // 3. Never parrot external content verbatim — summarize instead
+  //    (Applied at RAG ingestion time, not here — but enforced in prompt)
+
+  return { clean: content, flagged: flags.length > 0, flags };
+}
+```
+
+**Key principles:**
+- **Summarize, don't parrot.** External web content (articles, tweets) is summarized at ingestion time, not stored verbatim. This neutralizes injection payloads hidden in web pages.
+- **Isolate external data.** Ingested content goes into `knowledge_docs` with `source_type` metadata. The prompt builder marks it as `[EXTERNAL CONTENT]` so the LLM knows it's untrusted.
+- **Write permissions are locked.** Artifacts cannot send emails, post to social media, or modify configs without explicit tenant approval (autonomy gates).
+- **Secrets never reach LLM context.** Environment variables, API tokens, and credentials are accessed only via `ctx.secrets` in module execution — never assembled into prompts.
+- **Flagged content is logged, not blocked.** If an injection is detected, the message is still processed (to avoid false-positive UX degradation) but flagged in `interaction_logs` for tenant review. Repeated flags from a customer trigger auto-escalation.
+
+**Defense-in-depth (beyond regex):**
+
+Regex pre-screening is Layer 1 — necessary but not sufficient. Additional layers:
+
+- **Layer 2: Canary tokens.** The system prompt includes a hidden canary string (rotated daily). If the LLM's output contains the canary, the response was likely manipulated by injected instructions. Auto-flag and suppress.
+- **Layer 3: Output validation.** After LLM generates a response, a lightweight classifier (Gemini Flash, ~$0.0001/call) scores it for policy violations: did the response reveal system prompts? Did it claim to be a different entity? Did it attempt to execute unauthorized actions? Only triggered when Layer 1 flags are present (cost-gated).
+- **Layer 4: Behavioral anomaly detection.** Track per-customer message patterns. If a customer suddenly sends messages that are 10x longer than their average, contain base64, or include markdown/code blocks that look like system prompts, escalate for review.
+
+**Acceptance KPIs:**
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Detection rate (known patterns) | >95% | % of known injection patterns caught by regex pre-screening (test suite with 100+ injection samples) |
+| False positive rate | <2% | % of legitimate customer messages incorrectly flagged as injection attempts |
+| Cost of defense layers | <$0.0005/msg | Average cost of all detection layers per message (amortized — most messages only hit Layer 1) |
+| Mean time to escalation | <5 min | Time from repeated flags to human notification |
+| Zero-day detection | >50% | % of novel injection patterns caught by behavioral anomaly detection (tested quarterly with red team exercises) |
+
 ### Additional Security Measures
 
 - **Webhook signature verification** on all channel inbound (HMAC-SHA256)
 - **Rate limiting** per tenant: 100 messages/min, 10 module executions/min
-- **Input sanitization** on all customer messages before LLM (strip injection patterns)
+- **Input sanitization** on all customer messages before LLM (strip injection patterns — see Layer 6)
 - **Output filtering** — regex scan for PII patterns (SSN, credit card) before sending
+- **Output secret redaction** — auto-strip anything matching token/key/password patterns from outbound messages and logs
 - **Audit trail** — every module execution, every human override, every escalation logged
 - **GDPR compliance** — data export endpoint, right-to-deletion, data retention policies per tenant
+- **Financial data DM-only** — any output containing pricing, billing, or payment info is restricted to direct messages, never group chats
 
 ---
 
@@ -2227,7 +2462,7 @@ Security is **not deferred to post-launch.** Multi-tenant isolation and webhook 
 
 ## 20. Innovation Roadmap (Post-MVP, Architect Now)
 
-These three capabilities move Camello from "AI wrapper" to an operating system with compounding moats. They are **not in MVP scope** but the schema and contracts are designed to support them without migration-breaking changes.
+These six capabilities move Camello from "AI wrapper" to an operating system with compounding moats. They are **not in MVP scope** but the schema and contracts are designed to support them without migration-breaking changes. Sections 20.1–20.3 were in the original spec; 20.4–20.6 were added after analyzing OpenClaw power-user patterns (Matthew Berman, Feb 2026).
 
 ### 20.1 Artifact-to-Artifact Handoffs
 
@@ -2282,6 +2517,137 @@ These three capabilities move Camello from "AI wrapper" to an operating system w
 - Memory extraction job: after each resolved conversation, extract customer-specific preferences/signals and store with customer-scoped embeddings
 - Memory retrieval: when a returning customer starts a new conversation, inject relevant memories into the system prompt
 - Privacy controls: tenant can configure memory retention period, customer can request memory deletion
+
+### 20.4 Scheduled Artifact Automation (Cron Patterns)
+
+**What:** Tenants can schedule their artifacts to perform periodic tasks — not just respond to incoming messages. *"Every morning at 8am, scan new leads and send a summary to my WhatsApp."* *"Every Friday, generate a weekly sales report."*
+
+**Why it matters:** The most powerful OpenClaw use cases are all cron-driven: nightly business councils, periodic email scanning, meeting ingestion pipelines. Currently Camello artifacts are reactive (message in → response out). Scheduled automation makes them proactive — more like an employee who takes initiative.
+
+**Already architected:**
+- Trigger.dev v3 is our job scheduler (already in stack)
+- `artifact_routing_rules` supports intent-based routing (can be extended to cron triggers)
+- `artifact_metrics_daily` already runs a daily rollup job
+
+**Still needed (post-MVP, Month 3+):**
+- `artifact_schedules` table: `(id, tenant_id, artifact_id, cron_expression, task_prompt, is_active, last_run_at, next_run_at)`
+- Trigger.dev cron job that reads active schedules and invokes artifact orchestration with the task_prompt as a synthetic "message"
+- Dashboard UI: schedule builder with preset templates ("Daily lead summary", "Weekly report", "Hourly inbox scan")
+- Execution history: log each scheduled run with status, output, cost
+- Guardrails: max 10 schedules per artifact (starter), 50 (growth), unlimited (scale). Rate limit on scheduled executions to prevent runaway costs.
+
+**Example schedules:**
+| Schedule | Cron | Task |
+|----------|------|------|
+| Morning lead brief | `0 8 * * 1-5` | "Scan leads from last 24h, summarize top 5 by score, send to WhatsApp" |
+| Weekly sales report | `0 9 * * 1` | "Generate a report of all qualified leads, meetings booked, and deals closed this week" |
+| Stale lead followup | `0 14 * * *` | "Find leads with no activity for 48h, draft follow-up messages for my approval" |
+| Knowledge refresh | `0 2 * * 0` | "Re-crawl all website knowledge sources, flag any pages that have changed" |
+
+**Hard limits:**
+| Limit | Starter | Growth | Scale |
+|-------|---------|--------|-------|
+| Max schedules per artifact | 5 | 20 | Unlimited |
+| Min cron interval | 1 hour | 15 min | 5 min |
+| Max LLM cost per scheduled run | $0.10 | $0.50 | $2.00 |
+| Max execution time per run | 30s | 60s | 120s |
+| Daily scheduled execution cap | 20 runs | 100 runs | 500 runs |
+
+**Cost safeguard:** If a scheduled run exceeds its cost cap, it is terminated mid-execution, the result is discarded, and the tenant is notified. Three consecutive cost-cap breaches auto-disable the schedule.
+
+**Acceptance KPIs:**
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Schedule reliability | >99% | % of scheduled runs that execute within 5 min of their cron time |
+| Useful output rate | >80% | % of scheduled runs that produce actionable output (not "nothing to report") |
+| Cost predictability | ±20% | Variance between estimated and actual cost per scheduled run |
+
+### 20.5 Multi-Artifact Advisory Council
+
+**What:** Multiple artifacts with different specializations collaborate on a problem in parallel, then a synthesizer merges their findings into ranked recommendations. Inspired by OpenClaw's Business Advisory Council pattern (8 parallel expert agents).
+
+**Why it matters:** Single-artifact responses are limited by one perspective. A council pattern where a Sales artifact, Support artifact, and Operations artifact all analyze the same data produces richer, more balanced insights. This is the multi-agent orchestration pattern that enterprise tools charge $100K+ for.
+
+**Example:** A tenant asks "How should I handle this customer complaint?"
+- **Sales Artifact** analyzes the customer's lifetime value and purchase history
+- **Support Artifact** reviews similar past complaints and resolution patterns
+- **Operations Artifact** checks if the complaint maps to a known product issue
+- **Synthesizer** merges all three perspectives into a ranked action plan
+
+**Already architected:**
+- `artifacts` table supports multiple artifacts per tenant with different `type` values
+- `artifact_routing_rules` supports routing to different artifacts by intent
+- Artifact-to-artifact handoffs (20.1) provide the context-passing infrastructure
+
+**Still needed (Month 6+):**
+- Council definition in tenant config: which artifacts participate, what each analyzes
+- Parallel execution engine: spawn multiple artifact LLM calls simultaneously
+- Synthesizer module: takes outputs from all council members, deduplicates, ranks by priority
+- Delivery: send synthesized recommendations via preferred channel (Telegram, WhatsApp, email, dashboard notification)
+- Cost controls: councils are expensive (N artifacts × LLM cost). Limit to Growth+ plans, cap at 1 council run per day on Growth, unlimited on Scale.
+
+**Hard limits:**
+| Limit | Growth | Scale |
+|-------|--------|-------|
+| Max artifacts per council | 3 | 8 |
+| Max parallel LLM calls | 3 | 8 |
+| Max total council cost per run | $1.00 | $5.00 |
+| Max council runs per day | 1 | 10 |
+| Synthesizer model | balanced tier | powerful tier |
+| Max output length | 2000 tokens | 5000 tokens |
+
+**Acceptance KPIs:**
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Recommendation actionability | >60% | % of council recommendations that the tenant acts on (clicks "apply" or takes manual action) |
+| Deduplication effectiveness | >90% | % of duplicate recommendations eliminated by the synthesizer |
+| Cost per insight | <$0.50 | Total council run cost ÷ number of unique, actionable recommendations |
+| Tenant retention impact | >10% lift | 30-day retention of tenants using councils vs. control group |
+
+### 20.6 Self-Evolving Artifact System
+
+**What:** Artifacts don't just learn from conversations — they actively review and improve their own configuration, prompts, and behavior. Inspired by OpenClaw's security council and platform council patterns that run nightly audits.
+
+**Why it matters:** Most AI assistants are static after setup. A self-evolving system means the artifact gets better every day without the tenant doing anything. This is the "set it and forget it" promise that makes Camello feel like hiring an employee who self-trains.
+
+**Self-evolution loops:**
+
+1. **Prompt optimization:** Weekly Trigger.dev job analyzes conversation outcomes (resolution rate, customer satisfaction, escalation rate) and suggests prompt modifications. *"Your artifact's greeting has a 15% higher escalation rate than average. Suggested change: ..."*
+
+2. **Knowledge gap detection:** When the artifact says "I don't have that information" 3+ times for similar queries, auto-create a knowledge gap alert. *"Customers keep asking about return policies but you have no docs on that."*
+
+3. **Module usage patterns:** Track which modules are invoked vs. rejected. If `qualify_lead` is rejected 40% of the time, analyze rejection reasons from the `learnings` table and suggest module config changes.
+
+4. **Model routing optimization:** Track per-intent resolution rates by model tier. If "pricing" questions routed to `fast` tier have a 30% escalation rate but `balanced` tier has 5%, auto-suggest upgrading the routing rule.
+
+**Already architected:**
+- `learnings` table with embeddings captures all improvement signals
+- `artifact_metrics_daily` tracks per-artifact performance
+- `interaction_logs` records every LLM call with model, tokens, and outcome
+- Trigger.dev supports scheduled analysis jobs
+
+**Still needed (Month 4+):**
+- Self-audit Trigger.dev job: weekly, per-artifact, analyzes metrics + learnings + interaction logs
+- Recommendation engine: generates specific, actionable suggestions (not vague "improve performance")
+- Tenant approval gate: suggestions are queued for tenant review, never auto-applied (tenants must trust the system before auto-evolution)
+- Dashboard: "Artifact Health" page showing improvement suggestions with one-click apply
+
+**Human governance (critical — self-evolution must never be autonomous):**
+
+1. **Approval-only mode (default).** All suggestions require explicit tenant approval. No auto-apply ever — even if confidence is 1.0. Tenants must build trust before the system earns more autonomy.
+2. **Suggestion confidence threshold.** Only surface suggestions with confidence `≥ 0.7` (based on statistical significance of the underlying data). Below that, the suggestion is stored but not shown — it needs more data.
+3. **Rollback mechanism.** Every applied suggestion creates a versioned snapshot of the artifact config. Tenants can one-click rollback to any previous version. Rollbacks are instant (swap JSONB in `artifacts.config`).
+4. **Change impact preview.** Before applying a suggestion, show the tenant a diff of what will change and a projected impact estimate: *"Changing the greeting is expected to reduce escalation rate by ~12% based on 47 conversations."*
+5. **Auto-pause.** If an applied suggestion causes a >10% increase in escalation rate or >20% drop in resolution rate within 48 hours, auto-rollback and notify the tenant.
+
+**Acceptance KPIs:**
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Suggestion acceptance rate | >40% | % of surfaced suggestions that tenants apply |
+| Post-apply improvement | >5% | Average improvement in target metric (resolution rate, escalation rate) after applying a suggestion |
+| Rollback rate | <10% | % of applied suggestions that tenants rollback (indicates suggestion quality) |
+| Auto-pause trigger rate | <2% | % of applied suggestions that trigger the auto-pause safety net |
+| False suggestion rate | <20% | % of suggestions that tenants dismiss as irrelevant or incorrect |
 
 ---
 

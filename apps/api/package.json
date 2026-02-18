@@ -14,9 +14,13 @@
     "@camello/ai": "workspace:*",
     "@camello/db": "workspace:*",
     "@camello/shared": "workspace:*",
+    "@clerk/backend": "^2.31.1",
     "@hono/node-server": "^1.14.0",
     "@hono/trpc-server": "^0.3.3",
+    "@supabase/supabase-js": "^2.97.0",
     "@trpc/server": "^11.0.0",
+    "ai": "^4.3.0",
+    "drizzle-orm": "^0.39.3",
     "hono": "^4.7.4",
     "superjson": "^2.2.2",
     "zod": "^3.24.2"

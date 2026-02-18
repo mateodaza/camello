@@ -71,3 +71,86 @@ export const INTENT_TO_DOC_TYPES: Record<string, string[]> = {
 };
 
 export const NO_SEARCH_INTENTS = ['greeting', 'farewell', 'thanks'] as const;
+
+// === RAG Search Thresholds ===
+
+export const RAG_CONFIG = {
+  primary: {
+    similarity_threshold: 0.3,
+    match_count: 8,
+  },
+  proactive: {
+    similarity_threshold: 0.15,
+    match_count: 4,
+    max_docs: 2,
+    max_tokens: 400, // taken from rag_context budget
+  },
+  mmr: {
+    lambda: 0.7, // balance relevance vs diversity (1 = pure relevance)
+    diversity_threshold: 0.85, // filter docs with cosine sim > this to each other
+  },
+  embedding_model: 'text-embedding-3-small',
+  embedding_dimensions: 1536,
+} as const;
+
+// === Text Chunking ===
+
+export const CHUNK_CONFIG = {
+  target_tokens: 512,
+  overlap_tokens: 50,
+  // ~4 chars per token is a rough average for English text
+  chars_per_token: 4,
+  min_chunk_chars: 100,
+} as const;
+
+// === Knowledge Ingestion Limits (per plan tier) ===
+
+export const INGESTION_LIMITS: Record<PlanTier, {
+  max_ingestions_per_day: number;
+  max_text_size_bytes: number;
+  max_pdf_size_bytes: number;
+  max_chunks_per_source: number;
+  max_thread_depth: number;
+}> = {
+  starter: {
+    max_ingestions_per_day: 10,
+    max_text_size_bytes: 50 * 1024,       // 50KB
+    max_pdf_size_bytes: 10 * 1024 * 1024, // 10MB
+    max_chunks_per_source: 50,
+    max_thread_depth: 10,
+  },
+  growth: {
+    max_ingestions_per_day: 50,
+    max_text_size_bytes: 100 * 1024,      // 100KB
+    max_pdf_size_bytes: 25 * 1024 * 1024, // 25MB
+    max_chunks_per_source: 200,
+    max_thread_depth: 25,
+  },
+  scale: {
+    max_ingestions_per_day: 200,
+    max_text_size_bytes: 500 * 1024,      // 500KB
+    max_pdf_size_bytes: 50 * 1024 * 1024, // 50MB
+    max_chunks_per_source: 500,
+    max_thread_depth: 50,
+  },
+} as const;
+
+// === Feedback Loop Confidence ===
+
+export const LEARNING_CONFIDENCE = {
+  initial: 0.8,
+  policy_violation_initial: 1.0,
+  increment_per_rejection: 0.1,
+  monthly_decay: 0.05,
+  retrieval_floor: 0.5,   // below this, learning excluded from RAG
+  archive_threshold: 0.3,  // below this, learning archived
+  max: 1.0,
+} as const;
+
+export const REJECTION_REASONS = [
+  'false_positive',
+  'wrong_target',
+  'bad_timing',
+  'incorrect_data',
+  'policy_violation',
+] as const;

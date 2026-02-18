@@ -383,8 +383,8 @@ CREATE INDEX idx_artifact_metrics_daily_tenant_artifact_date
 
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_self" ON tenants
-  FOR ALL USING (id = current_setting('app.tenant_id', true)::uuid)
-  WITH CHECK (id = current_setting('app.tenant_id', true)::uuid);
+  FOR ALL USING (id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK (id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 
 DO $$
 DECLARE
@@ -404,8 +404,8 @@ BEGIN
     EXECUTE format(
       'CREATE POLICY "tenant_isolation" ON %I
         FOR ALL
-        USING (tenant_id = current_setting(''app.tenant_id'', true)::uuid)
-        WITH CHECK (tenant_id = current_setting(''app.tenant_id'', true)::uuid)',
+        USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid)
+        WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid)',
       tbl
     );
   END LOOP;

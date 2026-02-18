@@ -8,9 +8,20 @@
     "./intent": "./src/intent-classifier.ts",
     "./models": "./src/model-selector.ts",
     "./prompts": "./src/prompt-builder.ts",
-    "./openrouter": "./src/openrouter-client.ts"
+    "./openrouter": "./src/openrouter-client.ts",
+    "./embedding": "./src/embedding.ts",
+    "./chunker": "./src/chunker.ts",
+    "./rag": "./src/rag.ts",
+    "./ingestion": "./src/knowledge-ingestion.ts",
+    "./resolver": "./src/artifact-resolver.ts",
+    "./feedback": "./src/feedback-loop.ts",
+    "./module-registry": "./src/module-registry.ts",
+    "./tool-adapter": "./src/tool-adapter.ts",
+    "./modules": "./src/modules/index.ts"
   },
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -24,6 +35,7 @@
   "devDependencies": {
     "@camello/config": "workspace:*",
     "@types/node": "^25.2.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
   }
 }

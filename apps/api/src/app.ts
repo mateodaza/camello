@@ -18,9 +18,13 @@ app.use('*', cors({
 app.get('/health', (c) => c.json({ status: 'ok', service: 'camello-api' }));
 
 // tRPC handler
+// @hono/trpc-server expects Record<string, unknown> from createContext, but our
+// Context has typed properties. tRPC resolves the correct type via
+// initTRPC.context<Context>(). The double-cast is safe.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 app.use('/trpc/*', trpcServer({
   router: appRouter,
-  createContext,
+  createContext: createContext as any,
 }));
 
 export type AppRouter = typeof appRouter;

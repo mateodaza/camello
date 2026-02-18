@@ -88,6 +88,94 @@ export interface ModuleContext {
   conversation: { id: string; messages: Array<{ role: string; content: string }> };
 }
 
+/** Context passed to module execute(). DB access via DI callbacks. */
+export interface ModuleExecutionContext {
+  tenantId: string;
+  artifactId: string;
+  conversationId: string;
+  customerId: string;
+  autonomyLevel: AutonomyLevel;
+  configOverrides: Record<string, unknown>;
+  db: ModuleDbCallbacks;
+}
+
+/** DI callbacks injected by apps/api — keeps @camello/ai free of @camello/db. */
+export interface ModuleDbCallbacks {
+  insertLead: (data: {
+    tenantId: string;
+    customerId: string;
+    conversationId: string;
+    score: LeadScore;
+    tags: string[];
+    budget?: string;
+    timeline?: string;
+    summary?: string;
+  }) => Promise<string>;
+  insertModuleExecution: (data: {
+    moduleId: string;
+    artifactId: string;
+    tenantId: string;
+    conversationId: string;
+    input: unknown;
+    output: unknown;
+    status: ModuleExecutionStatus;
+    durationMs: number;
+  }) => Promise<string>;
+  updateModuleExecution: (id: string, data: {
+    status: ModuleExecutionStatus;
+    output?: unknown;
+    executedAt?: Date;
+    durationMs?: number;
+  }) => Promise<void>;
+}
+
+/** Artifact module binding: the JOIN row from artifact_modules + modules. */
+export interface ArtifactModuleBinding {
+  moduleSlug: string;
+  moduleId: string;
+  moduleName: string;
+  moduleDescription: string;
+  autonomyLevel: AutonomyLevel;
+  configOverrides: Record<string, unknown>;
+  inputSchema: unknown;
+}
+
+// === RAG Types ===
+
+export interface MatchKnowledgeRow {
+  id: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  embedding: number[];
+  similarity: number;
+  fts_rank: number;
+  rrf_score: number;
+}
+
+export interface RagResult {
+  directContext: string[];
+  proactiveContext: string[];
+  totalTokensUsed: number;
+  docsRetrieved: number;
+  searchSkipped: boolean;
+}
+
+export type RejectionReason =
+  | 'false_positive'
+  | 'wrong_target'
+  | 'bad_timing'
+  | 'incorrect_data'
+  | 'policy_violation';
+
+export interface KnowledgeChunk {
+  content: string;
+  title?: string;
+  sourceType: string;
+  chunkIndex: number;
+  metadata: Record<string, unknown>;
+  embedding: number[];
+}
+
 // === Artifact Resolver ===
 
 export type { ArtifactResolverInput, ArtifactResolverOutput, ArtifactResolverSource, ArtifactResolver } from './artifact-resolver.js';

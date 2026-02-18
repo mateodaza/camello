@@ -1,0 +1,552 @@
+import { generateText } from 'ai';
+import { eq, and, sql, desc, asc, isNull } from 'drizzle-orm';
+import type { TenantDb } from '@camello/db';
+import {
+  artifacts,
+  conversations,
+  messages,
+  customers,
+  conversationArtifactAssignments,
+  artifactRoutingRules,
+  tenants,
+  learnings,
+  interactionLogs,
+  artifactModules,
+  modules,
+  moduleExecutions,
+  leads,
+} from '@camello/db';
+import {
+  classifyIntent,
+  selectModel,
+  buildSystemPrompt,
+  createLLMClient,
+  createArtifactResolver,
+  searchKnowledge,
+  generateEmbedding,
+  buildToolsFromBindings,
+} from '@camello/ai';
+import type { MatchKnowledgeFn, EmbedFn } from '@camello/ai';
+import type { ArtifactModuleBinding, Channel, Intent, ModuleDbCallbacks } from '@camello/shared/types';
+import { LEARNING_CONFIDENCE } from '@camello/shared/constants';
+import { createClient } from '@supabase/supabase-js';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface HandleMessageInput {
+  tenantDb: TenantDb;
+  tenantId: string;
+  channel: Channel;
+  customerId: string;
+  messageText: string;
+  existingConversationId?: string;
+}
+
+export interface HandleMessageOutput {
+  conversationId: string;
+  artifactId: string;
+  responseText: string;
+  intent: Intent;
+  modelUsed: string;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  latencyMs: number;
+  moduleExecutions: Array<{ moduleSlug: string; status: string }>;
+}
+
+// ---------------------------------------------------------------------------
+// Main orchestration pipeline
+// ---------------------------------------------------------------------------
+
+/**
+ * Full message-handling pipeline:
+ * 1. Classify intent (regex → LLM fallback)
+ * 2. Resolve artifact (existing_conversation → route_rule → default)
+ * 3. Find or create conversation
+ * 4. Save inbound customer message
+ * 5. RAG search (primary + proactive, gated by intent)
+ * 6. Fetch learnings for the artifact
+ * 7. Build system prompt
+ * 8. Select model tier
+ * 9. Call LLM
+ * 10. Save artifact response message
+ * 11. Log interaction telemetry
+ * 12. Return response
+ */
+export async function handleMessage(input: HandleMessageInput): Promise<HandleMessageOutput> {
+  const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId } = input;
+  const startTime = Date.now();
+
+  // 1. Classify intent
+  const intent = await classifyIntent(messageText);
+
+  // 2. Resolve artifact
+  const resolver = createArtifactResolver({
+    findActiveConversation: (custId) => findActiveConversation(tenantDb, custId),
+    findMatchingRule: (ch, intentType, confidence) =>
+      findMatchingRule(tenantDb, ch, intentType, confidence),
+    getDefaultArtifact: () => getDefaultArtifact(tenantDb, tenantId),
+  });
+
+  const resolved = await resolver.resolve({
+    tenantId,
+    channel,
+    customerId,
+    intent,
+    existingConversationId,
+    isReturningCustomer: false, // TODO: derive from customer record
+  });
+
+  // 3. Find or create conversation
+  const conversationId = await findOrCreateConversation(
+    tenantDb,
+    tenantId,
+    resolved,
+    customerId,
+    channel,
+  );
+
+  // 4. Save inbound customer message (capture ID for tool idempotency)
+  const triggerMessageId = await tenantDb.query(async (db) => {
+    const [row] = await db.insert(messages).values({
+      tenantId,
+      conversationId,
+      role: 'customer',
+      content: messageText,
+    }).returning({ id: messages.id });
+    return row.id;
+  });
+
+  // 5. Load artifact config
+  const artifact = await tenantDb.query(async (db) => {
+    const rows = await db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, resolved.artifactId))
+      .limit(1);
+    return rows[0];
+  });
+
+  // 5b. Fetch artifact module bindings
+  const boundModules: ArtifactModuleBinding[] = await tenantDb.query(async (db) => {
+    const rows = await db
+      .select({
+        moduleSlug: modules.slug,
+        moduleId: modules.id,
+        moduleName: modules.name,
+        moduleDescription: modules.description,
+        autonomyLevel: artifactModules.autonomyLevel,
+        configOverrides: artifactModules.configOverrides,
+        inputSchema: modules.inputSchema,
+      })
+      .from(artifactModules)
+      .innerJoin(modules, eq(modules.id, artifactModules.moduleId))
+      .where(eq(artifactModules.artifactId, resolved.artifactId));
+    return rows.map((r) => ({
+      ...r,
+      configOverrides: r.configOverrides as Record<string, unknown>,
+      inputSchema: r.inputSchema as unknown,
+    }));
+  });
+
+  // 5c. Build module DB callbacks (DI — keeps @camello/ai free of @camello/db)
+  const moduleDbCallbacks: ModuleDbCallbacks = {
+    insertLead: async (data) => {
+      return tenantDb.query(async (db) => {
+        const [row] = await db.insert(leads).values(data).returning({ id: leads.id });
+        return row.id;
+      });
+    },
+    insertModuleExecution: async (data) => {
+      return tenantDb.query(async (db) => {
+        const [row] = await db.insert(moduleExecutions).values(data).returning({ id: moduleExecutions.id });
+        return row.id;
+      });
+    },
+    updateModuleExecution: async (id, data) => {
+      await tenantDb.query(async (db) => {
+        await db
+          .update(moduleExecutions)
+          .set(data)
+          .where(eq(moduleExecutions.id, id));
+      });
+    },
+  };
+
+  // 5d. Build approval notifier (non-blocking — guardrail #4)
+  const onApprovalNeeded = async (executionId: string, moduleSlug: string, input: unknown) => {
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    await supabase.channel(`tenant:${tenantId}:approvals`).send({
+      type: 'broadcast',
+      event: 'approval_needed',
+      payload: { executionId, moduleSlug, input, conversationId, artifactId: resolved.artifactId },
+    });
+  };
+
+  // 6. RAG search
+  const embed: EmbedFn = generateEmbedding;
+  const matchKnowledge: MatchKnowledgeFn = (params) =>
+    tenantDb.query(async (db) => {
+      const rows = await db.execute(sql`
+        SELECT * FROM match_knowledge(
+          ${params.queryEmbedding}::vector,
+          ${params.queryText},
+          ${params.tenantId}::uuid,
+          ${params.docTypes ? sql`${params.docTypes}::text[]` : sql`NULL::text[]`},
+          ${params.similarityThreshold},
+          ${params.matchCount}
+        )
+      `);
+      return rows.rows as any[];
+    });
+
+  const ragResult = await searchKnowledge({
+    queryText: messageText,
+    intent,
+    tenantId,
+    embed,
+    matchKnowledge,
+  });
+
+  // 7. Fetch learnings for this artifact
+  const artifactLearnings = await tenantDb.query(async (db) => {
+    return db
+      .select({ content: learnings.content })
+      .from(learnings)
+      .where(
+        and(
+          eq(learnings.tenantId, tenantId),
+          eq(learnings.artifactId, resolved.artifactId),
+          sql`${learnings.confidence}::numeric >= ${LEARNING_CONFIDENCE.retrieval_floor}`,
+        ),
+      )
+      .orderBy(desc(learnings.confidence))
+      .limit(10);
+  });
+
+  // 8. Fetch tenant name for prompt
+  const tenant = await tenantDb.query(async (db) => {
+    const rows = await db
+      .select({ name: tenants.name })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+    return rows[0];
+  });
+
+  // 9. Build system prompt (includes module instructions when bound)
+  const systemPrompt = buildSystemPrompt({
+    artifact: {
+      name: artifact.name,
+      role: artifact.type,
+      personality: artifact.personality as Record<string, unknown>,
+      constraints: artifact.constraints as Record<string, unknown>,
+      config: artifact.config as Record<string, unknown>,
+      companyName: tenant?.name ?? 'our company',
+    },
+    channel,
+    ragContext: ragResult.directContext,
+    proactiveContext: ragResult.proactiveContext,
+    learnings: artifactLearnings.map((l) => l.content),
+    modules: boundModules.map((m) => ({
+      name: m.moduleName,
+      slug: m.moduleSlug,
+      description: m.moduleDescription,
+      autonomyLevel: m.autonomyLevel,
+    })),
+  });
+
+  // 10. Select model
+  const { tier, model: modelId } = selectModel(intent);
+
+  // 11. Fetch recent conversation history for context
+  const history = await tenantDb.query(async (db) => {
+    return db
+      .select({ role: messages.role, content: messages.content })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.conversationId, conversationId),
+          eq(messages.tenantId, tenantId),
+        ),
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(20);
+  });
+
+  // Build messages array (reverse to chronological, current message already saved)
+  // Filter out 'system' role messages — they are internal notes, not conversation turns.
+  // 'human' role = human agent who took over → maps to 'assistant' (same side as artifact).
+  const chatMessages: Array<{ role: 'user' | 'assistant'; content: string }> = history
+    .reverse()
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({
+      role: m.role === 'customer' ? 'user' as const : 'assistant' as const,
+      content: m.content,
+    }));
+
+  // 12. Build tools (if artifact has bound modules) and call LLM
+  const client = createLLMClient();
+  const tools = boundModules.length > 0
+    ? buildToolsFromBindings(boundModules, {
+        tenantId,
+        artifactId: resolved.artifactId,
+        conversationId,
+        customerId,
+        triggerMessageId,
+        db: moduleDbCallbacks,
+        onApprovalNeeded,
+      })
+    : undefined;
+
+  const { text: responseText, usage, steps } = await generateText({
+    model: client(modelId),
+    system: systemPrompt,
+    messages: chatMessages,
+    tools,
+    maxSteps: tools ? 5 : 1,
+  });
+
+  const latencyMs = Date.now() - startTime;
+  const tokensIn = usage?.promptTokens ?? 0;
+  const tokensOut = usage?.completionTokens ?? 0;
+  // Rough cost estimate — actual cost comes from OpenRouter callback
+  const costUsd = estimateCost(modelId, tokensIn, tokensOut);
+
+  // Extract module execution summaries from tool call steps
+  const executedModules: Array<{ moduleSlug: string; status: string }> = [];
+  for (const step of steps ?? []) {
+    if (step.toolCalls) {
+      for (const tc of step.toolCalls) {
+        executedModules.push({ moduleSlug: tc.toolName, status: 'invoked' });
+      }
+    }
+  }
+
+  // 13. Save artifact response
+  await tenantDb.query(async (db) => {
+    await db.insert(messages).values({
+      tenantId,
+      conversationId,
+      role: 'artifact',
+      content: responseText,
+      tokensUsed: tokensIn + tokensOut,
+      modelUsed: modelId,
+      costUsd: costUsd.toFixed(6),
+    });
+  });
+
+  // 14. Log interaction telemetry
+  await tenantDb.query(async (db) => {
+    await db.insert(interactionLogs).values({
+      tenantId,
+      artifactId: resolved.artifactId,
+      conversationId,
+      intent: intent.type,
+      modelUsed: modelId,
+      tokensIn,
+      tokensOut,
+      costUsd: costUsd.toFixed(6),
+      latencyMs,
+    });
+  });
+
+  // 15. Update conversation timestamp
+  await tenantDb.query(async (db) => {
+    await db
+      .update(conversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversations.id, conversationId));
+  });
+
+  return {
+    conversationId,
+    artifactId: resolved.artifactId,
+    responseText,
+    intent,
+    modelUsed: modelId,
+    tokensIn,
+    tokensOut,
+    costUsd,
+    latencyMs,
+    moduleExecutions: executedModules,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// DB callback helpers for artifact resolver
+// ---------------------------------------------------------------------------
+
+async function findActiveConversation(
+  tenantDb: TenantDb,
+  customerId: string,
+) {
+  return tenantDb.query(async (db) => {
+    const rows = await db
+      .select({
+        artifactId: conversationArtifactAssignments.artifactId,
+        artifactName: artifacts.name,
+        artifactType: artifacts.type,
+        conversationId: conversations.id,
+      })
+      .from(conversations)
+      .innerJoin(
+        conversationArtifactAssignments,
+        and(
+          eq(conversationArtifactAssignments.conversationId, conversations.id),
+          eq(conversationArtifactAssignments.isActive, true),
+          isNull(conversationArtifactAssignments.endedAt),
+        ),
+      )
+      .innerJoin(artifacts, eq(artifacts.id, conversationArtifactAssignments.artifactId))
+      .where(
+        and(
+          eq(conversations.customerId, customerId),
+          eq(conversations.status, 'active'),
+          eq(artifacts.isActive, true),
+        ),
+      )
+      .orderBy(desc(conversations.updatedAt))
+      .limit(1);
+
+    return rows[0] ?? null;
+  });
+}
+
+async function findMatchingRule(
+  tenantDb: TenantDb,
+  channel: Channel,
+  intentType: string,
+  confidence: number,
+) {
+  return tenantDb.query(async (db) => {
+    const rows = await db
+      .select({
+        artifactId: artifactRoutingRules.artifactId,
+        artifactName: artifacts.name,
+        artifactType: artifacts.type,
+      })
+      .from(artifactRoutingRules)
+      .innerJoin(artifacts, eq(artifacts.id, artifactRoutingRules.artifactId))
+      .where(
+        and(
+          eq(artifactRoutingRules.isActive, true),
+          eq(artifacts.isActive, true),
+          sql`(${artifactRoutingRules.channel} IS NULL OR ${artifactRoutingRules.channel} = ${channel})`,
+          sql`(${artifactRoutingRules.intent} IS NULL OR ${artifactRoutingRules.intent} = ${intentType})`,
+          sql`${artifactRoutingRules.minConfidence}::numeric <= ${confidence}`,
+        ),
+      )
+      .orderBy(asc(artifactRoutingRules.priority))
+      .limit(1);
+
+    return rows[0] ?? null;
+  });
+}
+
+async function getDefaultArtifact(
+  tenantDb: TenantDb,
+  tenantId: string,
+) {
+  return tenantDb.query(async (db) => {
+    // First: tenant's default artifact
+    const tenant = await db
+      .select({ defaultArtifactId: tenants.defaultArtifactId })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+
+    if (tenant[0]?.defaultArtifactId) {
+      const rows = await db
+        .select({
+          artifactId: artifacts.id,
+          artifactName: artifacts.name,
+          artifactType: artifacts.type,
+        })
+        .from(artifacts)
+        .where(and(eq(artifacts.id, tenant[0].defaultArtifactId), eq(artifacts.isActive, true)))
+        .limit(1);
+
+      if (rows[0]) return rows[0];
+    }
+
+    // Fallback: first active artifact by creation order
+    const rows = await db
+      .select({
+        artifactId: artifacts.id,
+        artifactName: artifacts.name,
+        artifactType: artifacts.type,
+      })
+      .from(artifacts)
+      .where(and(eq(artifacts.tenantId, tenantId), eq(artifacts.isActive, true)))
+      .orderBy(asc(artifacts.createdAt))
+      .limit(1);
+
+    return rows[0] ?? null;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Conversation find-or-create
+// ---------------------------------------------------------------------------
+
+async function findOrCreateConversation(
+  tenantDb: TenantDb,
+  tenantId: string,
+  resolved: { artifactId: string; conversationId?: string; isNewConversation: boolean; source: string },
+  customerId: string,
+  channel: Channel,
+): Promise<string> {
+  // Reuse existing conversation
+  if (resolved.conversationId && !resolved.isNewConversation) {
+    return resolved.conversationId;
+  }
+
+  // Create new conversation + assignment in a transaction
+  return tenantDb.transaction(async (tx) => {
+    const [conv] = await tx
+      .insert(conversations)
+      .values({
+        tenantId,
+        artifactId: resolved.artifactId,
+        customerId,
+        channel,
+        status: 'active',
+      })
+      .returning({ id: conversations.id });
+
+    // Record the artifact assignment
+    await tx.insert(conversationArtifactAssignments).values({
+      tenantId,
+      conversationId: conv.id,
+      artifactId: resolved.artifactId,
+      assignmentReason: resolved.source === 'existing_conversation'
+        ? 'route_rule'
+        : resolved.source as 'route_rule' | 'tenant_default_fallback',
+    });
+
+    return conv.id;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cost estimation
+// ---------------------------------------------------------------------------
+
+/** Rough cost estimate per 1K tokens. Actual billing uses OpenRouter callbacks. */
+const COST_PER_1K: Record<string, { input: number; output: number }> = {
+  'google/gemini-2.0-flash-exp': { input: 0.0001, output: 0.0004 },
+  'openai/gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+  'anthropic/claude-sonnet-4': { input: 0.003, output: 0.015 },
+};
+
+function estimateCost(model: string, tokensIn: number, tokensOut: number): number {
+  const rates = COST_PER_1K[model] ?? { input: 0.001, output: 0.002 };
+  return (tokensIn / 1000) * rates.input + (tokensOut / 1000) * rates.output;
+}
