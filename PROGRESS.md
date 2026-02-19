@@ -43,13 +43,15 @@
 | 29 | Supabase cloud: schema + RLS + indexes + module seeds | Feb 18 | Full migration applied, FK indexes (24 total), initplan RLS fix, 3 modules seeded |
 | 30 | Module executor system (#32) | Feb 18 | Registry + tool adapter + 3 modules + message-handler tool-calling loop + race-safe approve/reject + feedback loop wiring + 26 tests |
 
+| 31 | Channel adapters (#31): WebChat + WhatsApp | Feb 18 | Full adapter system: interface, registry, widget JWT auth, widget Hono routes, WhatsApp async webhook, DB migrations (phone_number unique index + bootstrap RPCs), widget app scaffold, 52 tests (25 adapter + 27 route integration) |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 31 | Channel adapters (WhatsApp + WebChat) | P1 | Week 3 | #28, #30 |
 | 32 | Trigger.dev jobs: learning decay, metrics rollup, URL-drop ingestion | P1 | 2-3 hrs | #21, #25 |
 | 33 | KPI instrumentation + rollback controls + cost guards | P2 | 2 hrs | #20, #25 |
+| 34 | Dashboard pages: conversations, artifact config, knowledge mgmt | P1 | Week 3 | #28, #31 |
 
 ### Blocked
 
@@ -85,8 +87,17 @@
 - [ ] KPI instrumentation + rollback controls + cost guards
 
 ### Week 3 — Channels + Dashboard
-- [ ] WhatsApp Cloud API adapter (webhook verification, inbound/outbound)
-- [ ] WebChat widget (`apps/widget` scaffold + Supabase Broadcast)
+- [x] Channel adapter interface + registry (`apps/api/src/adapters/`)
+- [x] Widget JWT auth (jose) — `createWidgetToken` / `verifyWidgetToken` with HS256
+- [x] Widget Hono routes — session (rate-limited, generic errors), message (JWT + conversation ownership check), history
+- [x] WebChat adapter — parseInbound, sendText, sendInteractive, sendMedia
+- [x] WhatsApp adapter — signature verification (timingSafeEqual), Meta webhook parsing (text/image/audio/doc/location/interactive), Cloud API outbound, tenant resolution, idempotency, async processing
+- [x] WhatsApp Hono webhook routes — GET challenge + POST with fire-and-forget async (return 200 fast)
+- [x] DB migration: `channel_configs_type_phone_unique_idx` (cross-tenant misrouting prevention)
+- [x] Widget app scaffold (`apps/widget/` — React 19 + Vite IIFE bundle, ChatBubble, ChatWindow, useWidgetSession, useChat)
+- [x] CORS: widget `*` (JWT auth), tRPC restricted to dashboard origin
+- [x] 52 adapter + route tests (JWT, signature, normalization, message types, spoofing guard, rate limiting, async webhook, ownership checks)
+- [x] Security hardening: SECURITY DEFINER RPCs (search_path + schema-qualified), trusted IP extraction, route-level integration tests
 - [ ] Dashboard pages: conversations, conversation detail, artifact config, knowledge mgmt
 - [ ] Analytics page (artifact metrics cards)
 
@@ -173,3 +184,31 @@
   - 26 new tests (module-executor.test.ts): registry CRUD, qualify_lead scoring (hot/warm/cold), insertLead callback, book_meeting/send_followup stubs, autonomy gating (all 3 paths), idempotency dedup, timeout, error handling, non-blocking broadcast, formatForLLM
   - Added `@supabase/supabase-js` to apps/api
 - All 42 tests pass (26 module + 16 chunker), @camello/ai + @camello/api type-check clean
+
+### Session 6 — Feb 18 (Week 2/3: Channel Adapters #31)
+- **Built full channel adapter system** — WebChat + WhatsApp, end-to-end:
+  - `apps/api/src/adapters/types.ts` — ChannelAdapter interface (verifyWebhook, parseInbound, sendText/Interactive/Media, markRead, sendTypingIndicator)
+  - `apps/api/src/adapters/registry.ts` — map-based adapter registry with getAdapter()
+  - `apps/api/src/adapters/webchat.ts` — WebChat adapter (trivial normalization, response via HTTP body)
+  - `apps/api/src/adapters/whatsapp.ts` — WhatsApp adapter: signature verification (HMAC-SHA256 on raw bytes, timingSafeEqual), Meta webhook parsing (6 message types: text, image, audio, document, location, interactive), Cloud API outbound (sendText, sendInteractive, sendMedia, markRead), tenant resolution by phone_number_id, customer find-or-create, atomic idempotency (INSERT ON CONFLICT DO NOTHING)
+  - `apps/api/src/webhooks/widget.ts` — Widget Hono routes: POST /session (rate-limited 10/min per IP+slug, generic errors, tenant slug → server-side UUID resolution, deterministic visitor ID, customer upsert, JWT creation), POST /message (JWT auth, conversation ownership verification, handleMessage pipeline), GET /history (JWT-scoped customer history)
+  - `apps/api/src/webhooks/whatsapp.ts` — WhatsApp Hono webhook: GET challenge, POST with async processing (verify sig → resolve tenant → idempotency check → return 200 fast → fire-and-forget processing via setImmediate)
+  - `apps/api/src/lib/widget-jwt.ts` — jose-based JWT create/verify (HS256, 24h expiry, issuer: platform-widget, claims: sub, tenant_id, artifact_id, customer_id)
+  - `apps/api/src/app.ts` — mounted widget + WhatsApp routes, widget CORS '*' (JWT auth, no cookies)
+  - `apps/widget/` — full scaffold: React 19 + Vite IIFE bundle (embeddable), ChatBubble + ChatWindow components, useWidgetSession (memory-only token) + useChat hooks
+- **Security hardening** (all P1 feedback addressed):
+  - WhatsApp async: returns 200 before handleMessage(), uses setImmediate for fire-and-forget, webhookEvents as durable retry queue
+  - phone_number_id unique index: DB migration applied to Supabase cloud, prevents cross-tenant misrouting
+  - Conversation spoofing closed: customer_id in JWT, server-side ownership check before reuse
+  - Broadcast auth: widget does NOT get Supabase credentials — MVP uses sync HTTP, future uses SSE proxy
+  - Rate limiting + generic errors on session endpoint (no slug enumeration)
+- Applied migration `add_phone_number_unique_index` to Supabase cloud
+- Added `jose` + `vitest` to api package, vitest.config.ts, test script
+- 25 new adapter tests: JWT (create/verify/tamper/wrong-secret), signature verification (6 tests), message extraction (3 tests), normalization (7 tests: text/image/audio/doc/location/interactive/unknown), adapter identity
+- **Security hardening round** (3 rounds of P1/P2 feedback resolved):
+  - P1: Bootstrap queries (tenant-by-slug, channel-config-by-phone) moved from global `db` to SECURITY DEFINER RPCs — `SET search_path = public`, schema-qualified table refs
+  - P1: WhatsApp adapter `insertWebhookEvent` + `markWebhookProcessed` moved from global `db` to `createTenantDb()` (RLS-safe)
+  - P1: phone_number unique index committed to Drizzle schema + local migration files (0002 + 0003)
+  - P2: Trusted IP extraction (`client-ip.ts`): cf-connecting-ip > x-real-ip > x-forwarded-for (first only) > fallback
+  - P2: 27 route-level integration tests: widget (15 — session auth/rate-limit/spoofing, message auth/ownership/validation, history auth), WhatsApp (12 — challenge, signature, status, idempotency, async processing, error isolation)
+- All 94 tests pass (52 API + 26 module + 16 chunker), all packages type-check clean

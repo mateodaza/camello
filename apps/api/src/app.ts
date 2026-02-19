@@ -4,11 +4,18 @@ import { logger } from 'hono/logger';
 import { trpcServer } from '@hono/trpc-server';
 import { appRouter } from './routes/index.js';
 import { createContext } from './trpc/context.js';
+import { widgetRoutes } from './webhooks/widget.js';
+import { whatsappRoutes } from './webhooks/whatsapp.js';
 
 export const app = new Hono();
 
 // Middleware
 app.use('*', logger());
+
+// CORS — widget routes accept any origin (JWT-based auth, no cookies).
+// tRPC routes restrict to the dashboard origin.
+app.use('/api/widget/*', cors({ origin: '*' }));
+app.use('/api/channels/*', cors({ origin: '*' })); // Webhooks; Meta doesn't send origin but harmless to allow
 app.use('*', cors({
   origin: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
   credentials: true,
@@ -17,7 +24,13 @@ app.use('*', cors({
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok', service: 'camello-api' }));
 
-// tRPC handler
+// --- Widget routes (anonymous JWT auth, not Clerk) ---
+app.route('/api/widget', widgetRoutes);
+
+// --- Channel webhook routes (external service callbacks) ---
+app.route('/api/channels/whatsapp', whatsappRoutes);
+
+// tRPC handler (Clerk auth)
 // @hono/trpc-server expects Record<string, unknown> from createContext, but our
 // Context has typed properties. tRPC resolves the correct type via
 // initTRPC.context<Context>(). The double-cast is safe.

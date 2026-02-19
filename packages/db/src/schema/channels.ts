@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, jsonb, boolean, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { tenants } from './tenants.js';
 
 export const channelConfigs = pgTable('channel_configs', {
@@ -12,6 +13,9 @@ export const channelConfigs = pgTable('channel_configs', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('channel_configs_tenant_type_idx').on(table.tenantId, table.channelType),
+  uniqueIndex('channel_configs_type_phone_unique_idx')
+    .on(table.channelType, table.phoneNumber)
+    .where(sql`phone_number IS NOT NULL`),
 ]);
 
 export const webhookEvents = pgTable('webhook_events', {
