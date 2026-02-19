@@ -212,3 +212,18 @@
   - P2: Trusted IP extraction (`client-ip.ts`): cf-connecting-ip > x-real-ip > x-forwarded-for (first only) > fallback
   - P2: 27 route-level integration tests: widget (15 — session auth/rate-limit/spoofing, message auth/ownership/validation, history auth), WhatsApp (12 — challenge, signature, status, idempotency, async processing, error isolation)
 - All 94 tests pass (52 API + 26 module + 16 chunker), all packages type-check clean
+
+### Session 7 — Feb 18 (ESLint Setup)
+- **Set up ESLint 9 flat config across the monorepo:**
+  - `packages/config/eslint/base.mjs` — @eslint/js + typescript-eslint recommended + turbo plugin + Vitest test-file globals override (describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll)
+  - `packages/config/eslint/react.mjs` — extends base + react-hooks + react-refresh
+  - `packages/config/eslint/next.mjs` — extends react + @next/eslint-plugin-next + disables react-refresh (conflicts with page exports)
+  - Per-workspace `eslint.config.mjs` files (api→base, web→next, widget→react, ai→base, db→base, shared→base)
+  - `eslint` devDep + `"lint": "eslint ."` script in all 6 workspaces
+  - `turbo.json`: removed `lint.dependsOn: ["^build"]` for faster lint runs
+  - Fixed `eslint-plugin-turbo` flat config (single object, not array — don't spread)
+  - Fixed `@camello/config` missing from widget devDeps
+  - Disabled `turbo/no-undeclared-env-vars` (runtime env vars, not build-time)
+  - Cleaned lint warnings: unused imports/params (customers, ChannelConfig, table, text, payload, input, tier), stale eslint-disable directives
+  - 4 remaining `any` warnings are expected (typed cast boundaries)
+- `turbo lint` passes all 6 workspaces (0 errors), `type-check` clean, 94 tests pass
