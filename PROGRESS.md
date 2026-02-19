@@ -51,11 +51,16 @@
 
 | 33 | KPI instrumentation (#33): Langfuse + budgets + rollback | Feb 19 | Real Langfuse SDK tracing (trace/span/finalize), per-tenant cost budgets (hard limit before paid work), learning rollback controls (dismiss/boost/bulkClear + audit logs), migration 0005, 10 tests |
 
+| 35 | Dashboard: knowledge + analytics pages (#35) | Feb 19 | Knowledge mgmt (docs table grouped by title, ingest form, delete-by-title, offset pagination, learning list with dismiss/boost/bulkClear), analytics deep-dive (date range, overview stats, per-artifact metrics, interaction logs, billing periods). Shared `stat-card.tsx` + `format.ts` utils. 25 tests. Perf: bounded LRU org→tenant cache (500 max), removed RESET round-trip. Vitest v4 standardized. |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 35 | Dashboard: knowledge management + analytics deep-dive pages | P2 | 2 hrs | #34 |
+| 36 | Tenant onboarding wizard | P1 | 3 hrs | #35 |
+| 37 | Paddle billing integration | P1 | 4 hrs | #36 |
+| 38 | End-to-end testing | P1 | 3 hrs | #37 |
+| 39 | Production deploy (Vercel + Supabase) | P1 | 2 hrs | #38 |
 
 ### Blocked
 
@@ -103,11 +108,13 @@
 - [x] 52 adapter + route tests (JWT, signature, normalization, message types, spoofing guard, rate limiting, async webhook, ownership checks)
 - [x] Security hardening: SECURITY DEFINER RPCs (search_path + schema-qualified), trusted IP extraction, route-level integration tests
 - [x] Dashboard pages: tenant overview, conversations list + detail, artifacts (CRUD)
-- [ ] Dashboard pages: knowledge management, analytics deep-dive
+- [x] Dashboard pages: knowledge management, analytics deep-dive
+- [x] Shared components: stat-card, format utils (25 tests)
+- [x] Perf: bounded LRU org→tenant cache + RESET removal
 
 ### Week 4 — Onboarding + Hardening
 - [ ] Tenant onboarding wizard (create tenant → create artifact → connect WhatsApp)
-- [ ] Billing integration (Stripe, usage records, plan limits)
+- [ ] Billing integration (Paddle — Merchant of Record, no US LLC needed)
 - [ ] End-to-end testing: message in → intent → artifact → response out
 - [ ] Load testing, error handling, edge cases
 - [ ] Deploy to Vercel + Supabase cloud
@@ -299,3 +306,22 @@
   - P2: 13 new tests — `budget-exceeded.test.ts` (5: ownership validation, reuse, FK safety, undefined tenant, flags), `learning-routes.test.ts` (8: list, dismiss, boost, bulkClearByModule via tRPC caller)
   - Exported `createCallerFactory` from `trpc/init.ts` for route-level testing
 - **Gate (post-hardening):** 7 workspaces type-check clean, 177 tests pass (22 RLS + 42 AI + 75 API + 38 Jobs), 0 lint errors
+
+### Session 11 — Feb 19 (Dashboard Knowledge + Analytics #35)
+- **Built Knowledge Management page** (`/dashboard/knowledge`):
+  - Section A — Documents: `knowledge.list` with source type filter + offset pagination (resets on filter change), ingest form (toggleable, conditional sourceUrl when type='url'), docs table grouped by title via `useMemo(groupChunksByTitle)`, inline delete confirm with blast-radius text
+  - Section B — Learnings: `learning.list` with module slug filter + archived checkbox, truncated content via `useMemo`, dismiss/boost per row, bulk clear by module (trimmed + guarded)
+- **Built Analytics Deep-Dive page** (`/dashboard/analytics`):
+  - Date range controls: local-time defaults (30d ago → today), auto-swap validation with amber hint
+  - Section A — Overview Stats: `analytics.overview` as primary query, StatCard grid + LLM usage card
+  - Section B — Artifact Metrics: conditional query with artifact dropdown, daily metrics table
+  - Section C — Recent Logs: wide table with overflow-x-auto, artifact filter
+  - Section D — Billing Periods: overage in red
+- **Extracted shared components**: `stat-card.tsx` (StatCard + Metric), `format.ts` (localDateStr, fmtCost, fmtMicroCost, fmtInt, fmtDate, fmtDateTime, truncate, groupChunksByTitle)
+- **Updated sidebar**: added Knowledge (BookOpen) + Analytics (BarChart3) nav items
+- **Set up vitest for apps/web**: vitest.config.ts with `@` alias, 25 unit tests for format utils
+- **Performance improvements**: bounded LRU org→tenant cache (500 max, 5min TTL) in context.ts, removed redundant RESET round-trip in tenant-db.ts
+- **Standardized vitest v4.0.18** across all workspaces (web was on v3.2.1)
+- **Billing decision**: Paddle (Merchant of Record) for Week 4 — no US LLC needed, Colombia supported, 5% + $0.50/txn
+- **Gate:** 7 workspaces type-check clean, 202 tests pass (22 RLS + 42 AI + 75 API + 38 Jobs + 25 Web), 0 lint errors
+- **Week 3 complete** — all tasks done. Ready for Week 4.

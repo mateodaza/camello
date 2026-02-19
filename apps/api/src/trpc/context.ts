@@ -12,15 +12,19 @@ export interface Context {
   tenantDb: TenantDb | null;
 }
 
-// In-memory cache: Clerk orgId → camello_tenant_id.
+// In-memory LRU cache: Clerk orgId → camello_tenant_id.
 // This mapping only changes when org metadata is updated (rare — onboarding only).
-// TTL keeps it fresh without hitting Clerk API on every request.
+// TTL keeps it fresh; max size prevents unbounded growth in long-lived processes.
 const ORG_TENANT_CACHE = new Map<string, { tenantId: string; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_MAX_SIZE = 500;
 
 async function resolveOrgTenantId(orgId: string): Promise<string | null> {
   const cached = ORG_TENANT_CACHE.get(orgId);
   if (cached && Date.now() < cached.expiresAt) {
+    // Move to end for LRU ordering (Map iterates in insertion order)
+    ORG_TENANT_CACHE.delete(orgId);
+    ORG_TENANT_CACHE.set(orgId, cached);
     return cached.tenantId;
   }
 
@@ -28,6 +32,11 @@ async function resolveOrgTenantId(orgId: string): Promise<string | null> {
   const camelloTenantId = (org.publicMetadata as Record<string, unknown>)?.camello_tenant_id;
 
   if (typeof camelloTenantId === 'string' && camelloTenantId) {
+    // Evict oldest entry if at capacity
+    if (ORG_TENANT_CACHE.size >= CACHE_MAX_SIZE) {
+      const oldest = ORG_TENANT_CACHE.keys().next().value;
+      if (oldest !== undefined) ORG_TENANT_CACHE.delete(oldest);
+    }
     ORG_TENANT_CACHE.set(orgId, { tenantId: camelloTenantId, expiresAt: Date.now() + CACHE_TTL_MS });
     return camelloTenantId;
   }
