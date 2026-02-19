@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, MessageSquare, Bot } from 'lucide-react';
-import { UserButton } from '@clerk/nextjs';
+import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -19,6 +19,14 @@ export function Sidebar() {
     <aside className="flex h-screen w-60 flex-col border-r bg-gray-50">
       <div className="flex h-14 items-center border-b px-4">
         <span className="text-lg font-bold tracking-tight">Camello</span>
+      </div>
+
+      <div className="border-b p-3">
+        <OrganizationSwitcher
+          hidePersonal
+          afterSelectOrganizationUrl="/dashboard"
+          afterCreateOrganizationUrl="/dashboard"
+        />
       </div>
 
       <nav className="flex-1 space-y-1 p-3">

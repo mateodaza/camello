@@ -604,7 +604,7 @@ async function findOrCreateConversation(
 
 /** Rough cost estimate per 1K tokens. Actual billing uses OpenRouter callbacks. */
 const COST_PER_1K: Record<string, { input: number; output: number }> = {
-  'google/gemini-2.0-flash-exp': { input: 0.0001, output: 0.0004 },
+  'google/gemini-2.0-flash-001': { input: 0.0001, output: 0.0004 },
   'openai/gpt-4o-mini': { input: 0.00015, output: 0.0006 },
   'anthropic/claude-sonnet-4': { input: 0.003, output: 0.015 },
 };

@@ -38,7 +38,7 @@ async function classifyByLLM(message: string): Promise<Intent> {
   const client = createLLMClient();
 
   const { object } = await generateObject({
-    model: client('google/gemini-2.0-flash-exp'),
+    model: client('google/gemini-2.0-flash-001'),
     schema: intentSchema,
     prompt: `Classify the intent of this customer message. Consider the type, complexity, sentiment, and whether it needs a knowledge base lookup.\n\nMessage: "${message}"`,
   });

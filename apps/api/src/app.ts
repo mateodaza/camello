@@ -9,6 +9,12 @@ import { whatsappRoutes } from './webhooks/whatsapp.js';
 
 export const app = new Hono();
 
+// Global error handler — log full stack traces
+app.onError((err, c) => {
+  console.error('[ERROR]', c.req.method, c.req.path, err);
+  return c.json({ error: 'Internal Server Error' }, 500);
+});
+
 // Middleware
 app.use('*', logger());
 

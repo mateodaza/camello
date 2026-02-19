@@ -3,7 +3,7 @@ import type { ModelTier, PlanTier } from '../types/index.js';
 // === Model Routing ===
 
 export const MODEL_MAP: Record<ModelTier, string> = {
-  fast: 'google/gemini-2.0-flash-exp',
+  fast: 'google/gemini-2.0-flash-001',
   balanced: 'openai/gpt-4o-mini',
   powerful: 'anthropic/claude-sonnet-4',
 } as const;
