@@ -47,6 +47,7 @@ export const chatRouter = router({
         intent: result.intent,
         modelUsed: result.modelUsed,
         latencyMs: result.latencyMs,
+        budgetExceeded: result.budgetExceeded ?? false,
       };
     }),
 });

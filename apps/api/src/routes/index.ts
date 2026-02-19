@@ -5,6 +5,7 @@ import { artifactRouter } from './artifact.js';
 import { conversationRouter } from './conversation.js';
 import { knowledgeRouter } from './knowledge.js';
 import { moduleRouter } from './module.js';
+import { learningRouter } from './learning.js';
 import { channelRouter } from './channel.js';
 import { analyticsRouter } from './analytics.js';
 import { chatRouter } from './chat.js';
@@ -23,6 +24,7 @@ export const appRouter = router({
   tenant: tenantRouter,
   artifact: artifactRouter,
   module: moduleRouter,
+  learning: learningRouter,
   conversation: conversationRouter,
   knowledge: knowledgeRouter,
   channel: channelRouter,

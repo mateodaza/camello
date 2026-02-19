@@ -241,6 +241,7 @@ widgetRoutes.post('/message', async (c) => {
     intent: result.intent,
     model_used: result.modelUsed,
     latency_ms: result.latencyMs,
+    budget_exceeded: result.budgetExceeded ?? false,
   });
 });
 

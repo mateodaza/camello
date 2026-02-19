@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { modules, moduleExecutions, learnings } from '@camello/db';
+import { modules, moduleExecutions, learnings, learningAuditLogs } from '@camello/db';
 import { getModule, processRejection, generateEmbedding } from '@camello/ai';
 import type { ModuleExecutionContext, RejectionReason } from '@camello/shared/types';
 import { MODULE_TIMEOUT_MS } from '@camello/shared/constants';
@@ -211,6 +211,7 @@ export const moduleRouter = router({
           artifactId: execution.artifactId,
           conversationId: execution.conversationId,
           moduleExecutionId: input.executionId,
+          moduleSlug: moduleRow.slug,
           reason: input.reason as RejectionReason,
           freeText: input.freeText,
           moduleName: moduleRow.name,
@@ -242,7 +243,10 @@ export const moduleRouter = router({
                 content: record.content,
                 confidence: record.confidence.toFixed(2),
                 sourceConversationId: record.sourceConversationId,
+                sourceModuleExecutionId: record.sourceModuleExecutionId,
+                sourceModuleSlug: record.sourceModuleSlug,
                 embedding: record.embedding,
+                updatedAt: new Date(),
               }).returning({ id: learnings.id });
               return row.id;
             });
@@ -251,12 +255,23 @@ export const moduleRouter = router({
             await ctx.tenantDb.query(async (db) => {
               await db
                 .update(learnings)
-                .set({ confidence: newConfidence.toFixed(2) })
+                .set({ confidence: newConfidence.toFixed(2), updatedAt: new Date() })
                 .where(eq(learnings.id, id));
             });
           },
         },
       );
+
+      await ctx.tenantDb.query(async (db) => {
+        await db.insert(learningAuditLogs).values({
+          tenantId: ctx.tenantId,
+          learningId: feedbackResult.learningId,
+          action: feedbackResult.isReinforcement ? 'reinforced' : 'created',
+          performedBy: ctx.userId,
+          oldConfidence: feedbackResult.oldConfidence?.toFixed(2),
+          newConfidence: feedbackResult.newConfidence.toFixed(2),
+        });
+      });
 
       return { ...execution, feedbackResult };
     }),

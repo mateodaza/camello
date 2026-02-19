@@ -1,6 +1,6 @@
 import { schedules, logger } from "@trigger.dev/sdk/v3";
 import { eq, isNull } from "drizzle-orm";
-import { learnings } from "@camello/db/schema";
+import { learnings, learningAuditLogs } from "@camello/db/schema";
 import { createTenantDb } from "@camello/db/tenant";
 import { applyConfidenceDecay } from "@camello/ai/feedback";
 import { serviceDb } from "../lib/service-db.js";
@@ -60,6 +60,15 @@ export const learningDecayTask = schedules.task({
               })
               .where(eq(learnings.id, id))
           );
+          await tdb.query((db) =>
+            db.insert(learningAuditLogs).values({
+              tenantId,
+              learningId: id,
+              action: "decayed",
+              oldConfidence: null,
+              newConfidence: String(newConfidence),
+            })
+          );
         },
 
         // archiveLearning: mark as archived + touch updated_at
@@ -72,6 +81,15 @@ export const learningDecayTask = schedules.task({
                 updatedAt: new Date(),
               })
               .where(eq(learnings.id, id))
+          );
+          await tdb.query((db) =>
+            db.insert(learningAuditLogs).values({
+              tenantId,
+              learningId: id,
+              action: "archived",
+              oldConfidence: null,
+              newConfidence: "0",
+            })
           );
         }
       );

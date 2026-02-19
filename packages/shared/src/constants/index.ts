@@ -29,6 +29,12 @@ export const PLAN_LIMITS: Record<PlanTier, {
 
 export const OVERAGE_COST_PER_RESOLUTION = 0.50;
 
+export const COST_BUDGET_DEFAULTS: Record<PlanTier, number> = {
+  starter: 5.0,
+  growth: 25.0,
+  scale: 100.0,
+} as const;
+
 // === Rate Limits ===
 
 export const RATE_LIMITS = {

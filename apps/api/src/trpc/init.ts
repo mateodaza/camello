@@ -10,6 +10,7 @@ const t = initTRPC.context<Context>().create({
 export const router = t.router;
 export const publicProcedure = t.procedure;
 export const middleware = t.middleware;
+export const createCallerFactory = t.createCallerFactory;
 
 // --- Auth middleware: requires Clerk session ---
 const isAuthenticated = middleware(async ({ ctx, next }) => {

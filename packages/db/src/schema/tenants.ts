@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, uniqueIndex, check } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, timestamp, uniqueIndex, check, numeric } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 export const tenants = pgTable('tenants', {
@@ -8,6 +8,7 @@ export const tenants = pgTable('tenants', {
   businessModel: text('business_model'),
   industry: text('industry'),
   planTier: text('plan_tier').notNull().default('starter'),
+  monthlyCostBudgetUsd: numeric('monthly_cost_budget_usd', { precision: 10, scale: 4 }),
   defaultArtifactId: uuid('default_artifact_id'), // Circular FK → artifacts(id) ON DELETE SET NULL. Cannot use .references() here (circular dep). Enforced in migration via ALTER TABLE tenants ADD CONSTRAINT tenants_default_artifact_fk.
   settings: jsonb('settings').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

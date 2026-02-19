@@ -10,6 +10,7 @@ export interface RejectionInput {
   artifactId: string;
   conversationId: string;
   moduleExecutionId: string;
+  moduleSlug: string;
   reason: RejectionReason;
   freeText?: string;
   /** The module name/slug that was rejected, used to build the learning content */
@@ -25,6 +26,8 @@ export interface LearningRecord {
   content: string;
   confidence: number;
   sourceConversationId: string;
+  sourceModuleExecutionId?: string;
+  sourceModuleSlug?: string;
   embedding: number[];
 }
 
@@ -71,8 +74,23 @@ export interface FeedbackDeps {
 export async function processRejection(
   input: RejectionInput,
   deps: FeedbackDeps,
-): Promise<{ learningId: string; isReinforcement: boolean }> {
-  const { reason, freeText, moduleName, actionSummary, artifactId, conversationId, tenantId } = input;
+): Promise<{
+  learningId: string;
+  isReinforcement: boolean;
+  oldConfidence: number | null;
+  newConfidence: number;
+}> {
+  const {
+    reason,
+    freeText,
+    moduleName,
+    moduleSlug,
+    moduleExecutionId,
+    actionSummary,
+    artifactId,
+    conversationId,
+    tenantId,
+  } = input;
 
   // 1. Map reason to learning type
   const learningType = REASON_TO_LEARNING_TYPE[reason];
@@ -98,7 +116,12 @@ export async function processRejection(
       LEARNING_CONFIDENCE.max,
     );
     await deps.updateConfidence(existing.id, newConfidence);
-    return { learningId: existing.id, isReinforcement: true };
+    return {
+      learningId: existing.id,
+      isReinforcement: true,
+      oldConfidence: existing.confidence,
+      newConfidence,
+    };
   }
 
   // New learning
@@ -109,10 +132,17 @@ export async function processRejection(
     content,
     confidence: initialConfidence,
     sourceConversationId: conversationId,
+    sourceModuleExecutionId: moduleExecutionId,
+    sourceModuleSlug: moduleSlug,
     embedding,
   });
 
-  return { learningId, isReinforcement: false };
+  return {
+    learningId,
+    isReinforcement: false,
+    oldConfidence: null,
+    newConfidence: initialConfidence,
+  };
 }
 
 // ---------------------------------------------------------------------------

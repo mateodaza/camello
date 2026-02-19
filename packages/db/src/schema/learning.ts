@@ -2,7 +2,7 @@ import { pgTable, uuid, text, numeric, integer, timestamp, index, check, customT
 import { sql } from 'drizzle-orm';
 import { tenants } from './tenants.js';
 import { artifacts } from './artifacts.js';
-import { conversations } from './conversations.js';
+import { conversations, moduleExecutions } from './conversations.js';
 
 const vector = customType<{ data: number[]; driverName: 'vector' }>({
   dataType() {
@@ -28,12 +28,32 @@ export const learnings = pgTable('learnings', {
   embedding: vector('embedding'),
   confidence: numeric('confidence', { precision: 3, scale: 2 }).notNull().default('0.5'),
   sourceConversationId: uuid('source_conversation_id').references(() => conversations.id),
+  sourceModuleExecutionId: uuid('source_module_execution_id').references(() => moduleExecutions.id),
+  sourceModuleSlug: text('source_module_slug'),
   archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
   check('learnings_type_values', sql`type IN ('preference', 'correction', 'pattern', 'objection')`),
   index('idx_learnings_embedding').using('hnsw', sql`${table.embedding} vector_cosine_ops`),
+]);
+
+export const learningAuditLogs = pgTable('learning_audit_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  learningId: uuid('learning_id').notNull().references(() => learnings.id, { onDelete: 'cascade' }),
+  action: text('action').notNull(),
+  performedBy: text('performed_by'),
+  oldConfidence: numeric('old_confidence', { precision: 3, scale: 2 }),
+  newConfidence: numeric('new_confidence', { precision: 3, scale: 2 }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (table) => [
+  check(
+    'learning_audit_logs_action_values',
+    sql`action IN ('created', 'reinforced', 'dismissed', 'boosted', 'bulk_cleared', 'decayed', 'archived')`,
+  ),
+  index('idx_learning_audit_logs_tenant').on(table.tenantId, table.createdAt),
+  index('idx_learning_audit_logs_learning').on(table.learningId),
 ]);
 
 export const interactionLogs = pgTable('interaction_logs', {

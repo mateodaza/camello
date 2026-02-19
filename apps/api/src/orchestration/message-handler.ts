@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { eq, and, sql, desc, asc, isNull } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, isNull, gte, lt } from 'drizzle-orm';
 import type { TenantDb } from '@camello/db';
 import {
   artifacts,
@@ -26,9 +26,10 @@ import {
   buildToolsFromBindings,
 } from '@camello/ai';
 import type { MatchKnowledgeFn, EmbedFn } from '@camello/ai';
-import type { ArtifactModuleBinding, Channel, Intent, ModuleDbCallbacks } from '@camello/shared/types';
-import { LEARNING_CONFIDENCE } from '@camello/shared/constants';
+import type { ArtifactModuleBinding, Channel, Intent, ModuleDbCallbacks, PlanTier } from '@camello/shared/types';
+import { COST_BUDGET_DEFAULTS, LEARNING_CONFIDENCE } from '@camello/shared/constants';
 import { createClient } from '@supabase/supabase-js';
+import { buildTelemetry, createTrace } from '../lib/langfuse.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,6 +55,7 @@ export interface HandleMessageOutput {
   costUsd: number;
   latencyMs: number;
   moduleExecutions: Array<{ moduleSlug: string; status: string }>;
+  budgetExceeded?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,11 +80,60 @@ export interface HandleMessageOutput {
 export async function handleMessage(input: HandleMessageInput): Promise<HandleMessageOutput> {
   const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId } = input;
   const startTime = Date.now();
+  const trace = createTrace({
+    tenantId,
+    artifactId: 'unknown',
+    channel,
+    ...(existingConversationId ? { conversationId: existingConversationId } : {}),
+  });
 
-  // 1. Classify intent
-  const intent = await classifyIntent(messageText);
+  // ── 0. Fetch tenant info (lightweight — needed for budget gate BEFORE paid work) ──
+  const tenant = await tenantDb.query(async (db) => {
+    const rows = await db
+      .select({
+        name: tenants.name,
+        planTier: tenants.planTier,
+        monthlyCostBudgetUsd: tenants.monthlyCostBudgetUsd,
+        defaultArtifactId: tenants.defaultArtifactId,
+      })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+    return rows[0];
+  });
 
-  // 2. Resolve artifact
+  // ── 1. Cost budget gate (BEFORE any paid work — intent LLM fallback, RAG embeddings) ──
+  const planTier = (tenant?.planTier as PlanTier | undefined) ?? 'starter';
+  const effectiveBudget = resolveEffectiveMonthlyBudget(planTier, tenant?.monthlyCostBudgetUsd);
+  const { monthStart, nextMonthStart } = getUtcMonthWindow(new Date());
+
+  const monthCost = await trace.span('cost-budget-check', async () => {
+    const rows = await tenantDb.query(async (db) => {
+      return db
+        .select({ totalCost: sql<string>`coalesce(sum(cost_usd), 0)` })
+        .from(interactionLogs)
+        .where(
+          and(
+            eq(interactionLogs.tenantId, tenantId),
+            gte(interactionLogs.createdAt, monthStart),
+            lt(interactionLogs.createdAt, nextMonthStart),
+          ),
+        );
+    });
+    return parseFloat(rows[0]?.totalCost ?? '0');
+  });
+
+  if (isBudgetExceeded(monthCost, effectiveBudget)) {
+    return handleBudgetExceeded({
+      tenantDb, tenantId, channel, customerId, messageText,
+      existingConversationId, tenant, trace, startTime,
+    });
+  }
+
+  // ── 2. Classify intent (first potentially paid step — LLM fallback) ──
+  const intent = await trace.span('classify-intent', () => classifyIntent(messageText));
+
+  // 3. Resolve artifact
   const resolver = createArtifactResolver({
     findActiveConversation: (custId) => findActiveConversation(tenantDb, custId),
     findMatchingRule: (ch, intentType, confidence) =>
@@ -90,16 +141,19 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     getDefaultArtifact: () => getDefaultArtifact(tenantDb, tenantId),
   });
 
-  const resolved = await resolver.resolve({
-    tenantId,
-    channel,
-    customerId,
-    intent,
-    existingConversationId,
-    isReturningCustomer: false, // TODO: derive from customer record
-  });
+  const resolved = await trace.span('artifact-resolver', () =>
+    resolver.resolve({
+      tenantId,
+      channel,
+      customerId,
+      intent,
+      existingConversationId,
+      isReturningCustomer: false, // TODO: derive from customer record
+    }),
+  );
+  trace.setMetadata({ artifactId: resolved.artifactId });
 
-  // 3. Find or create conversation
+  // 4. Find or create conversation
   const conversationId = await findOrCreateConversation(
     tenantDb,
     tenantId,
@@ -107,8 +161,9 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     customerId,
     channel,
   );
+  trace.setMetadata({ conversationId });
 
-  // 4. Save inbound customer message (capture ID for tool idempotency)
+  // 5. Save inbound customer message (capture ID for tool idempotency)
   const triggerMessageId = await tenantDb.query(async (db) => {
     const [row] = await db.insert(messages).values({
       tenantId,
@@ -119,7 +174,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     return row.id;
   });
 
-  // 5. Load artifact config
+  // 6. Load artifact config
   const artifact = await tenantDb.query(async (db) => {
     const rows = await db
       .select()
@@ -129,7 +184,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     return rows[0];
   });
 
-  // 5b. Fetch artifact module bindings
+  // 6b. Fetch artifact module bindings
   const boundModules: ArtifactModuleBinding[] = await tenantDb.query(async (db) => {
     const rows = await db
       .select({
@@ -151,7 +206,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     }));
   });
 
-  // 5c. Build module DB callbacks (DI — keeps @camello/ai free of @camello/db)
+  // 6c. Build module DB callbacks (DI — keeps @camello/ai free of @camello/db)
   const moduleDbCallbacks: ModuleDbCallbacks = {
     insertLead: async (data) => {
       return tenantDb.query(async (db) => {
@@ -175,7 +230,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     },
   };
 
-  // 5d. Build approval notifier (non-blocking — guardrail #4)
+  // 6d. Build approval notifier (non-blocking — guardrail #4)
   const onApprovalNeeded = async (executionId: string, moduleSlug: string, input: unknown) => {
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -188,7 +243,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     });
   };
 
-  // 6. RAG search
+  // 7. RAG search
   const embed: EmbedFn = generateEmbedding;
   const matchKnowledge: MatchKnowledgeFn = (params) =>
     tenantDb.query(async (db) => {
@@ -205,15 +260,17 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       return rows.rows as any[];
     });
 
-  const ragResult = await searchKnowledge({
-    queryText: messageText,
-    intent,
-    tenantId,
-    embed,
-    matchKnowledge,
-  });
+  const ragResult = await trace.span('rag-search', () =>
+    searchKnowledge({
+      queryText: messageText,
+      intent,
+      tenantId,
+      embed,
+      matchKnowledge,
+    }),
+  );
 
-  // 7. Fetch learnings for this artifact
+  // 8. Fetch learnings for this artifact
   const artifactLearnings = await tenantDb.query(async (db) => {
     return db
       .select({ content: learnings.content })
@@ -227,16 +284,6 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       )
       .orderBy(desc(learnings.confidence))
       .limit(10);
-  });
-
-  // 8. Fetch tenant name for prompt
-  const tenant = await tenantDb.query(async (db) => {
-    const rows = await db
-      .select({ name: tenants.name })
-      .from(tenants)
-      .where(eq(tenants.id, tenantId))
-      .limit(1);
-    return rows[0];
   });
 
   // 9. Build system prompt (includes module instructions when bound)
@@ -310,6 +357,15 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     messages: chatMessages,
     tools,
     maxSteps: tools ? 5 : 1,
+    experimental_telemetry: buildTelemetry('handle-message', {
+      traceId: trace.traceId,
+      tenantId,
+      artifactId: resolved.artifactId,
+      conversationId,
+      channel,
+      intent: intent.type,
+      model: modelId,
+    }),
   });
 
   const latencyMs = Date.now() - startTime;
@@ -362,6 +418,14 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       .update(conversations)
       .set({ updatedAt: new Date() })
       .where(eq(conversations.id, conversationId));
+  });
+
+  trace.finalize({
+    modelUsed: modelId,
+    costUsd,
+    tokensIn,
+    tokensOut,
+    latencyMs,
   });
 
   return {
@@ -548,4 +612,190 @@ const COST_PER_1K: Record<string, { input: number; output: number }> = {
 function estimateCost(model: string, tokensIn: number, tokensOut: number): number {
   const rates = COST_PER_1K[model] ?? { input: 0.001, output: 0.002 };
   return (tokensIn / 1000) * rates.input + (tokensOut / 1000) * rates.output;
+}
+
+export function getUtcMonthWindow(date: Date): { monthStart: Date; nextMonthStart: Date } {
+  const monthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  const nextMonthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+  return { monthStart, nextMonthStart };
+}
+
+export function resolveEffectiveMonthlyBudget(
+  planTier: PlanTier,
+  tenantBudgetRaw: string | number | null | undefined,
+): number {
+  if (tenantBudgetRaw == null) return COST_BUDGET_DEFAULTS[planTier];
+  const parsed = Number(tenantBudgetRaw);
+  return Number.isFinite(parsed) ? parsed : COST_BUDGET_DEFAULTS[planTier];
+}
+
+export function isBudgetExceeded(currentMonthCost: number, effectiveBudget: number): boolean {
+  return currentMonthCost >= effectiveBudget;
+}
+
+// ---------------------------------------------------------------------------
+// Budget-exceeded early return
+// ---------------------------------------------------------------------------
+
+export const BUDGET_EXCEEDED_RESPONSE = 'Your AI team has reached its monthly usage limit. Please upgrade your plan or contact support.';
+
+export interface BudgetExceededInput {
+  tenantDb: TenantDb;
+  tenantId: string;
+  channel: Channel;
+  customerId: string;
+  messageText: string;
+  existingConversationId?: string;
+  tenant: { name: string; defaultArtifactId: string | null } | undefined;
+  trace: ReturnType<typeof createTrace>;
+  startTime: number;
+}
+
+export async function handleBudgetExceeded(input: BudgetExceededInput): Promise<HandleMessageOutput> {
+  const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId, tenant, trace, startTime } = input;
+  const budgetIntent: Intent = { type: 'general_inquiry', confidence: 0, complexity: 'simple', requires_knowledge_base: false, sentiment: 'neutral', source: 'regex' };
+
+  // ── Resolve artifact + validate conversation ownership ──
+  let conversationId: string | undefined;
+  let artifactId: string | null = null;
+
+  if (existingConversationId) {
+    // Validate the conversation belongs to this customer AND is active
+    const owned = await tenantDb.query(async (db) => {
+      const rows = await db
+        .select({
+          id: conversations.id,
+          artifactId: conversationArtifactAssignments.artifactId,
+        })
+        .from(conversations)
+        .innerJoin(
+          conversationArtifactAssignments,
+          and(
+            eq(conversationArtifactAssignments.conversationId, conversations.id),
+            eq(conversationArtifactAssignments.isActive, true),
+            isNull(conversationArtifactAssignments.endedAt),
+          ),
+        )
+        .where(
+          and(
+            eq(conversations.id, existingConversationId),
+            eq(conversations.customerId, customerId),
+            eq(conversations.tenantId, tenantId),
+            eq(conversations.status, 'active'),
+          ),
+        )
+        .limit(1);
+      return rows[0] ?? null;
+    });
+
+    if (owned) {
+      conversationId = owned.id;
+      artifactId = owned.artifactId;
+    }
+    // If ownership check fails, fall through to create a new conversation
+  }
+
+  // Fallback: resolve artifact from tenant default or first active
+  if (!artifactId) {
+    artifactId = tenant?.defaultArtifactId ?? null;
+
+    // Verify the default artifact is actually active
+    if (artifactId) {
+      const active = await tenantDb.query(async (db) => {
+        const rows = await db
+          .select({ id: artifacts.id })
+          .from(artifacts)
+          .where(and(eq(artifacts.id, artifactId!), eq(artifacts.isActive, true)))
+          .limit(1);
+        return rows[0] ?? null;
+      });
+      if (!active) artifactId = null;
+    }
+
+    if (!artifactId) {
+      const fallback = await tenantDb.query(async (db) => {
+        const rows = await db
+          .select({ id: artifacts.id })
+          .from(artifacts)
+          .where(and(eq(artifacts.tenantId, tenantId), eq(artifacts.isActive, true)))
+          .orderBy(asc(artifacts.createdAt))
+          .limit(1);
+        return rows[0] ?? null;
+      });
+      artifactId = fallback?.id ?? null;
+    }
+  }
+
+  // ── No active artifact at all — skip DB writes to avoid FK violation ──
+  if (!artifactId) {
+    const latencyMs = Date.now() - startTime;
+    trace.finalize({ modelUsed: 'budget_exceeded', costUsd: 0, tokensIn: 0, tokensOut: 0, latencyMs });
+    return {
+      conversationId: '',
+      artifactId: '',
+      responseText: BUDGET_EXCEEDED_RESPONSE,
+      intent: budgetIntent,
+      modelUsed: 'budget_exceeded',
+      tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,
+      moduleExecutions: [],
+      budgetExceeded: true,
+    };
+  }
+
+  // ── Create conversation if needed ──
+  if (!conversationId) {
+    conversationId = await tenantDb.transaction(async (tx) => {
+      const [conv] = await tx
+        .insert(conversations)
+        .values({ tenantId, artifactId: artifactId!, customerId, channel, status: 'active' })
+        .returning({ id: conversations.id });
+      await tx.insert(conversationArtifactAssignments).values({
+        tenantId,
+        conversationId: conv.id,
+        artifactId: artifactId!,
+        assignmentReason: 'tenant_default_fallback',
+      });
+      return conv.id;
+    });
+  }
+
+  // Save customer message + canned response
+  await tenantDb.query(async (db) => {
+    await db.insert(messages).values({ tenantId, conversationId: conversationId!, role: 'customer', content: messageText });
+  });
+  await tenantDb.query(async (db) => {
+    await db.insert(messages).values({
+      tenantId, conversationId: conversationId!,
+      role: 'artifact', content: BUDGET_EXCEEDED_RESPONSE,
+      tokensUsed: 0, modelUsed: 'budget_exceeded', costUsd: '0',
+    });
+  });
+
+  const latencyMs = Date.now() - startTime;
+
+  // Log telemetry (intent = 'budget_exceeded' — matches response.budgetExceeded flag)
+  await tenantDb.query(async (db) => {
+    await db.insert(interactionLogs).values({
+      tenantId, artifactId: artifactId!, conversationId: conversationId!,
+      intent: 'budget_exceeded', modelUsed: 'budget_exceeded',
+      tokensIn: 0, tokensOut: 0, costUsd: '0', latencyMs,
+    });
+  });
+
+  await tenantDb.query(async (db) => {
+    await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, conversationId!));
+  });
+
+  trace.finalize({ modelUsed: 'budget_exceeded', costUsd: 0, tokensIn: 0, tokensOut: 0, latencyMs });
+
+  return {
+    conversationId: conversationId!,
+    artifactId: artifactId!,
+    responseText: BUDGET_EXCEEDED_RESPONSE,
+    intent: budgetIntent,
+    modelUsed: 'budget_exceeded',
+    tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,
+    moduleExecutions: [],
+    budgetExceeded: true,
+  };
 }

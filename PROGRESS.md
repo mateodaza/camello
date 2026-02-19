@@ -5,7 +5,7 @@
 >
 > **AI memory lives at:** `~/.claude/projects/.../memory/` (MEMORY.md, architecture.md, compliance-gaps.md, differentiation.md). Not in-repo — persists across Claude sessions.
 
-## Current Phase: Week 3 — Channels + Dashboard + Jobs (Weeks 1-2 complete)
+## Current Phase: Week 3 — Channels + Dashboard + Jobs + KPI (Weeks 1-2 complete)
 
 ### Done
 
@@ -49,11 +49,12 @@
 
 | 32 | Trigger.dev jobs (#32): 3 background jobs | Feb 19 | `apps/jobs` workspace (Trigger.dev v3), service-role DB pool, SSRF-safe content extractor, 3 cron jobs (monthly learning decay, daily metrics rollup, 5-min URL ingestion with atomic claim), migration 0004 (learnings archived_at/updated_at, knowledge_syncs ops columns + claim index), 38 tests |
 
+| 33 | KPI instrumentation (#33): Langfuse + budgets + rollback | Feb 19 | Real Langfuse SDK tracing (trace/span/finalize), per-tenant cost budgets (hard limit before paid work), learning rollback controls (dismiss/boost/bulkClear + audit logs), migration 0005, 10 tests |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 33 | KPI instrumentation + rollback controls + cost guards | P2 | 2 hrs | #20, #25 |
 | 35 | Dashboard: knowledge management + analytics deep-dive pages | P2 | 2 hrs | #34 |
 
 ### Blocked
@@ -87,7 +88,7 @@
 - [x] Supabase cloud deployment: full schema migration, RLS policies, FK indexes (24), initplan fix, module seeds
 - [x] Module executor (#32): registry + tool adapter (idempotency + autonomy gating + timeout) + 3 modules (qualify_lead, book_meeting, send_followup) + message-handler tool-calling loop (generateText with maxSteps:5) + race-safe approve/reject with post-approval execution + feedback loop wiring + Supabase Broadcast for approval notifications + 26 tests pass
 - [x] Trigger.dev jobs: learning decay, metrics rollup, URL-drop ingestion
-- [ ] KPI instrumentation + rollback controls + cost guards
+- [x] KPI instrumentation: Langfuse tracing, per-tenant cost budgets, learning rollback controls
 
 ### Week 3 — Channels + Dashboard
 - [x] Channel adapter interface + registry (`apps/api/src/adapters/`)
@@ -271,3 +272,30 @@
   - `url-ingestion.ts` — every 5 min (`*/5 * * * *`): atomic claim via `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING`, stale-processing recovery (>10 min), retry logic (attempt < 3 → back to pending, >= 3 or SSRF → permanent fail), `tenants.plan_tier` JOIN for ingestion limits
 - **38 new tests**: content-extractor (17 — SSRF blocks, redirect handling, HTML extraction, plaintext passthrough, size limit, HTTP errors), learning-decay (5 — decay math, archive threshold, idempotency, empty list, negative clamp), metrics-rollup (7 — UTC date-window computation across month/year boundaries, SQL correctness guards), url-ingestion (9 — retry logic, stale recovery, claim pattern, plan_tier enforcement)
 - **Gate:** 7 workspaces lint-clean, all type-check clean, 154 tests pass (22 RLS + 42 AI + 52 API + 38 Jobs)
+
+### Session 10 — Feb 19 (KPI Instrumentation #33)
+- **Per-tenant cost budget system:**
+  - `monthly_cost_budget_usd` column on `tenants` table (nullable — NULL = plan-tier default: starter $5, growth $25, scale $100)
+  - Budget gate placed BEFORE any paid work (intent classification, RAG) in `handleMessage()` — step 1, immediately after tenant fetch
+  - `handleBudgetExceeded()` returns normal `HandleMessageOutput` with canned message (not throw — all callers work without error mapping)
+  - Budget check: `SUM(cost_usd)` from `interaction_logs` for current UTC calendar month, inclusive threshold
+  - Helpers: `getUtcMonthWindow()`, `resolveEffectiveMonthlyBudget()`, `isBudgetExceeded()`
+- **Real Langfuse SDK tracing** (replaced placeholder logging):
+  - `apps/api/src/lib/langfuse.ts` — singleton `Langfuse` SDK, `createTrace()` (trace + metadata + span + finalize), `buildTelemetry()` (AI SDK `experimental_telemetry`), `shutdownLangfuse()`
+  - Installed in `apps/api` (not `packages/ai`) — tenant context lives in API layer
+  - Graceful noop when `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` not set
+- **Learning rollback controls:**
+  - `apps/api/src/routes/learning.ts` — new router: `list`, `dismiss` (confidence→0, archived), `boost` (confidence→1.0), `bulkClearByModule`
+  - `learning_audit_logs` table (7 actions: created, reinforced, dismissed, boosted, bulk_cleared, decayed, archived) with RLS + tenant isolation policy
+  - `source_module_execution_id` + `source_module_slug` columns on `learnings` (enables bulkClearByModule)
+  - `COST_BUDGET_DEFAULTS` constant in `@camello/shared`
+- **Migration 0005** (`kpi_instrumentation`) applied to Supabase cloud
+- **10 new tests** (`kpi-instrumentation.test.ts`): UTC month window, budget fallbacks, tenant overrides, invalid overrides, threshold inclusivity, buildTelemetry ±keys, trace metadata/span, span error propagation, setMetadata edge cases
+- **Gate:** 7 workspaces type-check clean, 142 tests pass (42 AI + 62 API + 38 Jobs), 0 lint errors
+- **Hardening round** (2 P1s + 2 P2s resolved):
+  - P1: `handleBudgetExceeded` validates conversation ownership (customer_id + tenant_id + status) via JOIN before reuse — prevents writing into wrong conversation
+  - P1: Removed `?? tenantId` FK placeholder — no-artifact path returns controlled response without DB writes
+  - P2: Added `budgetExceeded?: boolean` to `HandleMessageOutput`, propagated to `chat.send` and widget JSON response
+  - P2: 13 new tests — `budget-exceeded.test.ts` (5: ownership validation, reuse, FK safety, undefined tenant, flags), `learning-routes.test.ts` (8: list, dismiss, boost, bulkClearByModule via tRPC caller)
+  - Exported `createCallerFactory` from `trpc/init.ts` for route-level testing
+- **Gate (post-hardening):** 7 workspaces type-check clean, 177 tests pass (22 RLS + 42 AI + 75 API + 38 Jobs), 0 lint errors
