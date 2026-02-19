@@ -12,7 +12,7 @@ export const tenants = pgTable('tenants', {
   settings: jsonb('settings').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-}, (table) => [
+}, (_table) => [
   check('tenants_plan_tier_values', sql`plan_tier IN ('starter', 'growth', 'scale')`),
 ]);
 

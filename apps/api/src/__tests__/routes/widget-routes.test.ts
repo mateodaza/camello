@@ -36,7 +36,6 @@ import { createWidgetToken } from '../../lib/widget-jwt.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
 
 function post(path: string, body: unknown, headers?: Record<string, string>) {

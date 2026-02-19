@@ -13,6 +13,6 @@ export const modules = pgTable('modules', {
   category: text('category').notNull(),
   isSystem: boolean('is_system').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-}, (table) => [
+}, (_table) => [
   check('modules_category_values', sql`category IN ('sales', 'support', 'marketing', 'operations', 'custom')`),
 ]);

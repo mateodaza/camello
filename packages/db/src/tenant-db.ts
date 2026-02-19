@@ -9,7 +9,6 @@ import { pool } from './client.js';
 export type TenantDrizzle = NodePgDatabase<typeof schema>;
 
 /** Drizzle transaction object (same API as TenantDrizzle but inside BEGIN/COMMIT). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type TenantTransaction = Parameters<Parameters<TenantDrizzle['transaction']>[0]>[0];
 
 export interface TenantDb {

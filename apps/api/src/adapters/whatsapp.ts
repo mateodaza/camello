@@ -317,7 +317,7 @@ function getPhoneNumberId(config: ChannelConfig): string {
 export const whatsappAdapter: ChannelAdapter = {
   channel: 'whatsapp',
 
-  parseInbound(payload: unknown): CanonicalMessage {
+  parseInbound(_payload: unknown): CanonicalMessage {
     // This is called after extractMetaMessage + normalizeMetaMessage in the webhook handler.
     // The adapter interface requires this method, but the WhatsApp flow uses the
     // more granular extractMetaMessage / normalizeMetaMessage functions directly.

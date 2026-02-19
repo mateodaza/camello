@@ -5,7 +5,6 @@ import {
   artifacts,
   conversations,
   messages,
-  customers,
   conversationArtifactAssignments,
   artifactRoutingRules,
   tenants,
@@ -263,7 +262,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   });
 
   // 10. Select model
-  const { tier, model: modelId } = selectModel(intent);
+  const { model: modelId } = selectModel(intent);
 
   // 11. Fetch recent conversation history for context
   const history = await tenantDb.query(async (db) => {

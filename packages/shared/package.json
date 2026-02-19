@@ -9,6 +9,7 @@
     "./constants": "./src/constants/index.ts"
   },
   "scripts": {
+    "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -17,6 +18,7 @@
   },
   "devDependencies": {
     "@camello/config": "workspace:*",
+    "eslint": "^9.20.0",
     "typescript": "^5.7.3"
   }
 }

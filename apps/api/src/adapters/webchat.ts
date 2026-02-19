@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CanonicalMessage } from '@camello/shared/types';
-import type { ChannelAdapter, ChannelConfig } from './types.js';
+import type { ChannelAdapter } from './types.js';
 
 // ---------------------------------------------------------------------------
 // WebChat adapter
@@ -37,7 +37,7 @@ export const webchatAdapter: ChannelAdapter = {
     };
   },
 
-  async sendText(_to, text, _config) {
+  async sendText(_to, _text, _config) {
     // WebChat responses are returned in the HTTP response body, not pushed.
     // This method exists to satisfy the interface; the message ID is synthetic.
     return `webchat_${randomUUID()}`;

@@ -16,7 +16,7 @@ const sendFollowupModule: ModuleDefinition<Input, Output> = {
   inputSchema: sendFollowupInputSchema,
   outputSchema: sendFollowupOutputSchema,
 
-  async execute(input: Input, _ctx: ModuleExecutionContext): Promise<Output> {
+  async execute(_input: Input, _ctx: ModuleExecutionContext): Promise<Output> {
     // MVP STUB — channel delivery deferred to #29
     return {
       sent: false,

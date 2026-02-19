@@ -34,7 +34,6 @@ app.route('/api/channels/whatsapp', whatsappRoutes);
 // @hono/trpc-server expects Record<string, unknown> from createContext, but our
 // Context has typed properties. tRPC resolves the correct type via
 // initTRPC.context<Context>(). The double-cast is safe.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 app.use('/trpc/*', trpcServer({
   router: appRouter,
   createContext: createContext as any,
