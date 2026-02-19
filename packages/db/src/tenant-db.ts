@@ -14,7 +14,7 @@ export type TenantTransaction = Parameters<Parameters<TenantDrizzle['transaction
 export interface TenantDb {
   /**
    * Execute queries within tenant context.
-   * Acquires connection → set_config(session-level) → runs fn → RESET → releases.
+   * Acquires connection → set_config(session-level) → runs fn → releases.
    * No connection pinning — each call is independent.
    */
   query<T>(fn: (db: TenantDrizzle) => Promise<T>): Promise<T>;
@@ -50,16 +50,14 @@ export function createTenantDb(tenantId: string): TenantDb {
     async query<T>(fn: (db: TenantDrizzle) => Promise<T>): Promise<T> {
       const conn = await pool.connect();
       try {
-        // set_config(..., false) = session-level: persists for all statements
-        // on this connection until RESET or disconnect.
-        // Safe because we always RESET in finally before releasing to pool.
+        // set_config(..., false) = session-level: persists until overwritten.
+        // No explicit RESET needed — every query() call overwrites the tenant
+        // context at the start, so stale values on pooled connections are
+        // harmless. Skipping RESET saves one DB round-trip per call.
         await conn.query(`SELECT set_config('app.tenant_id', $1, false)`, [tenantId]);
         const db = drizzle(conn, { schema });
         return await fn(db);
       } finally {
-        // Clear tenant context before returning connection to pool.
-        // Prevents cross-tenant leaks if pool reuses the connection.
-        await conn.query(`RESET app.tenant_id`);
         conn.release();
       }
     },

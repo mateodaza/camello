@@ -12,13 +12,35 @@ export interface Context {
   tenantDb: TenantDb | null;
 }
 
+// In-memory cache: Clerk orgId → camello_tenant_id.
+// This mapping only changes when org metadata is updated (rare — onboarding only).
+// TTL keeps it fresh without hitting Clerk API on every request.
+const ORG_TENANT_CACHE = new Map<string, { tenantId: string; expiresAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function resolveOrgTenantId(orgId: string): Promise<string | null> {
+  const cached = ORG_TENANT_CACHE.get(orgId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.tenantId;
+  }
+
+  const org = await clerk.organizations.getOrganization({ organizationId: orgId });
+  const camelloTenantId = (org.publicMetadata as Record<string, unknown>)?.camello_tenant_id;
+
+  if (typeof camelloTenantId === 'string' && camelloTenantId) {
+    ORG_TENANT_CACHE.set(orgId, { tenantId: camelloTenantId, expiresAt: Date.now() + CACHE_TTL_MS });
+    return camelloTenantId;
+  }
+  return null;
+}
+
 /**
  * Creates tRPC context from the incoming request.
  *
  * Auth flow:
  * 1. Verify Clerk session JWT from Authorization header
  * 2. Extract orgId (Clerk Organization = Camello Tenant)
- * 3. Look up tenant UUID from org metadata (camello_tenant_id)
+ * 3. Look up tenant UUID from org metadata (cached, 5min TTL)
  * 4. Create tenant-scoped DB helper with RLS context
  *
  * If auth fails or no org is selected, tenantId/tenantDb are null.
@@ -40,14 +62,10 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
         const { userId: clerkUserId, orgId } = requestState.toAuth();
         userId = clerkUserId;
 
-        // Clerk orgId maps to our tenant. In Clerk, the org's public metadata
-        // stores { camello_tenant_id: "<uuid>" } set during onboarding.
         if (orgId) {
-          const org = await clerk.organizations.getOrganization({ organizationId: orgId });
-          const camelloTenantId = (org.publicMetadata as Record<string, unknown>)?.camello_tenant_id;
-
-          if (typeof camelloTenantId === 'string' && camelloTenantId) {
-            tenantId = camelloTenantId;
+          const resolved = await resolveOrgTenantId(orgId);
+          if (resolved) {
+            tenantId = resolved;
             tenantDb = createTenantDb(tenantId);
           }
         }

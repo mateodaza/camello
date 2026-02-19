@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, Bot } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Bot, BookOpen, BarChart3 } from 'lucide-react';
 import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,8 @@ const navItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/conversations', label: 'Conversations', icon: MessageSquare },
   { href: '/dashboard/artifacts', label: 'Artifacts', icon: Bot },
+  { href: '/dashboard/knowledge', label: 'Knowledge', icon: BookOpen },
+  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
 ];
 
 export function Sidebar() {

@@ -1,17 +1,15 @@
 'use client';
 
 import { trpc } from '@/lib/trpc';
+import { localDateStr } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { StatCard, Metric } from '@/components/stat-card';
 import { QueryError } from '@/components/query-error';
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function DashboardOverview() {
   const tenant = trpc.tenant.me.useQuery();
-  const overview = trpc.analytics.overview.useQuery({ from: '2024-01-01', to: todayStr() });
+  const overview = trpc.analytics.overview.useQuery({ from: '2024-01-01', to: localDateStr() });
   const artifacts = trpc.artifact.list.useQuery({});
 
   if (tenant.isLoading) {
@@ -60,28 +58,6 @@ export default function DashboardOverview() {
           </CardContent>
         </Card>
       )}
-    </div>
-  );
-}
-
-function StatCard({ title, value }: { title: string; value: number }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium text-gray-500">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-3xl font-bold">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-lg font-semibold">{value}</p>
     </div>
   );
 }
