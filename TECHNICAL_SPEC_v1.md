@@ -2493,12 +2493,33 @@ These six capabilities move Camello from "AI wrapper" to an operating system wit
 - `tenants.industry` field enables vertical grouping
 - Level 1 (per-tenant) learning extraction runs from day 1 via Trigger.dev
 
-**Still needed (Month 3+, 50+ tenants per vertical):**
-- Level 2 aggregation job: weekly, groups learnings by `tenants.industry`, anonymizes, extracts cross-tenant patterns
-- Playbook table: `vertical_playbooks(id, industry, content, embedding, source_count, confidence)`
-- Opt-in/opt-out per tenant (GDPR: explicit consent for anonymized data contribution)
-- Marketplace UI: browse playbooks by vertical, subscribe, inject into artifact context
-- Revenue model: premium add-on ($49/mo for "vertical insights")
+**Trust Architecture — 3 Layers (privacy-first design):**
+
+1. **Opt-in consent (legal foundation):** Tenants explicitly toggle "Contribute to vertical insights" in settings. Off by default. GDPR Article 6 (consent) + Article 89 (statistical/research use). Tenant can withdraw at any time — contributions purged from pool.
+
+2. **Anonymization pipeline (technical foundation):**
+   - NER stripping: remove all named entities (companies, products, people, prices, URLs)
+   - Generalization: specific amounts → "pricing tier", specific products → filtered out
+   - **k-anonymity threshold: pattern must appear across 5+ tenants before surfacing.** One tenant's clever trick stays private.
+   - Never expose raw learning text — playbooks are rephrased generalized summaries
+
+3. **What's shared vs never shared:**
+   - SHARED: objection handling patterns, conversation flow strategies, tone/approach insights, intent classification improvements, channel-specific best practices, conversion correlations
+   - NEVER SHARED: pricing structures/discounts, product specs/internal processes, customer names/deal details, competitive intelligence, custom module configurations
+
+**Proven model analogies:** Stripe Radar (fraud patterns across merchants), Shopify Shop Pay (conversion insights across stores), Waze (traffic from all drivers). Tenant pitch: *"Your agent learns from what works across your entire industry — not just your own conversations."*
+
+**Revenue model:**
+- Contributing: free + opt-in (incentivized by playbook access)
+- Consuming playbooks: included in Scale tier, or $49/mo add-on for Growth
+- "Give to get" — contributors get access; non-contributors can buy
+
+**Still needed (Month 6+, 50+ tenants per vertical):**
+- `vertical_playbooks` table: `(id, industry, content, embedding, source_count, confidence)`
+- Weekly Level 2 aggregation job: group high-confidence learnings by `tenants.industry`, NER strip, enforce k=5 threshold, rephrase into generalized patterns
+- Tenant consent toggle + transparency dashboard ("3 of your learnings contributed this month")
+- Marketplace UI: browse playbooks by vertical, subscribe, preview sample insights
+- RAG integration: subscribed playbooks injected into artifact system prompt alongside tenant-specific learnings
 
 ### 20.3 Cross-Conversation Customer Memory
 

@@ -5,7 +5,7 @@
 >
 > **AI memory lives at:** `~/.claude/projects/.../memory/` (MEMORY.md, architecture.md, compliance-gaps.md, differentiation.md). Not in-repo — persists across Claude sessions.
 
-## Current Phase: Week 2 — Core Intelligence (Week 1 complete)
+## Current Phase: Week 3 — Channels + Dashboard + Jobs (Weeks 1-2 complete)
 
 ### Done
 
@@ -45,13 +45,16 @@
 
 | 31 | Channel adapters (#31): WebChat + WhatsApp | Feb 18 | Full adapter system: interface, registry, widget JWT auth, widget Hono routes, WhatsApp async webhook, DB migrations (phone_number unique index + bootstrap RPCs), widget app scaffold, 52 tests (25 adapter + 27 route integration) |
 
+| 34 | Dashboard (#34): Clerk + tRPC + 4 pages | Feb 19 | Clerk provider + tRPC client (useAuth getToken), sidebar layout, overview (tenant.me + analytics.overview), conversations list (infinite scroll) + detail (message thread + status update), artifacts (CRUD + toggle). All lint + type-check clean. |
+
+| 32 | Trigger.dev jobs (#32): 3 background jobs | Feb 19 | `apps/jobs` workspace (Trigger.dev v3), service-role DB pool, SSRF-safe content extractor, 3 cron jobs (monthly learning decay, daily metrics rollup, 5-min URL ingestion with atomic claim), migration 0004 (learnings archived_at/updated_at, knowledge_syncs ops columns + claim index), 38 tests |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 32 | Trigger.dev jobs: learning decay, metrics rollup, URL-drop ingestion | P1 | 2-3 hrs | #21, #25 |
 | 33 | KPI instrumentation + rollback controls + cost guards | P2 | 2 hrs | #20, #25 |
-| 34 | Dashboard pages: conversations, artifact config, knowledge mgmt | P1 | Week 3 | #28, #31 |
+| 35 | Dashboard: knowledge management + analytics deep-dive pages | P2 | 2 hrs | #34 |
 
 ### Blocked
 
@@ -83,7 +86,7 @@
 - [x] Chat tRPC endpoint (`chat.send`) — full pipeline exposed for webchat
 - [x] Supabase cloud deployment: full schema migration, RLS policies, FK indexes (24), initplan fix, module seeds
 - [x] Module executor (#32): registry + tool adapter (idempotency + autonomy gating + timeout) + 3 modules (qualify_lead, book_meeting, send_followup) + message-handler tool-calling loop (generateText with maxSteps:5) + race-safe approve/reject with post-approval execution + feedback loop wiring + Supabase Broadcast for approval notifications + 26 tests pass
-- [ ] Trigger.dev jobs: learning decay, metrics rollup, URL-drop ingestion
+- [x] Trigger.dev jobs: learning decay, metrics rollup, URL-drop ingestion
 - [ ] KPI instrumentation + rollback controls + cost guards
 
 ### Week 3 — Channels + Dashboard
@@ -98,8 +101,8 @@
 - [x] CORS: widget `*` (JWT auth), tRPC restricted to dashboard origin
 - [x] 52 adapter + route tests (JWT, signature, normalization, message types, spoofing guard, rate limiting, async webhook, ownership checks)
 - [x] Security hardening: SECURITY DEFINER RPCs (search_path + schema-qualified), trusted IP extraction, route-level integration tests
-- [ ] Dashboard pages: conversations, conversation detail, artifact config, knowledge mgmt
-- [ ] Analytics page (artifact metrics cards)
+- [x] Dashboard pages: tenant overview, conversations list + detail, artifacts (CRUD)
+- [ ] Dashboard pages: knowledge management, analytics deep-dive
 
 ### Week 4 — Onboarding + Hardening
 - [ ] Tenant onboarding wizard (create tenant → create artifact → connect WhatsApp)
@@ -227,3 +230,44 @@
   - Cleaned lint warnings: unused imports/params (customers, ChannelConfig, table, text, payload, input, tier), stale eslint-disable directives
   - 4 remaining `any` warnings are expected (typed cast boundaries)
 - `turbo lint` passes all 6 workspaces (0 errors), `type-check` clean, 94 tests pass
+
+### Session 8 — Feb 19 (Dashboard #34)
+- **Built MVP dashboard in `apps/web`** — Clerk + tRPC + Tailwind v4:
+  - `apps/api/src/trpc-types.ts` — type-only `AppRouter` re-export (decouples web from API internals)
+  - `apps/api/package.json` — added `exports: { "./trpc": "./src/trpc-types.ts" }`
+  - Installed `@clerk/nextjs`, `clsx`, `tailwind-merge`, `lucide-react` in web
+  - `src/lib/utils.ts` — `cn()` helper (clsx + tailwind-merge)
+  - `src/lib/trpc.ts` — `createTRPCReact<AppRouter>()` + `makeTrpcClient(getToken)` with httpBatchLink + superjson
+  - `src/components/providers.tsx` — `ClerkProvider` → inner `TrpcQueryProvider` (uses `useAuth().getToken()` for per-request auth headers)
+  - `src/middleware.ts` — Clerk `clerkMiddleware()` + `createRouteMatcher('/dashboard(.*)')`, proper matcher excluding `_next`/static assets
+  - `src/components/sidebar.tsx` — nav links (Overview, Conversations, Artifacts) + `UserButton`
+  - `src/components/ui/card.tsx`, `badge.tsx`, `button.tsx` — shadcn-style reusable components
+  - `src/app/dashboard/layout.tsx` — sidebar + main area (real `/dashboard` route, not route group)
+  - `src/app/dashboard/page.tsx` — tenant overview: `tenant.me` + `analytics.overview` + `artifact.list` → stat cards + cost summary
+  - `src/app/dashboard/conversations/page.tsx` — conversation list with `useInfiniteQuery` cursor pagination, table with badges
+  - `src/app/dashboard/conversations/[id]/page.tsx` — message thread (chronological, role-based styling), status update buttons, `useParams()` for client route params
+  - `src/app/dashboard/artifacts/page.tsx` — artifact cards with create form (name + type), activate/deactivate toggle
+  - `src/app/page.tsx` — redirect `/` → `/dashboard`
+  - Updated `.env.example` (added `CLERK_SECRET_KEY`, `NEXT_PUBLIC_API_URL`)
+  - Removed `@camello/ai` from `next.config.ts` transpilePackages (web doesn't use it)
+- **Error handling hardening** (P1 review feedback):
+  - `src/components/query-error.tsx` — shared error banner with actionable messages for UNAUTHORIZED/FORBIDDEN/generic
+  - All 4 pages: primary queries block on error, secondary queries (overview, artifacts, messages) show inline error banners
+  - `eslint.config.mjs` — ignore `next-env.d.ts` (auto-generated triple-slash refs)
+- **Seed data** in Supabase cloud: 1 tenant (`a0a0a0a0-...-0001` "Acme Corp", growth), 2 artifacts (Sales + Support), 3 customers, 5 conversations (mixed statuses), 13 messages, 8 interaction logs
+- All 6 workspaces lint-clean (0 errors), all 6 type-check clean, 94 tests still pass
+
+### Session 9 — Feb 19 (Trigger.dev Jobs #32)
+- **Created `apps/jobs` workspace** — Trigger.dev v3, 7th workspace in monorepo:
+  - `trigger.config.ts` — `defineConfig` from `@trigger.dev/sdk/v3`, `dirs: ["src/jobs"]`
+  - `src/lib/service-db.ts` — separate `Pool` + Drizzle from `DATABASE_URL_SERVICE_ROLE` (bypasses RLS for cross-tenant enumeration/queue-claim)
+  - `src/lib/content-extractor.ts` — SSRF-safe URL fetcher: protocol allow-list (http/https only), DNS → private IP block (127/10/172.16-31/192.168/169.254), manual redirect following (max 3, re-validate each hop), 30s timeout, 5 MB body cap, cheerio HTML extraction (strips nav/script/style/footer, prefers article → main → body)
+- **Migration 0004** (`add_jobs_columns`) applied to Supabase cloud:
+  - `learnings` — `archived_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()` + backfill
+  - `knowledge_syncs` — `updated_at`, `attempt_count`, `last_error`, `processing_started_at`, `CHECK (status IN (...))`, partial index `idx_knowledge_syncs_claim` on `(status, processing_started_at, created_at) WHERE status IN ('pending', 'processing')`
+- **3 Trigger.dev v3 cron jobs** (all use `schedules.task` from `@trigger.dev/sdk/v3`):
+  - `learning-decay.ts` — monthly (`0 3 1 * *`): service-role tenant enumeration → per-tenant `createTenantDb` → `applyConfidenceDecay()` with DI callbacks → archives below 0.3
+  - `metrics-rollup.ts` — daily (`0 2 * * *`): UTC date-window `[yesterday 00:00, today 00:00)`, `COUNT(DISTINCT conversation_id) FILTER` for resolutions, explicit handoff SQL (FULL OUTER JOIN handoff_in/handoff_out), ON CONFLICT UPSERT (handles artifacts with handoffs but no interaction_logs)
+  - `url-ingestion.ts` — every 5 min (`*/5 * * * *`): atomic claim via `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING`, stale-processing recovery (>10 min), retry logic (attempt < 3 → back to pending, >= 3 or SSRF → permanent fail), `tenants.plan_tier` JOIN for ingestion limits
+- **38 new tests**: content-extractor (17 — SSRF blocks, redirect handling, HTML extraction, plaintext passthrough, size limit, HTTP errors), learning-decay (5 — decay math, archive threshold, idempotency, empty list, negative clamp), metrics-rollup (7 — UTC date-window computation across month/year boundaries, SQL correctness guards), url-ingestion (9 — retry logic, stale recovery, claim pattern, plan_tier enforcement)
+- **Gate:** 7 workspaces lint-clean, all type-check clean, 154 tests pass (22 RLS + 42 AI + 52 API + 38 Jobs)

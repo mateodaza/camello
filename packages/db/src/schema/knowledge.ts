@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, integer, timestamp, index, customType } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, integer, timestamp, index, check, customType } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from './tenants.js';
 
@@ -53,5 +53,14 @@ export const knowledgeSyncs = pgTable('knowledge_syncs', {
   sourceType: text('source_type').notNull().default('website'),
   lastSynced: timestamp('last_synced', { withTimezone: true, mode: 'date' }),
   status: text('status').notNull().default('pending'),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  lastError: text('last_error'),
+  processingStartedAt: timestamp('processing_started_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-});
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (table) => [
+  check('knowledge_syncs_status_check', sql`status IN ('pending', 'processing', 'synced', 'failed')`),
+  index('idx_knowledge_syncs_claim')
+    .on(table.status, table.processingStartedAt, table.createdAt)
+    .where(sql`status IN ('pending', 'processing')`),
+]);

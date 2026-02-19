@@ -11,23 +11,28 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@camello/shared": "workspace:*",
+    "@clerk/nextjs": "^6.38.0",
+    "@tanstack/react-query": "^5.66.0",
+    "@trpc/client": "^11.0.0",
+    "@trpc/react-query": "^11.0.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.575.0",
     "next": "^15.2.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@trpc/client": "^11.0.0",
-    "@trpc/react-query": "^11.0.0",
-    "@tanstack/react-query": "^5.66.0",
     "superjson": "^2.2.2",
-    "@camello/shared": "workspace:*"
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@camello/api": "workspace:*",
     "@camello/config": "workspace:*",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.20.0",
-    "typescript": "^5.7.3",
+    "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
-    "postcss": "^8.5.0"
+    "typescript": "^5.7.3"
   }
 }

@@ -28,7 +28,9 @@ export const learnings = pgTable('learnings', {
   embedding: vector('embedding'),
   confidence: numeric('confidence', { precision: 3, scale: 2 }).notNull().default('0.5'),
   sourceConversationId: uuid('source_conversation_id').references(() => conversations.id),
+  archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
   check('learnings_type_values', sql`type IN ('preference', 'correction', 'pattern', 'objection')`),
   index('idx_learnings_embedding').using('hnsw', sql`${table.embedding} vector_cosine_ops`),
