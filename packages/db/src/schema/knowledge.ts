@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, integer, timestamp, index, check, customType } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, integer, timestamp, index, uniqueIndex, check, customType } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from './tenants.js';
 
@@ -63,4 +63,5 @@ export const knowledgeSyncs = pgTable('knowledge_syncs', {
   index('idx_knowledge_syncs_claim')
     .on(table.status, table.processingStartedAt, table.createdAt)
     .where(sql`status IN ('pending', 'processing')`),
+  uniqueIndex('idx_knowledge_syncs_tenant_url').on(table.tenantId, table.sourceUrl),
 ]);

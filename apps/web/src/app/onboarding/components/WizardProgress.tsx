@@ -1,4 +1,4 @@
-export const STEPS = ['Create Org', 'Describe Business', 'Meet Agent', 'Connect Channel', 'Test It'];
+export const STEPS = ['Create Org', 'Describe Business', 'Meet Agent', 'Teach Agent', 'Connect Channel', 'Test It'];
 
 export function WizardProgress({ currentStep }: { currentStep: number }) {
   return (

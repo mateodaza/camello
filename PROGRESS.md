@@ -55,6 +55,8 @@
 
 | 36 | Tenant onboarding wizard (#36) | Feb 19 | Clerk webhook (Svix sig verification), `provisionTenant()` (deterministic UUIDv5 + legacy org adoption with member verification + slug retry), 7-procedure tRPC onboarding router (provision, parseBusinessModel, setupArtifact, ensurePreviewCustomer, getStatus, saveStep, complete), dashboard `OnboardingGate` (layout-level redirect + render guard), 5-step wizard (org creation, AI business parser, artifact setup, channel connect, live test chat), `orgId` in tRPC context, 6 security audit rounds (cross-tenant takeover prevention, UUID validation, null-creator blocking, split member queries), 53 new tests (43 API + 10 web). Dependencies: `svix`, `uuid` |
 
+| 36b | Knowledge seeding + wizard UX polish (#36b) | Feb 20 | Step 4 "Teach Agent" auto-seeds business description (chunked + embedded), optional quick facts + website URL queue. `knowledge.queueUrl` tRPC procedure, migration 0006 (knowledge_syncs unique URL index with dedupe), `setupArtifact` idempotency guard, back navigation (steps 3-6), resume-once guard (`hasResumed` ref prevents stale-step overwrite), seeded-flag reset on description change, 15s auto-seed timeout with spinner UX, vector/text[] cast fixes in `match_knowledge` RPC. Smoke-tested end-to-end: RAG answers from seeded knowledge confirmed. 157 tests (122 API + 35 web). |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
@@ -114,9 +116,10 @@
 - [x] Perf: bounded LRU org→tenant cache + RESET removal
 
 ### Week 4 — Onboarding + Hardening
-- [x] Tenant onboarding wizard (5-step: create org → describe business → meet agent → connect channel → test chat)
+- [x] Tenant onboarding wizard (6-step: create org → describe business → meet agent → teach agent → connect channel → test chat)
 - [x] Clerk webhook handler (organization.created → auto-provision tenant)
 - [x] Dashboard OnboardingGate (redirects unonboarded users from all /dashboard routes)
+- [x] Knowledge seeding during onboarding (auto-seed business description + quick facts + website URL queue)
 - [ ] Billing integration (Paddle — Merchant of Record, no US LLC needed)
 - [ ] End-to-end testing: message in → intent → artifact → response out
 - [ ] Load testing, error handling, edge cases
@@ -374,3 +377,25 @@
   - P3: `ensurePreviewCustomer` → explicit conflict target `[tenantId, channel, externalId]`
 - **Dependencies:** `svix` + `uuid` added to `apps/api`
 - **Gate:** 7 workspaces type-check clean, 256 tests pass (22 RLS + 42 AI + 119 API + 38 Jobs + 35 Web), 0 lint errors (4 pre-existing warnings)
+
+### Session 13 — Feb 20 (Knowledge Seeding + Wizard UX Polish #36b)
+- **Step 4 "Teach Agent"** — new wizard step between artifact creation and channel setup:
+  - Auto-seeds business description from Step 2 (chunk → embed → insert via `knowledge.ingest`)
+  - Optional "Quick Facts" textarea (ingested on Continue)
+  - Optional website URL input (queued via `knowledge.queueUrl` for async Trigger.dev scraping)
+  - 15s timeout with `settled` ref (fixes stale closure bug), spinner animation, personalized status messages
+  - `alreadySeeded` prop + `businessDescriptionSeeded` flag persisted in tenant JSONB settings
+- **`knowledge.queueUrl`** — new tRPC procedure: inserts `knowledge_syncs` row with `ON CONFLICT DO NOTHING`
+- **Migration 0006** — `idx_knowledge_syncs_tenant_url` unique index + `row_number()` dedupe (tiebreaker: `id DESC`)
+- **`setupArtifact` idempotency** — checks `defaultArtifactId` before creating, returns existing artifact
+- **Back navigation** — Back button for steps 3-6, Step 1 hidden (provisioning is one-way)
+- **Resume-once guard** — `hasResumed` ref prevents stale-step overwrite when `suggestion`/`businessDescription` change
+- **Seeded-flag reset** — changing description in Step 2 resets `businessDescriptionSeeded` so Step 4 re-indexes
+- **Vector/text[] cast fixes** — `match_knowledge` RPC: format embedding as `[...]::vector` string literal, docTypes as `{...}::text[]` (Drizzle sends JS arrays as `record` type)
+- **Step2BusinessModel** — `initialDescription` prop for back-navigation data preservation; `variables.description` in `onSuccess` (race fix)
+- **Step5TestIt** — error UI for `ensurePreviewCustomer` failure
+- **`saveStep` schema** — `step` made optional so `onSeeded` can persist flag without step regression
+- **WizardProgress** — updated to 6 steps
+- **Smoke test confirmed:** agent answers "We have a 30-day money-back return policy" using RAG on seeded knowledge
+- **Self-audit (4 findings):** P2 stale-seeded-flag (fixed), P3 ensureCustomer error UI (fixed), P3 empty-patch write (acceptable), P3 URL protocol validation (server validates)
+- **Gate:** 7 workspaces type-check clean, 157 tests pass (122 API + 35 Web), 0 lint errors

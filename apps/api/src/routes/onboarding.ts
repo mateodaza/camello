@@ -134,6 +134,25 @@ Guidelines:
       moduleIds: z.array(z.string().uuid()).default([]),
     }))
     .mutation(async ({ ctx, input }) => {
+      // Idempotency: if tenant already has a default artifact, return it
+      const [existing] = await ctx.tenantDb.query(async (db) => {
+        return db
+          .select({ defaultArtifactId: tenants.defaultArtifactId })
+          .from(tenants)
+          .where(eq(tenants.id, ctx.tenantId))
+          .limit(1);
+      });
+      if (existing?.defaultArtifactId) {
+        const [art] = await ctx.tenantDb.query(async (db) => {
+          return db
+            .select()
+            .from(artifacts)
+            .where(eq(artifacts.id, existing.defaultArtifactId!))
+            .limit(1);
+        });
+        if (art) return art;
+      }
+
       return ctx.tenantDb.transaction(async (tx) => {
         // 1. Create artifact
         const [artifact] = await tx
@@ -253,13 +272,31 @@ Guidelines:
    * Persists current wizard step in tenant settings JSONB.
    */
   saveStep: tenantProcedure
-    .input(z.object({ step: z.number().int().min(1).max(5) }))
+    .input(z.object({
+      step: z.number().int().min(1).max(6).optional(),
+      suggestion: BusinessModelSuggestionSchema.nullable().optional(),
+      businessDescription: z.string().max(2000).optional(),
+      businessDescriptionSeeded: z.boolean().optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
+      const patch: Record<string, unknown> = {};
+      if (input.step !== undefined) {
+        patch.onboardingStep = input.step;
+      }
+      if (input.suggestion !== undefined) {
+        patch.suggestion = input.suggestion;
+      }
+      if (input.businessDescription !== undefined) {
+        patch.businessDescription = input.businessDescription;
+      }
+      if (input.businessDescriptionSeeded !== undefined) {
+        patch.businessDescriptionSeeded = input.businessDescriptionSeeded;
+      }
       await ctx.tenantDb.query(async (db) => {
         await db
           .update(tenants)
           .set({
-            settings: sql`COALESCE(settings, '{}'::jsonb) || ${JSON.stringify({ onboardingStep: input.step })}::jsonb`,
+            settings: sql`COALESCE(settings, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb`,
             updatedAt: new Date(),
           })
           .where(eq(tenants.id, ctx.tenantId));

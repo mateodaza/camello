@@ -71,6 +71,12 @@ export function Step5TestIt({ previewCustomerId }: Props) {
           Send a test message to see your AI agent in action. This is a live conversation.
         </p>
 
+        {ensureCustomer.isError && (
+          <p className="text-sm text-amber-600">
+            Could not set up preview chat. You can test your agent from the dashboard after setup.
+          </p>
+        )}
+
         <div className="h-64 overflow-y-auto rounded-lg border bg-gray-50 p-3">
           {messages.length === 0 && (
             <p className="text-center text-xs text-gray-400">Send a message to get started</p>

@@ -247,12 +247,19 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   const embed: EmbedFn = generateEmbedding;
   const matchKnowledge: MatchKnowledgeFn = (params) =>
     tenantDb.query(async (db) => {
+      // Format embedding as vector literal and docTypes as Postgres array
+      // literal — Drizzle parameterized JS arrays are sent as 'record' type
+      // which Postgres can't cast to vector or text[].
+      const vecLiteral = `[${params.queryEmbedding.join(',')}]`;
+      const docTypesLiteral = params.docTypes
+        ? `{${params.docTypes.map((t) => `"${t}"`).join(',')}}`
+        : null;
       const rows = await db.execute(sql`
         SELECT * FROM match_knowledge(
-          ${params.queryEmbedding}::vector,
+          ${vecLiteral}::vector,
           ${params.queryText},
           ${params.tenantId}::uuid,
-          ${params.docTypes ? sql`${params.docTypes}::text[]` : sql`NULL::text[]`},
+          ${docTypesLiteral}::text[],
           ${params.similarityThreshold},
           ${params.matchCount}
         )

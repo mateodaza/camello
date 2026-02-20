@@ -5,8 +5,8 @@ import { STEPS } from '../components/WizardProgress';
 // Wizard step constants
 // ---------------------------------------------------------------------------
 describe('STEPS', () => {
-  it('has exactly 5 steps', () => {
-    expect(STEPS).toHaveLength(5);
+  it('has exactly 6 steps', () => {
+    expect(STEPS).toHaveLength(6);
   });
 
   it('starts with Create Org and ends with Test It', () => {

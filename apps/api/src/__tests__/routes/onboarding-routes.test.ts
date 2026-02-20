@@ -184,8 +184,18 @@ describe('onboarding router', () => {
       const fakeArtifact = { id: 'artifact-uuid', name: 'Sales Bot', type: 'sales' };
       const insertedModules: Any[] = [];
       const updatedTenant: Any[] = [];
+      let callCount = 0;
 
-      const db = mockTenantDb(async (fn: Any) => {
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        // First call: idempotency check — no existing default artifact
+        if (callCount === 1) {
+          const db = {
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          };
+          return fn(db);
+        }
+        // Second call: transaction — create artifact + modules + update tenant
         const tx = {
           insert: vi.fn((table: Any) => {
             if (table?._table === 'artifactModules') {
@@ -210,7 +220,8 @@ describe('onboarding router', () => {
           })),
         };
         return fn(tx);
-      });
+      };
+      const db = { query: queryImpl, transaction: queryImpl } as Any;
 
       const caller = createCaller(makeCtx({ tenantDb: db }));
       const result = await caller.setupArtifact({
@@ -233,8 +244,17 @@ describe('onboarding router', () => {
     it('skips module insertion when moduleIds is empty', async () => {
       const fakeArtifact = { id: 'art-no-mods', name: 'Support Bot', type: 'support' };
       let insertCallCount = 0;
+      let callCount = 0;
 
-      const db = mockTenantDb(async (fn: Any) => {
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        // First call: idempotency check — no existing default artifact
+        if (callCount === 1) {
+          const db = {
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          };
+          return fn(db);
+        }
         const tx = {
           insert: vi.fn(() => {
             insertCallCount++;
@@ -249,7 +269,8 @@ describe('onboarding router', () => {
           })),
         };
         return fn(tx);
-      });
+      };
+      const db = { query: queryImpl, transaction: queryImpl } as Any;
 
       const caller = createCaller(makeCtx({ tenantDb: db }));
       await caller.setupArtifact({

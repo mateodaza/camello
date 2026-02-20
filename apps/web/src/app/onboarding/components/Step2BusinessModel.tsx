@@ -4,26 +4,21 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
-
-interface Suggestion {
-  template: string;
-  agentName: string;
-  agentType: string;
-  personality: { tone: string; greeting: string; goals: string[] };
-  constraints: { neverDiscuss: string[]; alwaysEscalate: string[] };
-  industry: string;
-  confidence: number;
-}
+import type { Suggestion } from '../page';
 
 interface Props {
-  onComplete: (suggestion: Suggestion) => void;
+  initialDescription?: string;
+  onComplete: (suggestion: Suggestion, description: string) => void;
 }
 
-export function Step2BusinessModel({ onComplete }: Props) {
-  const [description, setDescription] = useState('');
+export function Step2BusinessModel({ initialDescription = '', onComplete }: Props) {
+  const [description, setDescription] = useState(initialDescription);
   const parse = trpc.onboarding.parseBusinessModel.useMutation({
-    onSuccess: (data) => {
-      onComplete(data as Suggestion);
+    onSuccess: (data, variables) => {
+      // Use variables.description (the value sent to the server) instead of
+      // the live `description` state — user may have edited the textarea
+      // while the mutation was in flight.
+      onComplete(data as Suggestion, variables.description);
     },
   });
 

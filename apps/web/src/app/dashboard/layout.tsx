@@ -10,14 +10,21 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   const tenant = trpc.tenant.me.useQuery();
   const router = useRouter();
 
+  // A tenant is "onboarded" if they completed the wizard OR already have a
+  // default artifact (set up via API/seed data). Prevents forcing existing
+  // tenants through the wizard just because the flag isn't set.
+  const isOnboarded = tenant.data
+    ? !!(tenant.data.settings as Record<string, unknown>)?.onboardingComplete || !!tenant.data.defaultArtifactId
+    : false;
+
   useEffect(() => {
     if (tenant.isError && tenant.error.data?.code === 'FORBIDDEN') {
       router.replace('/onboarding');
     }
-    if (tenant.data && !(tenant.data.settings as Record<string, unknown>)?.onboardingComplete) {
+    if (tenant.data && !isOnboarded) {
       router.replace('/onboarding');
     }
-  }, [tenant.data, tenant.isError, tenant.error, router]);
+  }, [tenant.data, tenant.isError, tenant.error, router, isOnboarded]);
 
   if (tenant.isLoading) {
     return (
@@ -36,8 +43,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Render guard: suppress children while redirect is in flight
-  if (tenant.data && !(tenant.data.settings as Record<string, unknown>)?.onboardingComplete) {
+  if (tenant.data && !isOnboarded) {
     return null;
   }
 

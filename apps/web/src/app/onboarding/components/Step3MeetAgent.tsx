@@ -5,16 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
-
-interface Suggestion {
-  template: string;
-  agentName: string;
-  agentType: string;
-  personality: { tone: string; greeting: string; goals: string[] };
-  constraints: { neverDiscuss: string[]; alwaysEscalate: string[] };
-  industry: string;
-  confidence: number;
-}
+import type { Suggestion } from '../page';
 
 interface Props {
   suggestion: Suggestion;

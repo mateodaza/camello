@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { knowledgeDocs, tenants } from '@camello/db';
+import { knowledgeDocs, knowledgeSyncs, tenants } from '@camello/db';
 import { ingestKnowledge, IngestionLimitError } from '@camello/ai';
 import type { PlanTier, KnowledgeChunk } from '@camello/shared/types';
 
@@ -148,5 +148,23 @@ export const knowledgeRouter = router({
           .returning({ id: knowledgeDocs.id });
         return { deletedCount: rows.length };
       });
+    }),
+
+  queueUrl: tenantProcedure
+    .input(z.object({ url: z.string().url().max(2000) }))
+    .mutation(async ({ ctx, input }) => {
+      const rows = await ctx.tenantDb.query(async (db) => {
+        return db
+          .insert(knowledgeSyncs)
+          .values({
+            tenantId: ctx.tenantId,
+            sourceUrl: input.url,
+            sourceType: 'website',
+            status: 'pending',
+          })
+          .onConflictDoNothing({ target: [knowledgeSyncs.tenantId, knowledgeSyncs.sourceUrl] })
+          .returning({ id: knowledgeSyncs.id, status: knowledgeSyncs.status });
+      });
+      return rows[0] ?? { id: null, status: 'already_queued' as const };
     }),
 });
