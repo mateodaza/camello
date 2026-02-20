@@ -9,6 +9,7 @@ import { learningRouter } from './learning.js';
 import { channelRouter } from './channel.js';
 import { analyticsRouter } from './analytics.js';
 import { chatRouter } from './chat.js';
+import { onboardingRouter } from './onboarding.js';
 
 const tenantRouter = router({
   /** Get current tenant info. Requires auth + tenant context. */
@@ -30,7 +31,7 @@ export const appRouter = router({
   channel: channelRouter,
   analytics: analyticsRouter,
   chat: chatRouter,
-  // onboarding: onboardingRouter,  // Week 4
+  onboarding: onboardingRouter,
 });
 
 export type AppRouter = typeof appRouter;

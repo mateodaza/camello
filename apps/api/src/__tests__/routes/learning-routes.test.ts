@@ -23,6 +23,7 @@ function makeCtx(tenantDb: TenantDb) {
   return {
     req: new Request('http://test'),
     userId: USER_ID,
+    orgId: null,
     tenantId: TENANT_ID,
     tenantDb,
   };

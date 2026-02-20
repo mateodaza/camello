@@ -1,0 +1,285 @@
+import { z } from 'zod';
+import { eq, and, sql } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
+import { generateObject } from 'ai';
+import { createLLMClient } from '@camello/ai';
+import { MODEL_MAP } from '@camello/shared/constants';
+import { artifacts, artifactModules, tenants, customers } from '@camello/db';
+import { router, authedProcedure, tenantProcedure } from '../trpc/init.js';
+import { provisionTenant } from '../services/tenant-provisioning.js';
+
+// ---------------------------------------------------------------------------
+// Schemas
+// ---------------------------------------------------------------------------
+
+const personalitySchema = z.object({
+  tone: z.enum(['professional', 'friendly', 'casual', 'formal']),
+  greeting: z.string(),
+  goals: z.array(z.string()),
+});
+
+const constraintsSchema = z.object({
+  neverDiscuss: z.array(z.string()),
+  alwaysEscalate: z.array(z.string()),
+});
+
+export const BusinessModelSuggestionSchema = z.object({
+  template: z.enum(['services', 'ecommerce', 'saas', 'restaurant', 'realestate']),
+  agentName: z.string(),
+  agentType: z.enum(['sales', 'support', 'marketing', 'custom']),
+  personality: personalitySchema,
+  constraints: constraintsSchema,
+  industry: z.string(),
+  confidence: z.number().min(0).max(1),
+});
+
+export type BusinessModelSuggestion = z.infer<typeof BusinessModelSuggestionSchema>;
+
+export const DEFAULT_SERVICES_SUGGESTION: BusinessModelSuggestion = {
+  template: 'services',
+  agentName: 'Alex',
+  agentType: 'sales',
+  personality: {
+    tone: 'friendly',
+    greeting: 'Hi there! I\'m here to help you learn about our services. How can I assist you today?',
+    goals: [
+      'Understand customer needs and qualify interest',
+      'Schedule a discovery call or meeting',
+      'Follow up with relevant information',
+    ],
+  },
+  constraints: {
+    neverDiscuss: ['competitor pricing', 'internal processes'],
+    alwaysEscalate: ['angry customer', 'refund request', 'legal question'],
+  },
+  industry: 'professional services',
+  confidence: 0.5,
+};
+
+// ---------------------------------------------------------------------------
+// Router
+// ---------------------------------------------------------------------------
+
+export const onboardingRouter = router({
+  /**
+   * Idempotent tenant provisioning — handles the race condition where
+   * the wizard loads before the Clerk webhook has fired.
+   */
+  provision: authedProcedure
+    .input(z.object({
+      orgId: z.string().min(1),
+      companyName: z.string().min(1).max(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Security: require active org context and match against input
+      if (!ctx.orgId || ctx.orgId !== input.orgId) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Organization ID mismatch' });
+      }
+
+      return provisionTenant({
+        orgId: input.orgId,
+        orgName: input.companyName,
+        creatorUserId: ctx.userId,
+      });
+    }),
+
+  /**
+   * AI-powered business model parsing. Takes a free-text description
+   * and returns a structured suggestion via generateObject + Zod schema.
+   */
+  parseBusinessModel: authedProcedure
+    .input(z.object({
+      description: z.string().min(10).max(2000),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const client = createLLMClient();
+        const { object } = await generateObject({
+          model: client(MODEL_MAP.fast),
+          schema: BusinessModelSuggestionSchema,
+          prompt: `You are a business analyst for an AI agent platform. Classify this business and suggest an AI sales agent configuration.
+
+Business description: "${input.description}"
+
+Guidelines:
+- template: choose the closest match (services for agencies/consulting, ecommerce for online stores, saas for software, restaurant for F&B, realestate for property)
+- agentName: suggest a friendly first name (e.g. Alex, Sam, Maya)
+- agentType: almost always "sales" for MVP
+- personality.tone: match the business style
+- personality.greeting: one welcoming sentence
+- personality.goals: 3 actionable goals for this agent
+- constraints.neverDiscuss: topics the agent should avoid
+- constraints.alwaysEscalate: situations requiring a human
+- industry: brief industry label
+- confidence: 0-1 how confident you are in this classification`,
+        });
+
+        return object;
+      } catch (err) {
+        console.warn('[onboarding] parseBusinessModel LLM error, using default:', err);
+        return DEFAULT_SERVICES_SUGGESTION;
+      }
+    }),
+
+  /**
+   * Atomic artifact setup: create artifact + attach modules + set as
+   * tenant default. All in one transaction.
+   */
+  setupArtifact: tenantProcedure
+    .input(z.object({
+      name: z.string().min(1).max(100),
+      type: z.enum(['sales', 'support', 'marketing', 'custom']),
+      personality: z.record(z.unknown()).default({}),
+      constraints: z.record(z.unknown()).default({}),
+      moduleIds: z.array(z.string().uuid()).default([]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.transaction(async (tx) => {
+        // 1. Create artifact
+        const [artifact] = await tx
+          .insert(artifacts)
+          .values({
+            tenantId: ctx.tenantId,
+            name: input.name,
+            type: input.type,
+            personality: input.personality,
+            constraints: input.constraints,
+            escalation: { escalate_on: ['human_requested', 'complaint'] },
+          })
+          .returning();
+
+        // 2. Attach modules
+        if (input.moduleIds.length > 0) {
+          await tx.insert(artifactModules).values(
+            input.moduleIds.map((moduleId) => ({
+              artifactId: artifact.id,
+              moduleId,
+              tenantId: ctx.tenantId,
+              autonomyLevel: 'draft_and_approve' as const,
+            })),
+          );
+        }
+
+        // 3. Set as default artifact for the tenant
+        await tx
+          .update(tenants)
+          .set({ defaultArtifactId: artifact.id, updatedAt: new Date() })
+          .where(eq(tenants.id, ctx.tenantId));
+
+        return artifact;
+      });
+    }),
+
+  /**
+   * Creates a preview customer for the authenticated user if one
+   * doesn't already exist. Used by Step 5 when provisionTenant
+   * was called without a creatorUserId (webhook path).
+   */
+  ensurePreviewCustomer: tenantProcedure.mutation(async ({ ctx }) => {
+    // Try to insert — ON CONFLICT DO NOTHING if already exists
+    const inserted = await ctx.tenantDb.query(async (db) => {
+      return db
+        .insert(customers)
+        .values({
+          tenantId: ctx.tenantId,
+          externalId: ctx.userId,
+          channel: 'webchat',
+          name: 'Founder Preview',
+        })
+        .onConflictDoNothing({ target: [customers.tenantId, customers.channel, customers.externalId] })
+        .returning({ id: customers.id });
+    });
+
+    if (inserted[0]) {
+      return { customerId: inserted[0].id };
+    }
+
+    // Already existed — look it up
+    const existing = await ctx.tenantDb.query(async (db) => {
+      return db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(
+          and(
+            eq(customers.tenantId, ctx.tenantId),
+            eq(customers.channel, 'webchat'),
+            eq(customers.externalId, ctx.userId),
+          ),
+        )
+        .limit(1);
+    });
+
+    if (!existing[0]) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to find or create preview customer' });
+    }
+
+    return { customerId: existing[0].id };
+  }),
+
+  /**
+   * Returns current onboarding status: settings + preview customer ID.
+   */
+  getStatus: tenantProcedure.query(async ({ ctx }) => {
+    const [tenantRow] = await ctx.tenantDb.query(async (db) => {
+      return db
+        .select({ settings: tenants.settings, name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .limit(1);
+    });
+
+    const previewCustomer = await ctx.tenantDb.query(async (db) => {
+      return db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(
+          and(
+            eq(customers.tenantId, ctx.tenantId),
+            eq(customers.channel, 'webchat'),
+            eq(customers.externalId, ctx.userId),
+          ),
+        )
+        .limit(1);
+    });
+
+    return {
+      settings: tenantRow?.settings ?? null,
+      tenantName: tenantRow?.name ?? null,
+      previewCustomerId: previewCustomer[0]?.id ?? null,
+    };
+  }),
+
+  /**
+   * Persists current wizard step in tenant settings JSONB.
+   */
+  saveStep: tenantProcedure
+    .input(z.object({ step: z.number().int().min(1).max(5) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.tenantDb.query(async (db) => {
+        await db
+          .update(tenants)
+          .set({
+            settings: sql`COALESCE(settings, '{}'::jsonb) || ${JSON.stringify({ onboardingStep: input.step })}::jsonb`,
+            updatedAt: new Date(),
+          })
+          .where(eq(tenants.id, ctx.tenantId));
+      });
+      return { ok: true };
+    }),
+
+  /**
+   * Marks onboarding as complete.
+   */
+  complete: tenantProcedure.mutation(async ({ ctx }) => {
+    await ctx.tenantDb.query(async (db) => {
+      await db
+        .update(tenants)
+        .set({
+          settings: sql`COALESCE(settings, '{}'::jsonb) || '{"onboardingComplete": true}'::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(eq(tenants.id, ctx.tenantId));
+    });
+    return { ok: true };
+  }),
+});

@@ -6,6 +6,8 @@ export interface Context {
   req: Request;
   /** Clerk user ID (e.g. "user_xxx"). Null if unauthenticated. */
   userId: string | null;
+  /** Clerk organization ID (e.g. "org_xxx"). Null if no org selected. */
+  orgId: string | null;
   /** Clerk organization ID mapped to tenant UUID. Null if no org selected. */
   tenantId: string | null;
   /** Tenant-scoped DB helper. Null if no tenant context. */
@@ -18,6 +20,16 @@ export interface Context {
 const ORG_TENANT_CACHE = new Map<string, { tenantId: string; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const CACHE_MAX_SIZE = 500;
+
+/**
+ * Invalidates a single org→tenant mapping from the LRU cache.
+ * Called after provisioning writes camello_tenant_id to Clerk org metadata,
+ * so the next request re-reads from Clerk immediately instead of waiting
+ * for the 5-min TTL to expire.
+ */
+export function clearOrgCache(orgId: string): void {
+  ORG_TENANT_CACHE.delete(orgId);
+}
 
 async function resolveOrgTenantId(orgId: string): Promise<string | null> {
   const cached = ORG_TENANT_CACHE.get(orgId);
@@ -59,6 +71,7 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
   const { req } = opts;
 
   let userId: string | null = null;
+  let orgId: string | null = null;
   let tenantId: string | null = null;
   let tenantDb: TenantDb | null = null;
 
@@ -68,11 +81,12 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
       const requestState = await clerk.authenticateRequest(req, {});
 
       if (requestState.isSignedIn) {
-        const { userId: clerkUserId, orgId } = requestState.toAuth();
+        const { userId: clerkUserId, orgId: clerkOrgId } = requestState.toAuth();
         userId = clerkUserId;
+        orgId = clerkOrgId ?? null;
 
-        if (orgId) {
-          const resolved = await resolveOrgTenantId(orgId);
+        if (clerkOrgId) {
+          const resolved = await resolveOrgTenantId(clerkOrgId);
           if (resolved) {
             tenantId = resolved;
             tenantDb = createTenantDb(tenantId);
@@ -85,5 +99,5 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
     // Protected procedures will reject via middleware.
   }
 
-  return { req, userId, tenantId, tenantDb };
+  return { req, userId, orgId, tenantId, tenantDb };
 }

@@ -5,7 +5,7 @@
 >
 > **AI memory lives at:** `~/.claude/projects/.../memory/` (MEMORY.md, architecture.md, compliance-gaps.md, differentiation.md). Not in-repo — persists across Claude sessions.
 
-## Current Phase: Week 3 — Channels + Dashboard + Jobs + KPI (Weeks 1-2 complete)
+## Current Phase: Week 4 — Onboarding + Hardening (Weeks 1-3 complete)
 
 ### Done
 
@@ -53,11 +53,12 @@
 
 | 35 | Dashboard: knowledge + analytics pages (#35) | Feb 19 | Knowledge mgmt (docs table grouped by title, ingest form, delete-by-title, offset pagination, learning list with dismiss/boost/bulkClear), analytics deep-dive (date range, overview stats, per-artifact metrics, interaction logs, billing periods). Shared `stat-card.tsx` + `format.ts` utils. 25 tests. Perf: bounded LRU org→tenant cache (500 max), removed RESET round-trip. Vitest v4 standardized. |
 
+| 36 | Tenant onboarding wizard (#36) | Feb 19 | Clerk webhook (Svix sig verification), `provisionTenant()` (deterministic UUIDv5 + legacy org adoption with member verification + slug retry), 7-procedure tRPC onboarding router (provision, parseBusinessModel, setupArtifact, ensurePreviewCustomer, getStatus, saveStep, complete), dashboard `OnboardingGate` (layout-level redirect + render guard), 5-step wizard (org creation, AI business parser, artifact setup, channel connect, live test chat), `orgId` in tRPC context, 6 security audit rounds (cross-tenant takeover prevention, UUID validation, null-creator blocking, split member queries), 53 new tests (43 API + 10 web). Dependencies: `svix`, `uuid` |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 36 | Tenant onboarding wizard | P1 | 3 hrs | #35 |
 | 37 | Paddle billing integration | P1 | 4 hrs | #36 |
 | 38 | End-to-end testing | P1 | 3 hrs | #37 |
 | 39 | Production deploy (Vercel + Supabase) | P1 | 2 hrs | #38 |
@@ -113,7 +114,9 @@
 - [x] Perf: bounded LRU org→tenant cache + RESET removal
 
 ### Week 4 — Onboarding + Hardening
-- [ ] Tenant onboarding wizard (create tenant → create artifact → connect WhatsApp)
+- [x] Tenant onboarding wizard (5-step: create org → describe business → meet agent → connect channel → test chat)
+- [x] Clerk webhook handler (organization.created → auto-provision tenant)
+- [x] Dashboard OnboardingGate (redirects unonboarded users from all /dashboard routes)
 - [ ] Billing integration (Paddle — Merchant of Record, no US LLC needed)
 - [ ] End-to-end testing: message in → intent → artifact → response out
 - [ ] Load testing, error handling, edge cases
@@ -325,3 +328,49 @@
 - **Billing decision**: Paddle (Merchant of Record) for Week 4 — no US LLC needed, Colombia supported, 5% + $0.50/txn
 - **Gate:** 7 workspaces type-check clean, 202 tests pass (22 RLS + 42 AI + 75 API + 38 Jobs + 25 Web), 0 lint errors
 - **Week 3 complete** — all tasks done. Ready for Week 4.
+
+### Session 12 — Feb 19 (Tenant Onboarding Wizard #36)
+- **Built full 5-step onboarding wizard** — Clerk webhook + tRPC router + dashboard gate + frontend:
+- **Backend — `apps/api/src/services/tenant-provisioning.ts`:**
+  - `orgIdToTenantId(orgId)` — deterministic UUIDv5 (DNS namespace)
+  - `deriveSlug(name)` — URL-safe with random 4-char suffix, max 40 base chars
+  - `provisionTenant()` — legacy org adoption (step 0: check Clerk metadata, verify tenant row exists before hard-fail), tenant INSERT with ON CONFLICT (id) DO NOTHING, slug collision retry (23505, max 3), member + preview customer creation, Clerk metadata sync, LRU cache invalidation
+- **Backend — `apps/api/src/webhooks/clerk.ts`:**
+  - Hono route at POST `/api/webhooks/clerk`, Svix signature verification
+  - Dispatches `organization.created` to shared `provisionTenant()`
+- **Backend — `apps/api/src/routes/onboarding.ts`:**
+  - 7-procedure tRPC router: `provision` (authedProcedure, orgId security check), `parseBusinessModel` (generateObject + Zod schema + default fallback), `setupArtifact` (atomic: artifact + modules + defaultArtifactId), `ensurePreviewCustomer` (explicit conflict target), `getStatus`, `saveStep`, `complete`
+- **Backend — `apps/api/src/trpc/context.ts`:**
+  - Added `orgId: string | null` to Context, exported `clearOrgCache()`
+- **Frontend — `apps/web/src/app/onboarding/`:**
+  - `layout.tsx` — centered max-w-2xl on gray-50 background
+  - `page.tsx` — wizard orchestrator with step state, resume from saved step
+  - `WizardProgress.tsx` — 5-dot horizontal step indicator
+  - `Step1CompanyName.tsx` — Clerk `<CreateOrganization />` or auto-provision
+  - `Step2BusinessModel.tsx` — textarea → `parseBusinessModel` → suggestion card
+  - `Step3MeetAgent.tsx` — AI suggestion preview, inline rename, `setupArtifact`
+  - `Step4ConnectChannel.tsx` — WebChat (embed snippet) or WhatsApp (phone + webhook URL)
+  - `Step5TestIt.tsx` — live chat with `chat.send`, `ensurePreviewCustomer` fallback
+- **Frontend — `apps/web/src/app/dashboard/layout.tsx`:**
+  - `OnboardingGate` wrapper: `tenant.me` → redirect to `/onboarding` if not complete, render guard (null) to prevent flash, `QueryError` for non-FORBIDDEN errors
+- **Frontend — `apps/web/src/middleware.ts`:**
+  - Added `/onboarding(.*)` to protected routes
+- **Tests:**
+  - 13 provisioning tests: deterministic UUID, slug derivation, idempotent provision, legacy adoption, metadata mismatch, slug retry
+  - 8 webhook tests: valid org.created, invalid sig, non-org events, idempotent, missing secret
+  - 17 onboarding route tests: all 7 procedures + schema validation + orgId security
+  - 10 web tests: wizard steps, suggestion shape, widget snippet construction
+- **6 rounds of security audits resolved:**
+  - P1: orgId null bypass → require `!ctx.orgId || ctx.orgId !== input.orgId`
+  - P1: widget snippet URL → `NEXT_PUBLIC_WIDGET_URL` + `widget.js` (matching vite.config)
+  - P1: legacy org adoption → check tenant row exists before hard-fail on metadata mismatch
+  - P1: cross-tenant takeover → member verification on legacy adoption (occupied tenant requires caller to be existing member)
+  - P1: null-creator webhook path → unconditional occupancy check (blocks null-creator + non-member callers)
+  - P2: dashboard gate flash → synchronous render guard before useEffect redirect
+  - P2: missing env vars → added `CLERK_WEBHOOK_SECRET` to API, `NEXT_PUBLIC_WIDGET_URL` to web
+  - P2: onboarding web tests added (10 tests)
+  - P2: malformed `camello_tenant_id` → UUID regex validation before `createTenantDb()`
+  - P2: `.limit(1)` false rejection → split into `hasAnyMembers` + `callerMembership` queries
+  - P3: `ensurePreviewCustomer` → explicit conflict target `[tenantId, channel, externalId]`
+- **Dependencies:** `svix` + `uuid` added to `apps/api`
+- **Gate:** 7 workspaces type-check clean, 256 tests pass (22 RLS + 42 AI + 119 API + 38 Jobs + 35 Web), 0 lint errors (4 pre-existing warnings)

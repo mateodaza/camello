@@ -12,14 +12,7 @@ export default function DashboardOverview() {
   const overview = trpc.analytics.overview.useQuery({ from: '2024-01-01', to: localDateStr() });
   const artifacts = trpc.artifact.list.useQuery({});
 
-  if (tenant.isLoading) {
-    return <div className="text-gray-500">Loading...</div>;
-  }
-
-  if (tenant.isError) {
-    return <QueryError error={tenant.error} />;
-  }
-
+  // Layout's OnboardingGate handles tenant loading/error state
   const convStats = overview.data?.conversations ?? {};
   const cost = overview.data?.cost;
   const total = Object.values(convStats).reduce((s, n) => s + n, 0);
