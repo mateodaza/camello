@@ -176,11 +176,11 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
         <div className="flex gap-2 pt-2">
           <Button
             onClick={handleContinue}
-            disabled={submitting}
+            disabled={submitting || seedStatus === 'seeding'}
           >
             {submitting ? 'Saving...' : 'Continue'}
           </Button>
-          <Button variant="ghost" onClick={onComplete} disabled={submitting}>
+          <Button variant="ghost" onClick={onComplete} disabled={submitting || seedStatus === 'seeding'}>
             Skip for now
           </Button>
         </div>

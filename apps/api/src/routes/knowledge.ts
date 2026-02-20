@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, asc, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { knowledgeDocs, knowledgeSyncs, tenants } from '@camello/db';
@@ -119,6 +119,24 @@ export const knowledgeRouter = router({
         }
         throw err;
       }
+    }),
+
+  getByTitle: tenantProcedure
+    .input(z.object({ title: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .select({
+            id: knowledgeDocs.id,
+            content: knowledgeDocs.content,
+            sourceType: knowledgeDocs.sourceType,
+            chunkIndex: knowledgeDocs.chunkIndex,
+          })
+          .from(knowledgeDocs)
+          .where(and(eq(knowledgeDocs.tenantId, ctx.tenantId), eq(knowledgeDocs.title, input.title)))
+          .orderBy(asc(knowledgeDocs.chunkIndex));
+        return rows;
+      });
     }),
 
   delete: tenantProcedure

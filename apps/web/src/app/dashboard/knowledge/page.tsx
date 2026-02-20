@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { trpc } from '@/lib/trpc';
 import { groupChunksByTitle, truncate, fmtDate } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil } from 'lucide-react';
 
 const sourceTypes = ['upload', 'url', 'api'] as const;
 
@@ -25,6 +25,9 @@ export default function KnowledgePage() {
   const [sourceType, setSourceType] = useState<(typeof sourceTypes)[number]>('upload');
   const [sourceUrl, setSourceUrl] = useState('');
   const [ingestSuccess, setIngestSuccess] = useState<{ chunkCount: number; title?: string } | null>(null);
+
+  // --- Edit mode ---
+  const [editingTitle, setEditingTitle] = useState<string | null>(null);
 
   // --- Delete ---
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -58,12 +61,35 @@ export default function KnowledgePage() {
   const ingest = trpc.knowledge.ingest.useMutation({
     onSuccess: (data) => {
       utils.knowledge.list.invalidate();
-      setIngestSuccess(data);
       setContent('');
       setTitle('');
       setSourceUrl('');
+      if (editingTitle) {
+        // Edit complete — close form, show the list
+        setEditingTitle(null);
+        setShowIngest(false);
+        setIngestSuccess(null);
+      } else {
+        setIngestSuccess(data);
+      }
     },
   });
+
+  const editChunks = trpc.knowledge.getByTitle.useQuery(
+    { title: editingTitle! },
+    { enabled: !!editingTitle },
+  );
+
+  // When edit chunks load, populate the form
+  useEffect(() => {
+    if (!editChunks.data || !editingTitle) return;
+    const chunks = editChunks.data;
+    if (chunks.length === 0) return;
+    setContent(chunks.map((c) => c.content).join('\n\n'));
+    setTitle(editingTitle);
+    setSourceType((chunks[0].sourceType as typeof sourceType) ?? 'upload');
+    setShowIngest(true);
+  }, [editChunks.data, editingTitle]);
 
   const deleteByTitle = trpc.knowledge.deleteByTitle.useMutation({
     onSuccess: () => {
@@ -103,16 +129,36 @@ export default function KnowledgePage() {
   if (knowledgeList.isLoading) return <div className="text-gray-500">Loading...</div>;
   if (knowledgeList.isError) return <QueryError error={knowledgeList.error} />;
 
-  function handleIngest(e: React.FormEvent) {
+  async function handleIngest(e: React.FormEvent) {
     e.preventDefault();
     if (!content.trim()) return;
     setIngestSuccess(null);
+
+    // Edit mode: delete old chunks first, then re-ingest
+    if (editingTitle) {
+      await deleteByTitle.mutateAsync({ title: editingTitle });
+    }
+
     ingest.mutate({
       content: content.trim(),
       title: title.trim() || undefined,
       sourceType,
       sourceUrl: sourceType === 'url' && sourceUrl.trim() ? sourceUrl.trim() : undefined,
     });
+  }
+
+  function handleEdit(docTitle: string) {
+    setEditingTitle(docTitle);
+    setDeleteConfirm(null);
+    setIngestSuccess(null);
+  }
+
+  function cancelEdit() {
+    setEditingTitle(null);
+    setShowIngest(false);
+    setContent('');
+    setTitle('');
+    setSourceUrl('');
   }
 
   return (
@@ -148,7 +194,7 @@ export default function KnowledgePage() {
         {showIngest && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Ingest Knowledge</CardTitle>
+              <CardTitle className="text-base">{editingTitle ? `Edit: ${editingTitle}` : 'Ingest Knowledge'}</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <form onSubmit={handleIngest} className="space-y-3">
@@ -202,10 +248,12 @@ export default function KnowledgePage() {
                   </div>
                 )}
                 <div className="flex items-center gap-3">
-                  <Button type="submit" disabled={ingest.isPending}>
-                    {ingest.isPending ? 'Ingesting...' : 'Ingest'}
+                  <Button type="submit" disabled={ingest.isPending || deleteByTitle.isPending}>
+                    {ingest.isPending || deleteByTitle.isPending
+                      ? (editingTitle ? 'Updating...' : 'Ingesting...')
+                      : (editingTitle ? 'Update' : 'Ingest')}
                   </Button>
-                  <Button type="button" variant="ghost" onClick={() => setShowIngest(false)}>
+                  <Button type="button" variant="ghost" onClick={editingTitle ? cancelEdit : () => setShowIngest(false)}>
                     Cancel
                   </Button>
                 </div>
@@ -268,9 +316,15 @@ export default function KnowledgePage() {
                               </Button>
                             </span>
                           ) : (
-                            <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(doc.title)}>
-                              Delete
-                            </Button>
+                            <span className="flex justify-end gap-1">
+                              <Button size="sm" variant="ghost" onClick={() => handleEdit(doc.title!)}>
+                                <Pencil className="mr-1 h-3 w-3" />
+                                Edit
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(doc.title)}>
+                                Delete
+                              </Button>
+                            </span>
                           )
                         ) : (
                           <span className="text-xs text-gray-400">untitled</span>

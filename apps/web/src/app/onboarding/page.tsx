@@ -91,13 +91,14 @@ export default function OnboardingPage() {
     }
   }, [status.data, router]);
 
-  const advanceToStep = (nextStep: number, data?: { suggestion?: Suggestion; businessDescription?: string }) => {
+  const advanceToStep = (nextStep: number, data?: { suggestion?: Suggestion; businessDescription?: string; businessDescriptionSeeded?: boolean }) => {
     setStep(nextStep);
     if (tenantId) {
       saveStep.mutate({
         step: nextStep,
         suggestion: data?.suggestion ?? undefined,
         businessDescription: data?.businessDescription ?? undefined,
+        businessDescriptionSeeded: data?.businessDescriptionSeeded,
       });
     }
   };
@@ -141,12 +142,17 @@ export default function OnboardingPage() {
           initialDescription={businessDescription}
           onComplete={(s, desc) => {
             setSuggestion(s);
+            const descChanged = desc !== businessDescription;
             // If description changed, reset seeded flag so Step 4 re-indexes
-            if (desc !== businessDescription) {
+            if (descChanged) {
               setBusinessDescriptionSeeded(false);
             }
             setBusinessDescription(desc);
-            advanceToStep(3, { suggestion: s, businessDescription: desc });
+            advanceToStep(3, {
+              suggestion: s,
+              businessDescription: desc,
+              businessDescriptionSeeded: descChanged ? false : undefined,
+            });
           }}
         />
       )}
