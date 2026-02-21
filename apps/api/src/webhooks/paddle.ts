@@ -118,7 +118,7 @@ paddleWebhookRoutes.post('/paddle', async (c) => {
   let event: any;
   try {
     const paddle = getPaddle();
-    event = paddle.webhooks.unmarshal(rawBody, secret, signature);
+    event = await paddle.webhooks.unmarshal(rawBody, secret, signature);
   } catch (err) {
     console.warn('[paddle-webhook] Invalid signature:', err);
     return c.text('Invalid signature', 400);
