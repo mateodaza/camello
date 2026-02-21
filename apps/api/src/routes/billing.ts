@@ -77,12 +77,24 @@ export const billingRouter = router({
       const transaction = await paddle.transactions.create({
         items: [{ priceId, quantity: 1 }],
         customData: { tenantId: ctx.tenantId },
+        collectionMode: 'automatic',
       });
 
-      return {
-        updated: false,
-        checkoutUrl: transaction.checkout?.url ?? null,
-      };
+      const checkoutUrl = transaction.checkout?.url ?? null;
+      if (!checkoutUrl) {
+        console.error('Paddle transaction created without checkout URL', {
+          transactionId: transaction.id,
+          status: transaction.status,
+          collectionMode: transaction.collectionMode,
+          checkout: transaction.checkout,
+        });
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to generate checkout URL. Please try again.',
+        });
+      }
+
+      return { updated: false, checkoutUrl };
     }),
 
   cancelSubscription: tenantProcedure.mutation(async ({ ctx }) => {

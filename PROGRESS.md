@@ -63,13 +63,17 @@
 
 | 39 | Production deploy (#39) | Feb 21 | Railway (API at `api.camello.xyz`), Vercel (web at `camello.xyz`), Cloudflare Pages (widget at `widget.camello.xyz`). tsup noExternal + createRequire banner, Dockerfile, graceful shutdown, `.node-version` + engines. Domain: `camello.xyz` primary, `camello.lat` 301 redirect. Removed git submodules. Cloudflare DNS (both domains). Vite `minify: true` fix (terser optional). |
 | 39c | Jobs migration: Trigger.dev → Railway worker (#39c) | Feb 21 | Replaced `@trigger.dev/sdk` with `node-cron` standalone worker. DB-backed `job_runs` ledger (migration 0008), bounded catch-up on startup (7-day cap), `createWorker()` factory pattern, graceful shutdown, health endpoint, `Dockerfile.jobs`. 42 tests (38 existing + 4 new). |
+| 39b | Clerk webhook registration (#39b) | Feb 21 | Registered `organization.created` → `https://api.camello.xyz/api/webhooks/clerk`. `CLERK_WEBHOOK_SECRET` set on Railway. Verified working end-to-end. |
+| 39d | Smoke test: core flow (#39d) | Feb 21 | Sign-up → Clerk org creation → webhook fires → tenant provisioned in Supabase → 6-step onboarding wizard → AI chat with RAG (knowledge retrieval from seeded docs confirmed). Fixed: DATABASE_URL (Supabase pooler, not Railway Postgres), CORS (gray cloud for api CNAME), www→apex redirect (Vercel domains). |
+| 39c-deploy | Deploy jobs worker (#39c-deploy) | Feb 21 | Railway worker service from `Dockerfile.jobs`. Port 3001, node-cron, 3 cron schedules. Live and healthy. |
+| 39d-widget | Smoke test: widget embed (#39d-widget) | Feb 21 | Widget loads from `widget.camello.xyz`, resolves tenant slug, shows agent name + org, session creation + AI responses confirmed end-to-end. |
 
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 39b | Webhook registration (Clerk + Paddle) | P1 | 30 min | #39 |
-| 39d | Smoke test (sign up → onboarding → widget → billing) | P1 | 1 hr | #39b, #39c |
+| 39b-paddle | Register Paddle webhook | P2 | 15 min | #39 |
+| 39d-billing | Smoke test: billing checkout (Paddle sandbox) | P2 | 30 min | #39b-paddle |
 
 ### Post-Week 4 — Launch Readiness
 
@@ -154,9 +158,14 @@
 - [x] Integration pipeline tests: full message flow, budget gate, module tool-calling, RAG knowledge flow (20 tests)
 - [ ] Load testing, error handling, edge cases
 - [x] Production deploy: Railway (API), Vercel (web), Cloudflare Pages (widget)
-- [ ] Webhook registration (Clerk + Paddle)
+- [x] Clerk webhook registered + working
+- [ ] Paddle webhook registration
 - [x] Jobs migration (Trigger.dev → Railway standalone worker with node-cron)
-- [ ] Smoke test
+- [x] Jobs deploy (Railway worker service)
+- [x] Smoke test: sign-up → onboarding → AI chat with RAG ✓
+- [x] Smoke test: widget embed ✓
+- [ ] Paddle webhook registration
+- [ ] Smoke test: billing checkout
 
 ---
 
