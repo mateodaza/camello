@@ -52,9 +52,14 @@ export default function BillingPage() {
     window.Paddle.Initialize({
       token: PADDLE_CLIENT_TOKEN,
       eventCallback: (event) => {
-        if (event.name === 'checkout.completed') {
-          utils.billing.currentPlan.invalidate();
-          utils.billing.history.invalidate();
+        if (event.name === 'checkout.completed' || event.name === 'checkout.closed') {
+          const refresh = () => {
+            utils.billing.currentPlan.invalidate();
+            utils.billing.history.invalidate();
+          };
+          refresh();
+          setTimeout(refresh, 2000);
+          setTimeout(refresh, 5000);
         }
       },
     });
