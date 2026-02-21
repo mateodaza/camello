@@ -8,3 +8,4 @@ export * from './learning.js';
 export * from './channels.js';
 export * from './billing.js';
 export * from './routing.js';
+export * from './ops.js';

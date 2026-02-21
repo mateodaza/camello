@@ -61,20 +61,23 @@
 
 | 38 | Integration pipeline tests (#38) | Feb 20 | 4 test files in `apps/api/src/__tests__/integration/`: full-message-pipeline (5), budget-gate-integration (5), module-tool-calling (5), rag-knowledge-flow (5). Exercises `handleMessage()` orchestration with mocked LLM/DB. 209 tests (166 API + 43 web). |
 
+| 39 | Production deploy (#39) | Feb 21 | Railway (API at `api.camello.xyz`), Vercel (web at `camello.xyz`), Cloudflare Pages (widget at `widget.camello.xyz`). tsup noExternal + createRequire banner, Dockerfile, graceful shutdown, `.node-version` + engines. Domain: `camello.xyz` primary, `camello.lat` 301 redirect. Removed git submodules. Cloudflare DNS (both domains). Vite `minify: true` fix (terser optional). |
+| 39c | Jobs migration: Trigger.dev → Railway worker (#39c) | Feb 21 | Replaced `@trigger.dev/sdk` with `node-cron` standalone worker. DB-backed `job_runs` ledger (migration 0008), bounded catch-up on startup (7-day cap), `createWorker()` factory pattern, graceful shutdown, health endpoint, `Dockerfile.jobs`. 42 tests (38 existing + 4 new). |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 39 | Production deploy (Vercel + Supabase) | P1 | 2 hrs | #38 |
+| 39b | Webhook registration (Clerk + Paddle) | P1 | 30 min | #39 |
+| 39d | Smoke test (sign up → onboarding → widget → billing) | P1 | 1 hr | #39b, #39c |
 
 ### Post-Week 4 — Launch Readiness
 
 | # | Task | Priority | Notes |
 |---|------|----------|-------|
-| 40 | Landing page (camello.lat) | P1 | Marketing site — hero, features, pricing, CTA to dashboard |
+| 40 | Landing page (camello.xyz) | P1 | Marketing site — hero, features, pricing, CTA to dashboard |
 | 41 | Clerk production instance | P1 | Swap test keys → production keys, configure custom domain auth |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
-| 43 | Custom domain setup | P1 | api.camello.lat (API), camello.lat (web), widget CDN URL |
 | 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
 | 45 | Docs / help center | P3 | Setup guide, API reference, widget embed instructions |
 | 46 | Paddle smoke test | P2 | Checkout flow + webhook via tunnel — see MEMORY.md for steps |
@@ -150,7 +153,10 @@
 - [x] Billing integration (Paddle — Merchant of Record, no US LLC needed)
 - [x] Integration pipeline tests: full message flow, budget gate, module tool-calling, RAG knowledge flow (20 tests)
 - [ ] Load testing, error handling, edge cases
-- [ ] Deploy to Vercel + Supabase cloud
+- [x] Production deploy: Railway (API), Vercel (web), Cloudflare Pages (widget)
+- [ ] Webhook registration (Clerk + Paddle)
+- [x] Jobs migration (Trigger.dev → Railway standalone worker with node-cron)
+- [ ] Smoke test
 
 ---
 
@@ -478,3 +484,28 @@
 - **DB query sequence**: documented 2 variants (new conversation = 10 queries + 1 transaction, reuse = 10 queries + 0 transactions). Each `mockImplementationOnce` annotated with pipeline step comment.
 - **Audit**: 2 rounds. P1 type-check failures (intent union types) fixed. P2 subset command corrected (`vitest run src/__tests__/integration`).
 - **Gate:** 7 workspaces type-check clean, 209 tests pass (22 RLS + 42 AI + 166 API + 38 Jobs + 43 Web), 0 lint errors
+
+### Session 17 — Feb 21 (Jobs Migration: Trigger.dev → Railway Worker #39c)
+- **Migrated `apps/jobs` from Trigger.dev to standalone Railway worker** — `node-cron` scheduler:
+- **Migration 0008** (`job_runs_ledger`) applied to Supabase cloud:
+  - `job_runs` table — DB-backed run ledger for deduplication + catch-up. `UNIQUE(job_name, period)`, `CHECK(period ~ '^\d{4}-\d{2}(-\d{2})?$')`. No RLS (operational, service-role access only).
+  - `GRANT SELECT, INSERT, UPDATE, DELETE ON job_runs TO app_user`
+- **New files in `packages/db`:**
+  - `src/schema/ops.ts` — Drizzle schema for `job_runs` (operational/infra, not tenant-scoped)
+  - `src/schema/index.ts` — added `export * from './ops.js'`
+- **New files in `apps/jobs`:**
+  - `src/lib/logger.ts` — structured JSON logger replacing Trigger.dev `logger` (same API: `log.info/warn/error`)
+  - `src/lib/job-lock.ts` — DB-backed helpers: `claimJobRun()` (INSERT ON CONFLICT DO NOTHING + 24h stale lock cleanup), `completeJobRun()` ($2::jsonb explicit cast), `getLastCompletedPeriod()`
+  - `src/worker.ts` — `createWorker()` factory (zero side effects at import): bounded catch-up on startup, 3 cron schedules (node-cron), in-process overlap protection (`runningJobs: Set`), health HTTP endpoint (`/health` on PORT 3001), graceful SIGTERM/SIGINT shutdown (60s timeout)
+  - `src/main.ts` — entrypoint: `createWorker().start()` (tsup entry)
+  - `tsup.config.ts` — self-contained ESM bundle (`noExternal: [/.*/]`, `createRequire` banner)
+  - `src/__tests__/worker.test.ts` — 4 tests: no side effects, 3 schedules registered with correct cron + timezone, stop cleanup, catch-up queries
+- **Refactored 3 job files** (business logic unchanged):
+  - `learning-decay.ts` — `schedules.task()` → `export async function runLearningDecay()`
+  - `metrics-rollup.ts` — `schedules.task()` → `export async function runMetricsRollup(metricDate: Date)` (explicit date param, no internal offset, caller computes yesterday)
+  - `url-ingestion.ts` — `schedules.task()` → `export async function runUrlIngestion()` (no ledger — SKIP LOCKED is idempotent)
+- **Catch-up logic:** metrics-rollup bounded by `METRICS_CATCHUP_DAYS` env (default 7) in ALL paths (first deploy + long outage). Learning-decay = current month only (cumulative decay, no multi-month replay).
+- **`Dockerfile.jobs`** at repo root — two-stage build, runner copies only `dist/main.js` (no node_modules)
+- **package.json:** removed `@trigger.dev/sdk`, added `node-cron` + `@types/node-cron` + `tsx` + `tsup`. Scripts: `build: tsup`, `start: node dist/main.js`, `dev: tsx watch src/main.ts`
+- **Deleted:** `trigger.config.ts`
+- **Gate:** 42 jobs tests pass (38 existing + 4 new worker), type-check clean, build produces `dist/main.js` (2.90 MB)

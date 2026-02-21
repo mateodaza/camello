@@ -3,29 +3,36 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
-    "dev": "npx trigger.dev@latest dev",
-    "deploy": "npx trigger.dev@latest deploy",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "dev": "tsx watch src/main.ts",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@trigger.dev/sdk": "^3.3.0",
     "@camello/db": "workspace:*",
     "@camello/ai": "workspace:*",
     "@camello/shared": "workspace:*",
     "cheerio": "^1.0.0",
     "drizzle-orm": "^0.39.3",
+    "node-cron": "^3.0.3",
     "pg": "^8.13.1"
   },
   "devDependencies": {
     "@camello/config": "workspace:*",
-    "@types/pg": "^8.11.11",
     "@types/node": "^25.2.3",
-    "typescript": "^5.7.3",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.11.11",
     "eslint": "^9.20.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
     "vitest": "^4.0.18"
   }
 }
