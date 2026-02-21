@@ -66,6 +66,30 @@
 | 38 | End-to-end testing | P1 | 3 hrs | #37 |
 | 39 | Production deploy (Vercel + Supabase) | P1 | 2 hrs | #38 |
 
+### Post-Week 4 — Launch Readiness
+
+| # | Task | Priority | Notes |
+|---|------|----------|-------|
+| 40 | Landing page (camello.lat) | P1 | Marketing site — hero, features, pricing, CTA to dashboard |
+| 41 | Clerk production instance | P1 | Swap test keys → production keys, configure custom domain auth |
+| 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
+| 43 | Custom domain setup | P1 | api.camello.lat (API), camello.lat (web), widget CDN URL |
+| 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
+| 45 | Docs / help center | P3 | Setup guide, API reference, widget embed instructions |
+| 46 | Paddle smoke test | P2 | Checkout flow + webhook via tunnel — see MEMORY.md for steps |
+| 47 | WhatsApp Business setup | P3 | Meta Business verification + phone number for production WhatsApp channel |
+
+### Post-Launch — Innovation Roadmap (Spec Section 20)
+
+| # | Task | Priority | Notes |
+|---|------|----------|-------|
+| 50 | Agent handoffs | P2 | Artifact-to-artifact transfers with context preservation |
+| 51 | Customer memory | P2 | Cross-conversation memory, preferences, history summary |
+| 52 | Module marketplace | P3 | Community-contributed modules with trust scoring |
+| 53 | Scheduled automations | P3 | Time-based triggers (follow-up reminders, SLA alerts) |
+| 54 | Advisory council | P3 | Multi-agent deliberation for complex decisions |
+| 55 | Self-evolving system | P3 | Auto-generate learnings from successful interactions |
+
 ### Blocked
 
 | Task | Blocker | Workaround |
@@ -436,4 +460,8 @@
 - **Tests:** 32 new (15 webhook + 9 billing routes + 8 web)
 - **Env vars:** `.env.example` updated with 6 Paddle vars
 - **Fix:** `@camello/shared` sub-path exports only — bare imports fail at runtime (Vite/tsc). All imports changed to `@camello/shared/constants` and `@camello/shared/types`.
+- **Audit fix round** (3 findings from P1/P2 review):
+  - P1: Transient webhook failures returned 200 (blocking Paddle retries) → now return 500
+  - P2: `mapPaddleStatus()` unknown fallback was `'active'` (over-entitlement risk) → changed to `'past_due'`
+  - P2: Missing tenant for `subscription.updated`/`subscription.canceled` was terminal `markFailed()` → now transient `throw` (out-of-order delivery, Paddle retries)
 - **Gate:** 7 workspaces type-check clean, 189 tests pass (146 API + 43 Web), 0 lint errors
