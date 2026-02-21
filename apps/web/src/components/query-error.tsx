@@ -8,16 +8,16 @@ export function QueryError({ error }: { error: { message: string; data?: { code?
   const code = error.data?.code;
 
   return (
-    <Card className="border-red-200 bg-red-50">
+    <Card className="border-sunset/25 bg-sunset/10">
       <CardContent className="pt-6">
-        <p className="font-medium text-red-800">
+        <p className="font-medium text-charcoal">
           {code === 'UNAUTHORIZED'
             ? t('error.unauthorized')
             : code === 'FORBIDDEN'
               ? t('error.forbidden')
               : t('error.generic')}
         </p>
-        <p className="mt-1 text-sm text-red-600">{error.message}</p>
+        <p className="mt-1 text-sm text-charcoal/70">{error.message}</p>
       </CardContent>
     </Card>
   );

@@ -17,7 +17,7 @@ export default function ConversationsPage() {
       { getNextPageParam: (last) => last.nextCursor ?? undefined },
     );
 
-  if (isLoading) return <div className="text-gray-500">{t('loading')}</div>;
+  if (isLoading) return <div className="text-dune">{t('loading')}</div>;
   if (isError) return <QueryError error={error} />;
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
@@ -25,20 +25,20 @@ export default function ConversationsPage() {
   if (items.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
-        <p className="text-gray-500">{t('noConversations')}</p>
+        <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
+        <p className="text-dune">{t('noConversations')}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
 
-      <div className="rounded-lg border bg-white">
+      <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b text-left text-gray-500">
+            <tr className="border-b border-charcoal/8 text-left text-dune">
               <th className="px-4 py-3 font-medium">{t('columnCustomer')}</th>
               <th className="px-4 py-3 font-medium">{t('columnChannel')}</th>
               <th className="px-4 py-3 font-medium">{t('columnStatus')}</th>
@@ -49,7 +49,7 @@ export default function ConversationsPage() {
             {items.map((c) => (
               <tr
                 key={c.id}
-                className="cursor-pointer border-b last:border-0 hover:bg-gray-50"
+                className="cursor-pointer border-b border-charcoal/8 last:border-0 hover:bg-sand"
                 onClick={() => router.push(`/dashboard/conversations/${c.id}`)}
               >
                 <td className="px-4 py-3 font-medium">
@@ -61,7 +61,7 @@ export default function ConversationsPage() {
                 <td className="px-4 py-3">
                   <Badge variant={c.status ?? 'default'}>{c.status}</Badge>
                 </td>
-                <td className="px-4 py-3 text-gray-500">
+                <td className="px-4 py-3 text-dune">
                   {c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : '—'}
                 </td>
               </tr>

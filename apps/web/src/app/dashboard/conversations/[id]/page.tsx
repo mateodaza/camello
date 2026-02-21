@@ -27,9 +27,9 @@ export default function ConversationDetailPage() {
     },
   });
 
-  if (conversation.isLoading) return <div className="text-gray-500">{tc('loading')}</div>;
+  if (conversation.isLoading) return <div className="text-dune">{tc('loading')}</div>;
   if (conversation.isError) return <QueryError error={conversation.error} />;
-  if (!conversation.data) return <div className="text-gray-500">Conversation not found.</div>;
+  if (!conversation.data) return <div className="text-dune">Conversation not found.</div>;
 
   const conv = conversation.data;
   const msgs = messagesQuery.data ?? [];
@@ -40,14 +40,14 @@ export default function ConversationDetailPage() {
     <div className="space-y-4">
       <button
         onClick={() => router.push('/dashboard/conversations')}
-        className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"
+        className="flex items-center gap-1 text-sm text-dune hover:text-charcoal"
       >
         <ArrowLeft className="h-4 w-4" /> {t('backToList')}
       </button>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">{t('conversation')}</h1>
+          <h1 className="font-heading text-2xl font-bold text-charcoal">{t('conversation')}</h1>
           <Badge variant={conv.status ?? 'default'}>{conv.status}</Badge>
           {conv.channel && <Badge>{conv.channel}</Badge>}
         </div>
@@ -75,7 +75,7 @@ export default function ConversationDetailPage() {
           {messagesQuery.isError ? (
             <QueryError error={messagesQuery.error} />
           ) : chronological.length === 0 ? (
-            <p className="text-gray-500">{t('noMessages')}</p>
+            <p className="text-dune">{t('noMessages')}</p>
           ) : (
             <div className="space-y-3">
               {chronological.map((msg) => (
@@ -84,10 +84,10 @@ export default function ConversationDetailPage() {
                   className={cn(
                     'max-w-[75%] rounded-lg px-4 py-2',
                     msg.role === 'customer'
-                      ? 'self-start bg-gray-100 text-gray-800'
+                      ? 'self-start bg-sand text-charcoal'
                       : msg.role === 'artifact'
-                        ? 'ml-auto bg-gray-900 text-white'
-                        : 'ml-auto bg-blue-100 text-blue-800',
+                        ? 'ml-auto bg-midnight text-cream'
+                        : 'ml-auto bg-teal/15 text-charcoal',
                   )}
                 >
                   <p className="text-xs font-medium opacity-70">{msg.role}</p>

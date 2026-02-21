@@ -98,50 +98,50 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
       </CardHeader>
       <CardContent className="space-y-5">
         {/* Auto-seed status */}
-        <div className="rounded-lg border bg-gray-50 p-3">
+        <div className="rounded-lg border border-charcoal/8 bg-sand p-3">
           {seedStatus === 'seeding' && (
             <div className="flex items-center gap-2">
-              <svg className="h-4 w-4 animate-spin text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 animate-spin text-dune" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               <div>
-                <p className="text-sm text-gray-600">{t('teachingAbout', { agentName })}</p>
-                <p className="text-xs text-gray-400">{t('mayTakeSeconds')}</p>
+                <p className="text-sm text-charcoal">{t('teachingAbout', { agentName })}</p>
+                <p className="text-xs text-dune">{t('mayTakeSeconds')}</p>
               </div>
             </div>
           )}
           {seedStatus === 'done' && seedChunks > 0 && (
-            <p className="text-sm text-green-700">
+            <p className="text-sm text-teal">
               {t('learnedBusiness', { agentName, chunkCount: seedChunks })}
             </p>
           )}
           {seedStatus === 'done' && seedChunks === 0 && (
-            <p className="text-sm text-green-700">{t('alreadyKnows', { agentName })}</p>
+            <p className="text-sm text-teal">{t('alreadyKnows', { agentName })}</p>
           )}
           {seedStatus === 'error' && (
-            <p className="text-sm text-amber-600">
+            <p className="text-sm text-gold">
               {t('indexError')}
             </p>
           )}
           {seedStatus === 'idle' && !businessDescription && (
-            <p className="text-sm text-gray-500">{t('noDescription')}</p>
+            <p className="text-sm text-dune">{t('noDescription')}</p>
           )}
         </div>
 
         {/* Quick Facts */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
-            {t('tellMoreLabel', { agentName })} <span className="font-normal text-gray-400">{t('tellMoreOptional')}</span>
+          <label className="text-sm font-medium text-charcoal">
+            {t('tellMoreLabel', { agentName })} <span className="font-normal text-dune">{t('tellMoreOptional')}</span>
           </label>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-dune">
             {t('quickFactsDescription')}
           </p>
           <textarea
             value={quickFacts}
             onChange={(e) => setQuickFacts(e.target.value)}
             placeholder={t('quickFactsPlaceholder')}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+            className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
             rows={4}
             maxLength={5000}
           />
@@ -149,10 +149,10 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
 
         {/* Website URL */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
-            {t('importFromWebsite')} <span className="font-normal text-gray-400">{t('tellMoreOptional')}</span>
+          <label className="text-sm font-medium text-charcoal">
+            {t('importFromWebsite')} <span className="font-normal text-dune">{t('tellMoreOptional')}</span>
           </label>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-dune">
             {t('importWebsiteDescription')}
           </p>
           <input
@@ -160,16 +160,16 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
             value={websiteUrl}
             onChange={(e) => setWebsiteUrl(e.target.value)}
             placeholder={t('websitePlaceholder')}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+            className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
           />
           {urlQueued && (
-            <p className="text-xs text-green-600">{t('queuedForImport')}</p>
+            <p className="text-xs text-teal">{t('queuedForImport')}</p>
           )}
         </div>
 
         {/* Error display */}
         {(ingest.isError || queueUrl.isError) && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sunset">
             {ingest.error?.message ?? queueUrl.error?.message ?? t('analyzeError')}
           </p>
         )}

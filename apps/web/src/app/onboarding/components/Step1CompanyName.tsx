@@ -29,7 +29,7 @@ export function Step1CompanyName({ onComplete }: Props) {
   }, [isLoaded, organization?.id]);
 
   if (!isLoaded) {
-    return <p className="text-center text-gray-500">{tc('loading')}</p>;
+    return <p className="text-center text-dune">{tc('loading')}</p>;
   }
 
   if (!organization) {
@@ -39,7 +39,7 @@ export function Step1CompanyName({ onComplete }: Props) {
           <CardTitle>{t('createOrg')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-gray-600">
+          <p className="mb-4 text-sm text-charcoal">
             {t('createOrgDescription')}
           </p>
           <CreateOrganization
@@ -57,9 +57,9 @@ export function Step1CompanyName({ onComplete }: Props) {
         <CardTitle>{t('settingUp', { name: organization.name })}</CardTitle>
       </CardHeader>
       <CardContent>
-        {provision.isPending && <p className="text-sm text-gray-500">{t('provisioning')}</p>}
+        {provision.isPending && <p className="text-sm text-dune">{t('provisioning')}</p>}
         {provision.isError && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-sunset">
             {t('errorMessage', { message: provision.error.message })}
           </p>
         )}

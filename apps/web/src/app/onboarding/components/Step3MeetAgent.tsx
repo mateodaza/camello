@@ -39,9 +39,9 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
         <CardTitle>{t('meetAgentTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-lg border bg-gray-50 p-4">
+        <div className="rounded-lg border border-charcoal/8 bg-sand p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-900 text-lg text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-midnight text-lg text-cream">
               {name[0]?.toUpperCase()}
             </div>
             <div>
@@ -49,7 +49,7 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="rounded border border-charcoal/15 px-2 py-1 text-sm"
                   autoFocus
                   onBlur={() => setEditing(false)}
                   onKeyDown={(e) => e.key === 'Enter' && setEditing(false)}
@@ -57,7 +57,7 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
               ) : (
                 <button onClick={() => setEditing(true)} className="text-left">
                   <p className="font-semibold">{name}</p>
-                  <p className="text-xs text-gray-500">{t('clickToRename')}</p>
+                  <p className="text-xs text-dune">{t('clickToRename')}</p>
                 </button>
               )}
             </div>
@@ -66,13 +66,13 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-gray-700">{t('greeting')}</p>
-          <p className="mt-1 text-sm text-gray-600">&ldquo;{suggestion.personality.greeting}&rdquo;</p>
+          <p className="text-sm font-medium text-charcoal">{t('greeting')}</p>
+          <p className="mt-1 text-sm text-charcoal">&ldquo;{suggestion.personality.greeting}&rdquo;</p>
         </div>
 
         <div>
-          <p className="text-sm font-medium text-gray-700">{t('goals')}</p>
-          <ul className="mt-1 list-inside list-disc text-sm text-gray-600">
+          <p className="text-sm font-medium text-charcoal">{t('goals')}</p>
+          <ul className="mt-1 list-inside list-disc text-sm text-charcoal">
             {suggestion.personality.goals.map((g, i) => (
               <li key={i}>{g}</li>
             ))}
@@ -80,8 +80,8 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-gray-700">{t('modules')}</p>
-          {modules.isLoading && <p className="text-xs text-gray-400">{t('loadingModules')}</p>}
+          <p className="text-sm font-medium text-charcoal">{t('modules')}</p>
+          {modules.isLoading && <p className="text-xs text-dune">{t('loadingModules')}</p>}
           {modules.data && (
             <div className="mt-1 flex flex-wrap gap-1">
               {modules.data.map((m: { id: string; slug: string }) => (
@@ -98,7 +98,7 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
         </div>
 
         {setup.isError && (
-          <p className="text-sm text-red-600">{setup.error.message}</p>
+          <p className="text-sm text-sunset">{setup.error.message}</p>
         )}
       </CardContent>
     </Card>

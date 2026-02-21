@@ -46,7 +46,7 @@ export default function AnalyticsPage() {
   const usageRecords = trpc.analytics.usage.useQuery({ limit: 6 });
 
   // --- Primary query gate ---
-  if (overview.isLoading) return <div className="text-gray-500">{tc('loading')}</div>;
+  if (overview.isLoading) return <div className="text-dune">{tc('loading')}</div>;
   if (overview.isError) return <QueryError error={overview.error} />;
 
   const convStats = overview.data?.conversations ?? {};
@@ -55,7 +55,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
 
       {/* Secondary error banners */}
       {artifacts.isError && <QueryError error={artifacts.error} />}
@@ -63,25 +63,25 @@ export default function AnalyticsPage() {
       {/* Date range controls */}
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelFrom')}</label>
+          <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelFrom')}</label>
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelTo')}</label>
+          <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelTo')}</label>
           <input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
           />
         </div>
         {dateSwapped && (
-          <span className="text-xs text-amber-600">{t('datesSwapped')}</span>
+          <span className="text-xs text-gold">{t('datesSwapped')}</span>
         )}
       </div>
 
@@ -112,14 +112,14 @@ export default function AnalyticsPage() {
       {/* ===== SECTION B: Per-Artifact Metrics ===== */}
       <div className="space-y-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">{t('artifactMetrics')}</h2>
+          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('artifactMetrics')}</h2>
           {artifacts.isLoading ? (
-            <span className="text-sm text-gray-400">{t('loadingArtifacts')}</span>
+            <span className="text-sm text-dune">{t('loadingArtifacts')}</span>
           ) : (
             <select
               value={metricsArtifactId}
               onChange={(e) => setMetricsArtifactId(e.target.value)}
-              className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
             >
               <option value="">{t('selectArtifact')}</option>
               {artifacts.data?.map((a) => (
@@ -132,16 +132,16 @@ export default function AnalyticsPage() {
         {artifactMetrics.isError && <QueryError error={artifactMetrics.error} />}
 
         {!metricsArtifactId ? (
-          <p className="text-gray-500">{t('selectArtifactMsg')}</p>
+          <p className="text-dune">{t('selectArtifactMsg')}</p>
         ) : artifactMetrics.isLoading ? (
-          <div className="text-gray-500">{t('loadingMetrics')}</div>
+          <div className="text-dune">{t('loadingMetrics')}</div>
         ) : (artifactMetrics.data?.length ?? 0) === 0 ? (
-          <p className="text-gray-500">{t('noMetrics')}</p>
+          <p className="text-dune">{t('noMetrics')}</p>
         ) : (
-          <div className="rounded-lg border bg-white">
+          <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-gray-500">
+                <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnDate')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnHandoffsIn')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnHandoffsOut')}</th>
@@ -152,7 +152,7 @@ export default function AnalyticsPage() {
               </thead>
               <tbody>
                 {artifactMetrics.data?.map((row) => (
-                  <tr key={row.id} className="border-b last:border-0">
+                  <tr key={row.id} className="border-b border-charcoal/8 last:border-0">
                     <td className="px-4 py-3">{row.metricDate}</td>
                     <td className="px-4 py-3">{row.handoffsIn}</td>
                     <td className="px-4 py-3">{row.handoffsOut}</td>
@@ -170,14 +170,14 @@ export default function AnalyticsPage() {
       {/* ===== SECTION C: Recent Interaction Logs ===== */}
       <div className="space-y-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">{t('recentInteractions')}</h2>
+          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('recentInteractions')}</h2>
           {artifacts.isLoading ? (
-            <span className="text-sm text-gray-400">{tc('loading')}</span>
+            <span className="text-sm text-dune">{tc('loading')}</span>
           ) : (
             <select
               value={logsArtifactId}
               onChange={(e) => setLogsArtifactId(e.target.value)}
-              className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
             >
               <option value="">{t('selectArtifact')}</option>
               {artifacts.data?.map((a) => (
@@ -190,14 +190,14 @@ export default function AnalyticsPage() {
         {recentLogs.isError && <QueryError error={recentLogs.error} />}
 
         {recentLogs.isLoading ? (
-          <div className="text-gray-500">{tc('loading')}</div>
+          <div className="text-dune">{tc('loading')}</div>
         ) : (recentLogs.data?.length ?? 0) === 0 ? (
-          <p className="text-gray-500">{t('noInteractions')}</p>
+          <p className="text-dune">{t('noInteractions')}</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border bg-white">
+          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-gray-500">
+                <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnIntent')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnModel')}</th>
                   <th className="px-4 py-3 font-medium">{t('tokensIn')}</th>
@@ -210,9 +210,9 @@ export default function AnalyticsPage() {
               </thead>
               <tbody>
                 {recentLogs.data?.map((log) => (
-                  <tr key={log.id} className="border-b last:border-0">
+                  <tr key={log.id} className="border-b border-charcoal/8 last:border-0">
                     <td className="px-4 py-3">{log.intent}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{log.modelUsed}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-dune">{log.modelUsed}</td>
                     <td className="px-4 py-3">{fmtInt(log.tokensIn, locale)}</td>
                     <td className="px-4 py-3">{fmtInt(log.tokensOut, locale)}</td>
                     <td className="px-4 py-3">{fmtMicroCost(log.costUsd, locale)}</td>
@@ -221,10 +221,10 @@ export default function AnalyticsPage() {
                       {log.resolutionType ? (
                         <Badge>{log.resolutionType}</Badge>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-dune">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{fmtDateTime(log.createdAt, locale)}</td>
+                    <td className="px-4 py-3 text-dune">{fmtDateTime(log.createdAt, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -235,19 +235,19 @@ export default function AnalyticsPage() {
 
       {/* ===== SECTION D: Billing Periods ===== */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('billingPeriods')}</h2>
+        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('billingPeriods')}</h2>
 
         {usageRecords.isError && <QueryError error={usageRecords.error} />}
 
         {usageRecords.isLoading ? (
-          <div className="text-gray-500">{t('loadingUsage')}</div>
+          <div className="text-dune">{t('loadingUsage')}</div>
         ) : (usageRecords.data?.length ?? 0) === 0 ? (
-          <p className="text-gray-500">{t('noUsageRecords')}</p>
+          <p className="text-dune">{t('noUsageRecords')}</p>
         ) : (
-          <div className="rounded-lg border bg-white">
+          <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-gray-500">
+                <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnPeriodStart')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnPeriodEnd')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnResolutions')}</th>
@@ -257,16 +257,16 @@ export default function AnalyticsPage() {
               </thead>
               <tbody>
                 {usageRecords.data?.map((rec) => (
-                  <tr key={rec.id} className="border-b last:border-0">
+                  <tr key={rec.id} className="border-b border-charcoal/8 last:border-0">
                     <td className="px-4 py-3">{rec.periodStart}</td>
                     <td className="px-4 py-3">{rec.periodEnd}</td>
                     <td className="px-4 py-3">{rec.resolutionsCount}</td>
                     <td className="px-4 py-3">{fmtCost(rec.llmCostUsd, locale)}</td>
                     <td className="px-4 py-3">
                       {Number(rec.overageCostUsd) > 0 ? (
-                        <span className="text-red-600">{fmtCost(rec.overageCostUsd, locale)}</span>
+                        <span className="text-sunset">{fmtCost(rec.overageCostUsd, locale)}</span>
                       ) : (
-                        <span className="text-gray-400">$0.0000</span>
+                        <span className="text-dune">$0.0000</span>
                       )}
                     </td>
                   </tr>

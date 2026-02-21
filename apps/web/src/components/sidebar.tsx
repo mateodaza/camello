@@ -1,11 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { LayoutDashboard, MessageSquare, Bot, BookOpen, BarChart3, CreditCard } from 'lucide-react';
+import {
+  LayoutDashboard, MessageSquare, Bot, BookOpen,
+  BarChart3, CreditCard, ChevronsLeft, ChevronsRight,
+} from 'lucide-react';
 import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
+import { Tooltip } from '@/components/ui/tooltip';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 
 const navItems = [
   { href: '/dashboard', labelKey: 'overview' as const, icon: LayoutDashboard },
@@ -19,46 +25,116 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations('sidebar');
+  const { collapsed, toggle } = useSidebarCollapsed();
 
   return (
-    <aside className="flex h-screen w-60 flex-col border-r bg-gray-50">
-      <div className="flex h-14 items-center border-b px-4">
-        <span className="text-lg font-bold tracking-tight">{t('appName')}</span>
+    <aside
+      className={cn(
+        'flex h-screen flex-col overflow-hidden bg-midnight transition-[width] duration-200 ease-in-out',
+        collapsed ? 'w-16' : 'w-60',
+      )}
+    >
+      {/* Header: logo + toggle */}
+      <div
+        className={cn(
+          'flex h-14 items-center border-b border-cream/10',
+          collapsed ? 'justify-center px-2' : 'justify-between px-4',
+        )}
+      >
+        <Link href="/" className="flex items-center gap-2.5">
+          <Image
+            src="/illustrations/camel-logo.jpeg"
+            alt="Camello"
+            width={28}
+            height={28}
+            className="shrink-0 rounded-md"
+            unoptimized
+          />
+          {!collapsed && (
+            <span className="font-heading text-sm font-semibold uppercase tracking-wide text-cream">
+              Camello
+            </span>
+          )}
+        </Link>
+        {!collapsed && (
+          <button
+            onClick={toggle}
+            aria-label={t('collapse')}
+            className="rounded-md p-1 text-cream/50 transition-colors hover:bg-cream/10 hover:text-cream"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      <div className="border-b p-3">
+      {/* Expand toggle when collapsed */}
+      {collapsed && (
+        <button
+          onClick={toggle}
+          aria-label={t('expand')}
+          className="mx-auto mt-2 rounded-md p-1.5 text-cream/50 transition-colors hover:bg-cream/10 hover:text-cream"
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </button>
+      )}
+
+      {/* Organization switcher */}
+      <div
+        className={cn(
+          'border-b border-cream/10',
+          collapsed ? 'flex justify-center p-2' : 'p-3',
+        )}
+      >
         <OrganizationSwitcher
           hidePersonal
           afterSelectOrganizationUrl="/dashboard"
           afterCreateOrganizationUrl="/dashboard"
+          appearance={{
+            elements: {
+              rootBox: collapsed ? 'w-10 overflow-hidden' : 'w-full',
+              organizationSwitcherTrigger: cn(
+                'text-cream/80 hover:text-cream [&>*]:text-cream/80 [&>*]:hover:text-cream',
+                collapsed ? 'px-0' : 'w-full',
+              ),
+            },
+          }}
         />
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      {/* Navigation */}
+      <nav className={cn('flex-1 space-y-1', collapsed ? 'p-2' : 'p-3')}>
         {navItems.map(({ href, labelKey, icon: Icon }) => {
           const isActive = href === '/dashboard'
             ? pathname === '/dashboard'
             : pathname.startsWith(href);
 
           return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-gray-200 text-gray-900'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {t(labelKey)}
-            </Link>
+            <Tooltip key={href} label={t(labelKey)} show={collapsed}>
+              <Link
+                href={href}
+                className={cn(
+                  'flex items-center rounded-md font-heading text-sm font-medium transition-colors',
+                  collapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2',
+                  isActive
+                    ? 'bg-teal/20 text-cream'
+                    : 'text-cream/70 hover:bg-cream/10 hover:text-cream',
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed && t(labelKey)}
+              </Link>
+            </Tooltip>
           );
         })}
       </nav>
 
-      <div className="border-t p-4">
+      {/* User button */}
+      <div
+        className={cn(
+          'border-t border-cream/10',
+          collapsed ? 'flex justify-center p-3' : 'p-4',
+        )}
+      >
         <UserButton afterSignOutUrl="/" />
       </div>
     </aside>

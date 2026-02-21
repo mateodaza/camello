@@ -103,7 +103,7 @@ export default function BillingPage() {
     },
   });
 
-  if (plan.isLoading) return <div className="text-gray-500">{tc('loading')}</div>;
+  if (plan.isLoading) return <div className="text-dune">{tc('loading')}</div>;
   if (plan.isError) return <QueryError error={plan.error} />;
 
   const current = plan.data!;
@@ -115,20 +115,20 @@ export default function BillingPage() {
         src="https://cdn.paddle.com/paddle/v2/paddle.js"
         onLoad={initPaddle}
       />
-      <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
 
       {/* Language selector */}
       <Card>
         <CardContent className="flex items-center justify-between pt-6">
           <div>
-            <p className="font-medium text-gray-900">{t('language')}</p>
-            <p className="text-sm text-gray-500">{t('languageDescription')}</p>
+            <p className="font-medium text-charcoal">{t('language')}</p>
+            <p className="text-sm text-dune">{t('languageDescription')}</p>
           </div>
           <select
             value={locale}
             onChange={(e) => updateLocale.mutate({ locale: e.target.value as 'en' | 'es' })}
             disabled={updateLocale.isPending}
-            className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
           >
             <option value="en">{t('english')}</option>
             <option value="es">{t('spanish')}</option>
@@ -148,7 +148,7 @@ export default function BillingPage() {
               {current.subscriptionStatus}
             </Badge>
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-charcoal">
             ${current.price.monthly}{t('monthly')} &middot;{' '}
             {fmtLimit(current.limits.artifacts)} {t('artifacts')},{' '}
             {fmtLimit(current.limits.modules)} {t('modules')},{' '}
@@ -156,7 +156,7 @@ export default function BillingPage() {
             {fmtLimit(current.limits.resolutions_per_month)} {t('resolutionsPerMonth')}
           </p>
           {current.monthlyCostBudgetUsd && (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-dune">
               {t('aiBudget', { budget: Number(current.monthlyCostBudgetUsd).toFixed(0) })}
             </p>
           )}
@@ -165,7 +165,7 @@ export default function BillingPage() {
 
       {/* Plan cards */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('plans')}</h2>
+        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('plans')}</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           {tiers.map((tier) => {
             const price = PLAN_PRICES[tier];
@@ -173,7 +173,7 @@ export default function BillingPage() {
             const isCurrent = tier === current.planTier;
 
             return (
-              <Card key={tier} className={isCurrent ? 'ring-2 ring-gray-900' : ''}>
+              <Card key={tier} className={isCurrent ? 'ring-2 ring-teal' : ''}>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between text-base">
                     {price.label}
@@ -181,8 +181,8 @@ export default function BillingPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 pt-0">
-                  <p className="text-2xl font-bold">${price.monthly}<span className="text-sm font-normal text-gray-500">{t('monthly')}</span></p>
-                  <ul className="space-y-1 text-sm text-gray-600">
+                  <p className="text-2xl font-bold">${price.monthly}<span className="text-sm font-normal text-dune">{t('monthly')}</span></p>
+                  <ul className="space-y-1 text-sm text-charcoal">
                     <li>{fmtLimit(limits.artifacts)} {t('artifacts')}</li>
                     <li>{fmtLimit(limits.modules)} {t('modules')}</li>
                     <li>{fmtLimit(limits.channels)} {t('channels')}</li>
@@ -207,7 +207,7 @@ export default function BillingPage() {
           })}
         </div>
         {checkout.isError && (
-          <p className="text-sm text-red-600">{checkout.error.message}</p>
+          <p className="text-sm text-sunset">{checkout.error.message}</p>
         )}
       </div>
 
@@ -216,8 +216,8 @@ export default function BillingPage() {
         <Card>
           <CardContent className="flex items-center justify-between pt-6">
             <div>
-              <p className="font-medium text-gray-900">{t('cancelSubscription')}</p>
-              <p className="text-sm text-gray-500">{t('cancelMessage')}</p>
+              <p className="font-medium text-charcoal">{t('cancelSubscription')}</p>
+              <p className="text-sm text-dune">{t('cancelMessage')}</p>
             </div>
             {cancelConfirm ? (
               <div className="flex items-center gap-2">
@@ -241,22 +241,22 @@ export default function BillingPage() {
         </Card>
       )}
       {cancel.isError && (
-        <p className="text-sm text-red-600">{cancel.error.message}</p>
+        <p className="text-sm text-sunset">{cancel.error.message}</p>
       )}
 
       {/* Billing history */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('billingHistory')}</h2>
+        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('billingHistory')}</h2>
         {history.isError && <QueryError error={history.error} />}
         {history.isLoading ? (
-          <div className="text-gray-500">{tc('loading')}</div>
+          <div className="text-dune">{tc('loading')}</div>
         ) : !history.data?.length ? (
-          <p className="text-gray-500">{t('noBillingEvents')}</p>
+          <p className="text-dune">{t('noBillingEvents')}</p>
         ) : (
-          <div className="rounded-lg border bg-white">
+          <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-gray-500">
+                <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnDate')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnType')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnAmount')}</th>
@@ -264,8 +264,8 @@ export default function BillingPage() {
               </thead>
               <tbody>
                 {history.data.map((evt) => (
-                  <tr key={evt.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 text-gray-500">{fmtDate(evt.createdAt, locale)}</td>
+                  <tr key={evt.id} className="border-b border-charcoal/8 last:border-0">
+                    <td className="px-4 py-3 text-dune">{fmtDate(evt.createdAt, locale)}</td>
                     <td className="px-4 py-3">{evt.type}</td>
                     <td className="px-4 py-3">{evt.amountUsd ? fmtCost(evt.amountUsd, locale) : '—'}</td>
                   </tr>

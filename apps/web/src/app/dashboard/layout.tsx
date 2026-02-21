@@ -31,7 +31,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   if (tenant.isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-500">{t('loading')}</p>
+        <p className="text-dune">{t('loading')}</p>
       </div>
     );
   }
@@ -57,7 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <OnboardingGate>
       <div className="flex h-screen">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-100 p-6">
+        <main className="flex-1 overflow-y-auto bg-sand p-6">
           {children}
         </main>
       </div>

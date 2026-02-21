@@ -39,26 +39,26 @@ export function Step2BusinessModel({ initialDescription = '', onComplete }: Prop
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-charcoal">
             {t('businessModelDescription')}
           </p>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('businessModelPlaceholder')}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+            className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
             rows={4}
             minLength={10}
             maxLength={2000}
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-400">{t('charCount', { length: description.length })}</span>
+            <span className="text-xs text-dune">{t('charCount', { length: description.length })}</span>
             <Button type="submit" disabled={description.length < 10 || parse.isPending}>
               {parse.isPending ? t('analyzing') : t('continue')}
             </Button>
           </div>
           {parse.isError && (
-            <p className="text-sm text-red-600">{t('analyzeError')}</p>
+            <p className="text-sm text-sunset">{t('analyzeError')}</p>
           )}
         </form>
       </CardContent>

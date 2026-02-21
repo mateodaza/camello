@@ -44,23 +44,23 @@ export function Step4ConnectChannel({ onComplete }: Props) {
           <CardTitle>{t('connectChannelTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-charcoal">
             {t('connectChannelDescription')}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               onClick={() => setChoice('webchat')}
-              className="rounded-lg border border-gray-200 p-4 text-left transition hover:border-gray-400 hover:shadow-sm"
+              className="rounded-lg border border-charcoal/10 p-4 text-left transition hover:border-charcoal/25 hover:shadow-sm"
             >
               <p className="font-medium">{t('webChatWidget')}</p>
-              <p className="mt-1 text-xs text-gray-500">{t('webChatDescription')}</p>
+              <p className="mt-1 text-xs text-dune">{t('webChatDescription')}</p>
             </button>
             <button
               onClick={() => setChoice('whatsapp')}
-              className="rounded-lg border border-gray-200 p-4 text-left transition hover:border-gray-400 hover:shadow-sm"
+              className="rounded-lg border border-charcoal/10 p-4 text-left transition hover:border-charcoal/25 hover:shadow-sm"
             >
               <p className="font-medium">{t('whatsApp')}</p>
-              <p className="mt-1 text-xs text-gray-500">{t('whatsAppDescription')}</p>
+              <p className="mt-1 text-xs text-dune">{t('whatsAppDescription')}</p>
             </button>
           </div>
           <div className="pt-2">
@@ -80,10 +80,10 @@ export function Step4ConnectChannel({ onComplete }: Props) {
           <CardTitle>{t('webChatSetupTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-charcoal">
             {t('webChatSnippetDesc')}
           </p>
-          <div className="rounded bg-gray-900 p-3">
+          <div className="rounded bg-midnight p-3">
             <code className="text-xs text-green-400">{widgetSnippet}</code>
           </div>
           <div className="flex gap-2">
@@ -103,7 +103,7 @@ export function Step4ConnectChannel({ onComplete }: Props) {
         <CardTitle>{t('whatsAppSetupTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-charcoal">
           {t('whatsAppPhoneDesc')}
         </p>
         <input
@@ -111,9 +111,9 @@ export function Step4ConnectChannel({ onComplete }: Props) {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder={t('whatsAppPhonePlaceholder')}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+          className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
         />
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-dune">
           {t('webhookUrl')} <code>{process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/channels/whatsapp/webhook</code>
         </p>
         <div className="flex gap-2">
@@ -123,7 +123,7 @@ export function Step4ConnectChannel({ onComplete }: Props) {
           <Button variant="ghost" onClick={onComplete}>{t('whatsAppSkip')}</Button>
         </div>
         {channelUpsert.isError && (
-          <p className="text-sm text-red-600">{channelUpsert.error.message}</p>
+          <p className="text-sm text-sunset">{channelUpsert.error.message}</p>
         )}
       </CardContent>
     </Card>

@@ -32,13 +32,13 @@ export default function ArtifactsPage() {
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<(typeof artifactTypes)[number]>('sales');
 
-  if (artifacts.isLoading) return <div className="text-gray-500">{t('loading')}</div>;
+  if (artifacts.isLoading) return <div className="text-dune">{t('loading')}</div>;
   if (artifacts.isError) return <QueryError error={artifacts.error} />;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
+        <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
         <Button onClick={() => setShowCreate(!showCreate)}>
           <Plus className="mr-2 h-4 w-4" />
           {t('newArtifact')}
@@ -57,23 +57,23 @@ export default function ArtifactsPage() {
               }}
             >
               <div className="flex-1">
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelName')}</label>
+                <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelName')}</label>
                 <input
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder={t('placeholderName')}
-                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  className="w-full rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
                   maxLength={100}
                   required
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelType')}</label>
+                <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelType')}</label>
                 <select
                   value={newType}
                   onChange={(e) => setNewType(e.target.value as typeof newType)}
-                  className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
                 >
                   {artifactTypes.map((at) => (
                     <option key={at} value={at}>{at}</option>
@@ -92,7 +92,7 @@ export default function ArtifactsPage() {
       )}
 
       {(artifacts.data?.length ?? 0) === 0 ? (
-        <p className="text-gray-500">{t('noArtifacts')}</p>
+        <p className="text-dune">{t('noArtifacts')}</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {artifacts.data?.map((a) => (
@@ -100,7 +100,7 @@ export default function ArtifactsPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-gray-400" />
+                    <Bot className="h-5 w-5 text-dune" />
                     <CardTitle className="text-base">{a.name}</CardTitle>
                   </div>
                   <Badge variant={a.type ?? 'default'}>{a.type}</Badge>
@@ -108,7 +108,7 @@ export default function ArtifactsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-dune">
                     v{a.version} &middot; {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
                   </span>
                   <Button

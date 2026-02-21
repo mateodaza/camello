@@ -23,7 +23,9 @@
     "artifacts": "Artifacts",
     "knowledge": "Knowledge",
     "analytics": "Analytics",
-    "billing": "Billing"
+    "billing": "Billing",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   },
   "dashboard": {
     "pageTitle": "Dashboard",

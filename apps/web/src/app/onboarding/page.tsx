@@ -108,13 +108,13 @@ export default function OnboardingPage() {
 
   // If org exists but no tenant provisioned yet, start at step 1
   if (!isLoaded) {
-    return <p className="text-center text-gray-500">{tc('loading')}</p>;
+    return <p className="text-center text-dune">{tc('loading')}</p>;
   }
 
   return (
     <div>
-      <h1 className="mb-2 text-center text-2xl font-bold">{t('title')}</h1>
-      <p className="mb-6 text-center text-sm text-gray-500">
+      <h1 className="mb-2 text-center font-heading text-2xl font-bold text-charcoal">{t('title')}</h1>
+      <p className="mb-6 text-center text-sm text-dune">
         {step <= 4 ? t('subtitle1') : t('subtitle2')}
       </p>
 
@@ -123,7 +123,7 @@ export default function OnboardingPage() {
       {step > 2 && (
         <button
           onClick={() => setStep(step - 1)}
-          className="mb-4 text-sm text-gray-500 hover:text-gray-800"
+          className="mb-4 text-sm text-dune hover:text-charcoal"
         >
           {t('back')}
         </button>
@@ -169,8 +169,8 @@ export default function OnboardingPage() {
 
       {step === 3 && !suggestion && (
         <div className="text-center">
-          <p className="text-sm text-gray-500">{t('missingConfig')}</p>
-          <button onClick={() => setStep(2)} className="mt-2 text-sm text-gray-900 underline">
+          <p className="text-sm text-dune">{t('missingConfig')}</p>
+          <button onClick={() => setStep(2)} className="mt-2 text-sm text-charcoal underline">
             {t('goBackDescription')}
           </button>
         </div>

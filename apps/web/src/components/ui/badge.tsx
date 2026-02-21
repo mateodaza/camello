@@ -1,17 +1,17 @@
 import { cn } from '@/lib/utils';
 
 const variants: Record<string, string> = {
-  default: 'bg-gray-100 text-gray-800',
-  active: 'bg-green-100 text-green-800',
-  resolved: 'bg-blue-100 text-blue-800',
-  escalated: 'bg-red-100 text-red-800',
+  default: 'bg-charcoal/10 text-charcoal',
+  active: 'bg-teal/15 text-charcoal',
+  resolved: 'bg-teal/20 text-charcoal',
+  escalated: 'bg-sunset/15 text-charcoal',
   sales: 'bg-purple-100 text-purple-800',
   support: 'bg-sky-100 text-sky-800',
-  marketing: 'bg-amber-100 text-amber-800',
-  custom: 'bg-gray-100 text-gray-800',
-  starter: 'bg-gray-100 text-gray-800',
+  marketing: 'bg-gold/20 text-charcoal',
+  custom: 'bg-charcoal/10 text-charcoal',
+  starter: 'bg-charcoal/10 text-charcoal',
   growth: 'bg-indigo-100 text-indigo-800',
-  scale: 'bg-emerald-100 text-emerald-800',
+  scale: 'bg-teal/15 text-charcoal',
 };
 
 export function Badge({

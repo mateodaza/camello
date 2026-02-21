@@ -23,7 +23,9 @@
     "artifacts": "Agentes",
     "knowledge": "Conocimiento",
     "analytics": "Analítica",
-    "billing": "Facturación"
+    "billing": "Facturación",
+    "collapse": "Colapsar barra lateral",
+    "expand": "Expandir barra lateral"
   },
   "dashboard": {
     "pageTitle": "Panel",

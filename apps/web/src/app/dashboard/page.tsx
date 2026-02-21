@@ -22,7 +22,7 @@ export default function DashboardOverview() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold">{tenant.data?.name ?? t('pageTitle')}</h1>
+        <h1 className="font-heading text-2xl font-bold text-charcoal">{tenant.data?.name ?? t('pageTitle')}</h1>
         {tenant.data?.planTier && (
           <Badge variant={tenant.data.planTier}>{tenant.data.planTier}</Badge>
         )}

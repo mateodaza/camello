@@ -18,20 +18,20 @@ export function WizardProgress({ currentStep }: { currentStep: number }) {
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium ${
                   isDone
-                    ? 'bg-green-600 text-white'
+                    ? 'bg-teal text-cream'
                     : isActive
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-200 text-gray-500'
+                      ? 'bg-midnight text-cream'
+                      : 'bg-charcoal/10 text-dune'
                 }`}
               >
                 {isDone ? '\u2713' : step}
               </div>
-              <span className={`mt-1 text-xs ${isActive ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
+              <span className={`mt-1 text-xs ${isActive ? 'font-medium text-charcoal' : 'text-dune'}`}>
                 {label}
               </span>
             </div>
             {i < STEP_KEYS.length - 1 && (
-              <div className={`mb-4 h-0.5 w-6 ${isDone ? 'bg-green-600' : 'bg-gray-200'}`} />
+              <div className={`mb-4 h-0.5 w-6 ${isDone ? 'bg-teal' : 'bg-charcoal/10'}`} />
             )}
           </div>
         );

@@ -130,7 +130,7 @@ export default function KnowledgePage() {
   );
 
   // --- Primary query gate ---
-  if (knowledgeList.isLoading) return <div className="text-gray-500">{tc('loading')}</div>;
+  if (knowledgeList.isLoading) return <div className="text-dune">{tc('loading')}</div>;
   if (knowledgeList.isError) return <QueryError error={knowledgeList.error} />;
 
   async function handleIngest(e: React.FormEvent) {
@@ -167,7 +167,7 @@ export default function KnowledgePage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
 
       {/* Secondary error banners */}
       {learningList.isError && <QueryError error={learningList.error} />}
@@ -175,12 +175,12 @@ export default function KnowledgePage() {
       {/* ===== SECTION 1: Knowledge Docs ===== */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{t('sectionDocuments')}</h2>
+          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionDocuments')}</h2>
           <div className="flex items-center gap-3">
             <select
               value={filterSourceType}
               onChange={(e) => handleSourceTypeChange(e.target.value)}
-              className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
             >
               <option value="">{t('filterAllTypes')}</option>
               {sourceTypes.map((st) => (
@@ -205,34 +205,34 @@ export default function KnowledgePage() {
             <CardContent className="pt-0">
               <form onSubmit={handleIngest} className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelContent')}</label>
+                  <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelContent')}</label>
                   <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     placeholder={t('placeholderContent')}
-                    className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    className="w-full rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
                     rows={5}
                     required
                   />
                 </div>
                 <div className="flex items-end gap-3">
                   <div className="flex-1">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelTitle')}</label>
+                    <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelTitle')}</label>
                     <input
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder={t('placeholderTitle')}
-                      className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      className="w-full rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
                       maxLength={200}
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelType')}</label>
+                    <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelType')}</label>
                     <select
                       value={sourceType}
                       onChange={(e) => setSourceType(e.target.value as typeof sourceType)}
-                      className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
                     >
                       {sourceTypes.map((st) => (
                         <option key={st} value={st}>{st}</option>
@@ -242,13 +242,13 @@ export default function KnowledgePage() {
                 </div>
                 {sourceType === 'url' && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelSourceUrl')}</label>
+                    <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelSourceUrl')}</label>
                     <input
                       type="url"
                       value={sourceUrl}
                       onChange={(e) => setSourceUrl(e.target.value)}
                       placeholder={t('placeholderSourceUrl')}
-                      className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      className="w-full rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
                       required
                     />
                   </div>
@@ -264,10 +264,10 @@ export default function KnowledgePage() {
                   </Button>
                 </div>
                 {ingest.isError && (
-                  <p className="text-sm text-red-600">{ingest.error.message}</p>
+                  <p className="text-sm text-sunset">{ingest.error.message}</p>
                 )}
                 {ingestSuccess && (
-                  <p className="text-sm text-green-700">
+                  <p className="text-sm text-teal">
                     {t('ingestedMessage', { chunkCount: ingestSuccess.chunkCount, title: ingestSuccess.title ?? '' })}
                   </p>
                 )}
@@ -278,13 +278,13 @@ export default function KnowledgePage() {
 
         {/* Docs table */}
         {docs.length === 0 ? (
-          <p className="text-gray-500">{t('noDocuments')}</p>
+          <p className="text-dune">{t('noDocuments')}</p>
         ) : (
           <>
-            <div className="rounded-lg border bg-white">
+            <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-gray-500">
+                  <tr className="border-b border-charcoal/8 text-left text-dune">
                     <th className="px-4 py-3 font-medium">{t('columnTitle')}</th>
                     <th className="px-4 py-3 font-medium">{t('columnType')}</th>
                     <th className="px-4 py-3 font-medium">{t('columnChunks')}</th>
@@ -294,18 +294,18 @@ export default function KnowledgePage() {
                 </thead>
                 <tbody>
                   {docs.map((doc) => (
-                    <tr key={doc.key} className="border-b last:border-0">
+                    <tr key={doc.key} className="border-b border-charcoal/8 last:border-0">
                       <td className="px-4 py-3 font-medium">{doc.title ?? t('untitled')}</td>
                       <td className="px-4 py-3">
                         <Badge>{doc.sourceType}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-gray-500">{doc.chunkCount}</td>
-                      <td className="px-4 py-3 text-gray-500">{fmtDate(doc.createdAt, locale)}</td>
+                      <td className="px-4 py-3 text-dune">{doc.chunkCount}</td>
+                      <td className="px-4 py-3 text-dune">{fmtDate(doc.createdAt, locale)}</td>
                       <td className="px-4 py-3 text-right">
                         {doc.title ? (
                           deleteConfirm === doc.title ? (
                             <span className="flex items-center justify-end gap-2">
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-dune">
                                 {t('deleteConfirm', { title: doc.title })}
                               </span>
                               <Button
@@ -332,7 +332,7 @@ export default function KnowledgePage() {
                             </span>
                           )
                         ) : (
-                          <span className="text-xs text-gray-400">{t('untitled')}</span>
+                          <span className="text-xs text-dune">{t('untitled')}</span>
                         )}
                       </td>
                     </tr>
@@ -351,7 +351,7 @@ export default function KnowledgePage() {
                   {t('loadMore')}
                 </Button>
               )}
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-dune">
                 {t('showingChunks', { start: offset + 1, end: offset + (knowledgeList.data?.length ?? 0) })}
               </span>
             </div>
@@ -362,15 +362,15 @@ export default function KnowledgePage() {
       {/* ===== SECTION 2: Learnings ===== */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-lg font-semibold">{t('sectionLearnings')}</h2>
+          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionLearnings')}</h2>
           <input
             type="text"
             value={filterModuleSlug}
             onChange={(e) => setFilterModuleSlug(e.target.value)}
             placeholder={t('filterByModule')}
-            className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
           />
-          <label className="flex items-center gap-2 text-sm text-gray-600">
+          <label className="flex items-center gap-2 text-sm text-charcoal">
             <input
               type="checkbox"
               checked={includeArchived}
@@ -391,14 +391,14 @@ export default function KnowledgePage() {
         </div>
 
         {learningList.isLoading ? (
-          <div className="text-gray-500">{tc('loading')}</div>
+          <div className="text-dune">{tc('loading')}</div>
         ) : learnings.length === 0 ? (
-          <p className="text-gray-500">{t('noLearnings')}</p>
+          <p className="text-dune">{t('noLearnings')}</p>
         ) : (
-          <div className="rounded-lg border bg-white">
+          <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-gray-500">
+                <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnType')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnContent')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnConfidence')}</th>
@@ -409,15 +409,15 @@ export default function KnowledgePage() {
               </thead>
               <tbody>
                 {learnings.map((l) => (
-                  <tr key={l.id} className="border-b last:border-0">
+                  <tr key={l.id} className="border-b border-charcoal/8 last:border-0">
                     <td className="px-4 py-3">
                       <Badge>{l.type}</Badge>
                     </td>
-                    <td className="max-w-xs px-4 py-3 text-gray-600" title={l.content}>
+                    <td className="max-w-xs px-4 py-3 text-charcoal" title={l.content}>
                       {l.contentShort}
                     </td>
                     <td className="px-4 py-3">{Number(l.confidence).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-gray-500">{l.sourceModuleSlug ?? '—'}</td>
+                    <td className="px-4 py-3 text-dune">{l.sourceModuleSlug ?? '—'}</td>
                     <td className="px-4 py-3">
                       {l.archivedAt ? (
                         <Badge>{t('archived')}</Badge>

@@ -74,14 +74,18 @@
 
 | 40 | Landing page (#40) | Feb 21 | Full marketing landing page at `/`. Design system: Jost (headings) + DM Sans (body) Google Fonts, 8-color palette (midnight/sand/teal/sunset/gold/cream/charcoal/dune), 3-zone color blocking (dark hero → warm features → accent pricing). Sticky nav (auth-aware: signed-in shows Dashboard, signed-out shows Login + Get Started), hero with ALL CAPS headline + camel-sales illustration, 2x2 feature cards with camel illustrations (support/knowledge/analytics/sales), 3-col pricing from PLAN_PRICES/PLAN_LIMITS with teal checkmarks + gold "Popular" badge, 4-col footer. All i18n (en + es). Responsive (mobile stacks, nav collapses to CTA-only). OG image + metadata. `unoptimized` on illustrations (pre-generated 1K JPEGs, prevents double-compression artifacts). Smooth scroll anchors with scroll-padding. |
 
+| 48 | Dashboard retheme + collapsible sidebar (#48) | Feb 21 | Applied landing page design system to all dashboard + onboarding. 23 files modified: 3 shared UI (card/button/badge), 2 shared components (stat-card/query-error), 2 layout (sidebar/dashboard layout), 7 dashboard pages, 9 onboarding files. Gray→design system: midnight sidebar, sand content bg, teal primary buttons/focus rings, cream cards/tables, charcoal text, dune secondary text, sunset errors, gold warnings. WCAG AA contrast on all tinted-bg badges (charcoal on teal/15 ≈ 10:1). Collapsible sidebar: `w-60`↔`w-16`, CSS transition (200ms), localStorage persistence, ChevronsLeft/Right toggle, Tooltip on collapsed icons (CSS group-hover), Clerk OrganizationSwitcher crop approach, logo link to landing. New: `hooks/use-sidebar-collapsed.ts`, `ui/tooltip.tsx`. i18n: +2 keys (collapse/expand en+es). 43 tests pass, build clean. |
+
 ### Next Up — Launch Readiness
 
 | # | Task | Priority | Notes |
 |---|------|----------|-------|
 | ~~40~~ | ~~Landing page (camello.xyz)~~ | ~~P1~~ | ~~DONE~~ |
+| ~~48~~ | ~~Dashboard retheme + collapsible sidebar~~ | ~~P1~~ | ~~DONE~~ |
 | 41 | Clerk production instance | P1 | Swap test keys → production keys, configure custom domain auth |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
 | 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
+| 49 | Dashboard UX simplification | P2 | Hide AI costs behind "Advanced", integrate tiers with usage, agent test chat (non-persisted), simplify overview for non-technical users |
 | 45 | Docs / help center | P3 | Setup guide, API reference, widget embed instructions |
 | ~~46~~ | ~~Paddle smoke test~~ | ~~P2~~ | ~~DONE — checkout + webhooks confirmed end-to-end~~ |
 | 47 | WhatsApp Business setup | P3 | Meta Business verification + phone number for production WhatsApp channel |
@@ -166,6 +170,8 @@
 - [x] Smoke test: widget embed ✓
 - [x] Smoke test: billing checkout (Paddle sandbox — overlay checkout + webhooks confirmed) ✓
 - [x] Landing page: design system (Jost + DM Sans, 8-color palette) + full marketing page with illustrations
+- [x] Dashboard retheme: applied landing page design system to all 23 dashboard + onboarding files
+- [x] Collapsible sidebar: icon rail (w-16), localStorage persistence, tooltips, Clerk component adaptation
 
 ---
 

@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils';
 
 const variants: Record<string, string> = {
-  default: 'bg-gray-900 text-white hover:bg-gray-800',
-  outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
-  ghost: 'text-gray-700 hover:bg-gray-100',
+  default: 'bg-teal text-cream hover:bg-teal/90',
+  outline: 'border border-charcoal/15 bg-cream text-charcoal hover:bg-sand',
+  ghost: 'text-charcoal hover:bg-sand',
   destructive: 'bg-red-600 text-white hover:bg-red-700',
 };
 
@@ -25,7 +25,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 disabled:pointer-events-none disabled:opacity-50',
+        'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:pointer-events-none disabled:opacity-50',
         variants[variant],
         sizes[size],
         className,
