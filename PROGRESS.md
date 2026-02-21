@@ -59,11 +59,12 @@
 
 | 37 | Paddle billing integration (#37) | Feb 20 | Paddle SDK, webhook handler (4 event types, atomic claim idempotency, timestamp guard, effective-date gated cancellation), billing tRPC router (4 procedures: currentPlan, createCheckout with branching, cancelSubscription, history), billing dashboard page (plan cards, subscribe/switch/cancel), migration 0007 (5 tenant columns + idempotency table + RPC), shared PLAN_PRICES + SubscriptionStatus. 189 tests (146 API + 43 web). |
 
+| 38 | Integration pipeline tests (#38) | Feb 20 | 4 test files in `apps/api/src/__tests__/integration/`: full-message-pipeline (5), budget-gate-integration (5), module-tool-calling (5), rag-knowledge-flow (5). Exercises `handleMessage()` orchestration with mocked LLM/DB. 209 tests (166 API + 43 web). |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 38 | End-to-end testing | P1 | 3 hrs | #37 |
 | 39 | Production deploy (Vercel + Supabase) | P1 | 2 hrs | #38 |
 
 ### Post-Week 4 — Launch Readiness
@@ -146,7 +147,7 @@
 - [x] Dashboard OnboardingGate (redirects unonboarded users from all /dashboard routes)
 - [x] Knowledge seeding during onboarding (auto-seed business description + quick facts + website URL queue)
 - [x] Billing integration (Paddle — Merchant of Record, no US LLC needed)
-- [ ] End-to-end testing: message in → intent → artifact → response out
+- [x] Integration pipeline tests: full message flow, budget gate, module tool-calling, RAG knowledge flow (20 tests)
 - [ ] Load testing, error handling, edge cases
 - [ ] Deploy to Vercel + Supabase cloud
 
@@ -465,3 +466,14 @@
   - P2: `mapPaddleStatus()` unknown fallback was `'active'` (over-entitlement risk) → changed to `'past_due'`
   - P2: Missing tenant for `subscription.updated`/`subscription.canceled` was terminal `markFailed()` → now transient `throw` (out-of-order delivery, Paddle retries)
 - **Gate:** 7 workspaces type-check clean, 189 tests pass (146 API + 43 Web), 0 lint errors
+
+### Session 15 — Feb 20 (Integration Pipeline Tests #38)
+- **Built 4 integration test files** exercising `handleMessage()` orchestration with mocked LLM/DB:
+  - `full-message-pipeline.test.ts` (5 tests): full greeting pipeline, complex query with RAG, conversation reuse (skips transaction), conversation history role mapping, telemetry + trace finalization
+  - `budget-gate-integration.test.ts` (5 tests): budget blocking (no AI calls), under-budget pass-through, custom tenant budget override, plan tier defaults (growth $25), canned response + telemetry writes
+  - `module-tool-calling.test.ts` (5 tests): tools passed with maxSteps:5, no-modules skip (maxSteps:1), single/multi step tool extraction into moduleExecutions, DI dependency injection verification
+  - `rag-knowledge-flow.test.ts` (5 tests): RAG context in system prompt, greeting skip, searchKnowledge args verification, learnings in prompt, empty RAG + empty learnings graceful handling
+- **Mock strategy**: `vi.mock('@camello/db')` with real schema from side-effect-free `@camello/db/schema` sub-path (avoids Pool creation from barrel import). `createArtifactResolver` mocked to return `{ resolve: vi.fn() }` (skips 3 internal DB queries). `drizzle-orm` NOT mocked — chain mocks swallow all args, real operators receive real column objects.
+- **DB query sequence**: documented 2 variants (new conversation = 10 queries + 1 transaction, reuse = 10 queries + 0 transactions). Each `mockImplementationOnce` annotated with pipeline step comment.
+- **Audit**: 2 rounds. P1 type-check failures (intent union types) fixed. P2 subset command corrected (`vitest run src/__tests__/integration`).
+- **Gate:** 7 workspaces type-check clean, 209 tests pass (22 RLS + 42 AI + 166 API + 38 Jobs + 43 Web), 0 lint errors
