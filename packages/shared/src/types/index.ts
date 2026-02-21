@@ -42,6 +42,8 @@ export type ModuleCategory = 'sales' | 'support' | 'marketing' | 'operations' | 
 
 export type PlanTier = 'starter' | 'growth' | 'scale';
 
+export type SubscriptionStatus = 'none' | 'active' | 'past_due' | 'canceled' | 'paused' | 'trialing';
+
 export type ConversationStatus = 'active' | 'resolved' | 'escalated';
 
 export type MessageRole = 'customer' | 'artifact' | 'human' | 'system';

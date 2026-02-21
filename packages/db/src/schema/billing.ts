@@ -19,6 +19,21 @@ export const billingEvents = pgTable('billing_events', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   type: text('type').notNull(),
   amountUsd: numeric('amount_usd', { precision: 10, scale: 4 }),
-  stripeEventId: text('stripe_event_id').unique(),
+  paddleEventId: text('paddle_event_id').unique(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});
+
+/** Webhook idempotency table — no RLS (operational, not tenant-scoped). */
+export const paddleWebhookEvents = pgTable('paddle_webhook_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: text('event_id').notNull().unique(),
+  eventType: text('event_type').notNull(),
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'set null' }),
+  occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+  receivedAt: timestamp('received_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  processingStartedAt: timestamp('processing_started_at', { withTimezone: true, mode: 'date' }),
+  processedAt: timestamp('processed_at', { withTimezone: true, mode: 'date' }),
+  failedAt: timestamp('failed_at', { withTimezone: true, mode: 'date' }),
+  lastError: text('last_error'),
+  attemptCount: integer('attempt_count').notNull().default(0),
 });

@@ -10,11 +10,17 @@ export const tenants = pgTable('tenants', {
   planTier: text('plan_tier').notNull().default('starter'),
   monthlyCostBudgetUsd: numeric('monthly_cost_budget_usd', { precision: 10, scale: 4 }),
   defaultArtifactId: uuid('default_artifact_id'), // Circular FK → artifacts(id) ON DELETE SET NULL. Cannot use .references() here (circular dep). Enforced in migration via ALTER TABLE tenants ADD CONSTRAINT tenants_default_artifact_fk.
+  paddleSubscriptionId: text('paddle_subscription_id'),
+  paddleCustomerId: text('paddle_customer_id'),
+  subscriptionStatus: text('subscription_status').notNull().default('none'),
+  paddleStatusRaw: text('paddle_status_raw'),
+  paddleUpdatedAt: timestamp('paddle_updated_at', { withTimezone: true, mode: 'date' }),
   settings: jsonb('settings').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (_table) => [
   check('tenants_plan_tier_values', sql`plan_tier IN ('starter', 'growth', 'scale')`),
+  check('tenants_subscription_status_values', sql`subscription_status IN ('none', 'active', 'past_due', 'canceled', 'paused', 'trialing')`),
 ]);
 
 export const tenantMembers = pgTable('tenant_members', {

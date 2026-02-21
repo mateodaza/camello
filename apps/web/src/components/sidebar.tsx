@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, Bot, BookOpen, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Bot, BookOpen, BarChart3, CreditCard } from 'lucide-react';
 import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/dashboard/artifacts', label: 'Artifacts', icon: Bot },
   { href: '/dashboard/knowledge', label: 'Knowledge', icon: BookOpen },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/settings/billing', label: 'Billing', icon: CreditCard },
 ];
 
 export function Sidebar() {

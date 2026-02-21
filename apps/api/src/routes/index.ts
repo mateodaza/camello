@@ -10,6 +10,7 @@ import { channelRouter } from './channel.js';
 import { analyticsRouter } from './analytics.js';
 import { chatRouter } from './chat.js';
 import { onboardingRouter } from './onboarding.js';
+import { billingRouter } from './billing.js';
 
 const tenantRouter = router({
   /** Get current tenant info. Requires auth + tenant context. */
@@ -32,6 +33,7 @@ export const appRouter = router({
   analytics: analyticsRouter,
   chat: chatRouter,
   onboarding: onboardingRouter,
+  billing: billingRouter,
 });
 
 export type AppRouter = typeof appRouter;

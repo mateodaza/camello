@@ -57,11 +57,12 @@
 
 | 36b | Knowledge seeding + wizard UX polish (#36b) | Feb 20 | Step 4 "Teach Agent" auto-seeds business description (chunked + embedded), optional quick facts + website URL queue. `knowledge.queueUrl` tRPC procedure, migration 0006 (knowledge_syncs unique URL index with dedupe), `setupArtifact` idempotency guard, back navigation (steps 3-6), resume-once guard (`hasResumed` ref prevents stale-step overwrite), seeded-flag reset on description change, 15s auto-seed timeout with spinner UX, vector/text[] cast fixes in `match_knowledge` RPC. Smoke-tested end-to-end: RAG answers from seeded knowledge confirmed. 157 tests (122 API + 35 web). |
 
+| 37 | Paddle billing integration (#37) | Feb 20 | Paddle SDK, webhook handler (4 event types, atomic claim idempotency, timestamp guard, effective-date gated cancellation), billing tRPC router (4 procedures: currentPlan, createCheckout with branching, cancelSubscription, history), billing dashboard page (plan cards, subscribe/switch/cancel), migration 0007 (5 tenant columns + idempotency table + RPC), shared PLAN_PRICES + SubscriptionStatus. 189 tests (146 API + 43 web). |
+
 ### Next Up
 
 | # | Task | Priority | Estimate | Dependencies |
 |---|------|----------|----------|--------------|
-| 37 | Paddle billing integration | P1 | 4 hrs | #36 |
 | 38 | End-to-end testing | P1 | 3 hrs | #37 |
 | 39 | Production deploy (Vercel + Supabase) | P1 | 2 hrs | #38 |
 
@@ -120,7 +121,7 @@
 - [x] Clerk webhook handler (organization.created → auto-provision tenant)
 - [x] Dashboard OnboardingGate (redirects unonboarded users from all /dashboard routes)
 - [x] Knowledge seeding during onboarding (auto-seed business description + quick facts + website URL queue)
-- [ ] Billing integration (Paddle — Merchant of Record, no US LLC needed)
+- [x] Billing integration (Paddle — Merchant of Record, no US LLC needed)
 - [ ] End-to-end testing: message in → intent → artifact → response out
 - [ ] Load testing, error handling, edge cases
 - [ ] Deploy to Vercel + Supabase cloud
@@ -399,3 +400,40 @@
 - **Smoke test confirmed:** agent answers "We have a 30-day money-back return policy" using RAG on seeded knowledge
 - **Self-audit (4 findings):** P2 stale-seeded-flag (fixed), P3 ensureCustomer error UI (fixed), P3 empty-patch write (acceptable), P3 URL protocol validation (server validates)
 - **Gate:** 7 workspaces type-check clean, 157 tests pass (122 API + 35 Web), 0 lint errors
+
+### Session 14 — Feb 20 (Paddle Billing Integration #37)
+- **Built Paddle Billing integration** — webhook handler + tRPC router + billing dashboard:
+- **Migration 0007** (`paddle_billing`) applied to Supabase cloud:
+  - `billing_events.stripe_event_id` renamed → `paddle_event_id`
+  - 5 new columns on `tenants`: `paddle_subscription_id`, `paddle_customer_id`, `subscription_status` (CHECK constraint, 6 values), `paddle_status_raw`, `paddle_updated_at`
+  - `paddle_webhook_events` table — dedicated idempotency table (NO RLS, operational/infra)
+  - Partial index: `idx_tenants_paddle_subscription` for reverse-lookup
+  - SECURITY DEFINER RPC: `resolve_tenant_by_paddle_subscription()` (bypasses RLS)
+- **Backend — `apps/api/src/lib/paddle.ts`:**
+  - Singleton `getPaddle()` (same pattern as Langfuse)
+  - `priceIdToTier()` / `tierToPriceId()` — env-var-based mapping
+  - `mapPaddleStatus()` — maps to SubscriptionStatus with safe fallback
+- **Backend — `apps/api/src/webhooks/paddle.ts`:**
+  - Hono route at POST `/api/webhooks/paddle`
+  - Signature verification via `paddle.webhooks.unmarshal()`
+  - Atomic claim idempotency: INSERT ON CONFLICT with 60s stale-lock recovery
+  - Timestamp guard: `paddle_updated_at` prevents out-of-order corruption
+  - 4 event handlers: `subscription.created`, `subscription.updated`, `subscription.canceled`, `transaction.completed`
+  - Cancellation downgrade gated on effective date (`canceled_at <= now()`)
+  - Terminal failures: `failed_at + last_error`, return 200 to stop Paddle retries
+  - Transient failures: don't finalize, lock expires → Paddle retries
+- **Backend — `apps/api/src/routes/billing.ts`:**
+  - 4 tRPC procedures: `currentPlan`, `createCheckout`, `cancelSubscription`, `history`
+  - Checkout branching: no active sub → `transactions.create()` (checkout URL), active sub → `subscriptions.update()` (in-place proration)
+- **Frontend — `apps/web/src/app/dashboard/settings/billing/page.tsx`:**
+  - Current plan summary with limits + budget
+  - 3 plan cards (starter/growth/scale) with highlighting
+  - Subscribe/Switch button logic based on subscription state
+  - Cancel with confirmation (effective at next billing period)
+  - Billing history table
+- **Sidebar:** added Billing nav item (CreditCard icon)
+- **Shared:** `PLAN_PRICES` constant, `SubscriptionStatus` type
+- **Tests:** 32 new (15 webhook + 9 billing routes + 8 web)
+- **Env vars:** `.env.example` updated with 6 Paddle vars
+- **Fix:** `@camello/shared` sub-path exports only — bare imports fail at runtime (Vite/tsc). All imports changed to `@camello/shared/constants` and `@camello/shared/types`.
+- **Gate:** 7 workspaces type-check clean, 189 tests pass (146 API + 43 Web), 0 lint errors

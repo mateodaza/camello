@@ -35,6 +35,9 @@ importers:
       '@hono/trpc-server':
         specifier: ^0.3.3
         version: 0.3.4(@trpc/server@11.10.0(typescript@5.9.3))(hono@4.11.9)
+      '@paddle/paddle-node-sdk':
+        specifier: ^3.6.0
+        version: 3.6.0
       '@supabase/supabase-js':
         specifier: ^2.97.0
         version: 2.97.0
@@ -1567,6 +1570,10 @@ packages:
   '@opentelemetry/semantic-conventions@1.25.1':
     resolution: {integrity: sha512-ZDjMJJQRlyk8A1KZFCc+bCbsyrn1wTwdNt56F7twdfUfnHUZUq77/WfONCj8p72NZOyP7pNTdUWSTYC3GTbuuQ==}
     engines: {node: '>=14'}
+
+  '@paddle/paddle-node-sdk@3.6.0':
+    resolution: {integrity: sha512-EFP1thHb1FVuKGwSJ/+/oj5FvCk3l3adyVy/mpUnDq/MM31RdcAdNn+AZ8qYd0pF4rJxtwXmWMGjXqjHKhKHuA==}
+    engines: {node: '>=20'}
 
   '@petamoriken/float16@3.9.3':
     resolution: {integrity: sha512-8awtpHXCx/bNpFt4mt2xdkgtgVvKqty8VbjHI/WWWQuEw+KLzFot3f4+LkQY9YmOtq7A5GdOnqoIC8Pdygjk2g==}
@@ -4648,6 +4655,8 @@ snapshots:
       semver: 7.7.4
 
   '@opentelemetry/semantic-conventions@1.25.1': {}
+
+  '@paddle/paddle-node-sdk@3.6.0': {}
 
   '@petamoriken/float16@3.9.3': {}
 

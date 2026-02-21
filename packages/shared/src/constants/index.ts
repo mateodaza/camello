@@ -29,6 +29,12 @@ export const PLAN_LIMITS: Record<PlanTier, {
 
 export const OVERAGE_COST_PER_RESOLUTION = 0.50;
 
+export const PLAN_PRICES: Record<PlanTier, { monthly: number; label: string }> = {
+  starter: { monthly: 99, label: 'Starter' },
+  growth: { monthly: 249, label: 'Growth' },
+  scale: { monthly: 499, label: 'Scale' },
+} as const;
+
 export const COST_BUDGET_DEFAULTS: Record<PlanTier, number> = {
   starter: 5.0,
   growth: 25.0,
