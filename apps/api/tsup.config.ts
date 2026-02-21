@@ -6,7 +6,9 @@ export default defineConfig({
   dts: false,
   clean: true,
   sourcemap: true,
-  noExternal: [/^@camello\//],
+  // Bundle ALL dependencies — produces a self-contained file for Docker.
+  // pnpm's symlinked node_modules breaks when Docker COPY flattens them.
+  noExternal: [/.*/],
   banner: {
     // Provide a real `require` for CJS packages (pg, etc.) bundled into ESM output
     js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",

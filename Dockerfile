@@ -18,7 +18,7 @@ COPY apps/api/src/ apps/api/src/
 COPY apps/api/tsup.config.ts apps/api/tsup.config.ts
 COPY apps/api/tsconfig.json apps/api/tsconfig.json
 
-# Build (tsup bundles @camello/* inline via noExternal)
+# Build (tsup bundles ALL deps into a single file)
 RUN pnpm --filter @camello/api build
 
 # --- Runtime ---
@@ -26,13 +26,12 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Copy bundled API + npm dependencies
+# Single self-contained bundle — no node_modules needed
 COPY --from=builder /app/apps/api/dist/index.js ./index.js
-COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 4000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:4000/health || exit 1
+# Railway runs its own healthcheck — disable Docker's to avoid conflicts
+# HEALTHCHECK NONE
 
 CMD ["node", "index.js"]
