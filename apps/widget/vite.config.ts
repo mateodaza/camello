@@ -14,7 +14,7 @@ export default defineConfig({
       // Bundle everything into a single file (no external deps)
     },
     cssCodeSplit: false,  // Inline CSS into the JS bundle
-    minify: 'terser',
+    minify: true,
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
