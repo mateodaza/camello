@@ -2,6 +2,7 @@
   "name": "camello",
   "private": true,
   "packageManager": "pnpm@10.6.1",
+  "engines": { "node": "22.x" },
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
