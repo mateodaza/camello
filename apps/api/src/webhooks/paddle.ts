@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
-import { sql } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
-import { db, tenants, billingEvents, createTenantDb } from '@camello/db';
+import { pool, tenants, billingEvents, createTenantDb } from '@camello/db';
 import { COST_BUDGET_DEFAULTS } from '@camello/shared/constants';
 import type { PlanTier } from '@camello/shared/types';
 import { getPaddle, priceIdToTier, mapPaddleStatus } from '../lib/paddle.js';
@@ -31,52 +30,51 @@ async function claimEvent(
   eventType: string,
   occurredAt: string,
 ): Promise<{ claimed: boolean }> {
-  const result = await db.execute(sql`
-    INSERT INTO paddle_webhook_events (event_id, event_type, occurred_at, processing_started_at, attempt_count)
-    VALUES (${eventId}, ${eventType}, ${occurredAt}::timestamptz, now(), 1)
-    ON CONFLICT (event_id) DO UPDATE SET
-      event_type = EXCLUDED.event_type,
-      occurred_at = EXCLUDED.occurred_at,
-      processing_started_at = now(),
-      attempt_count = paddle_webhook_events.attempt_count + 1
-    WHERE paddle_webhook_events.processed_at IS NULL
-      AND paddle_webhook_events.failed_at IS NULL
-      AND (
-        paddle_webhook_events.processing_started_at IS NULL
-        OR paddle_webhook_events.processing_started_at < now() - interval '60 seconds'
-      )
-    RETURNING id
-  `);
-  return { claimed: (result.rows as unknown[]).length > 0 };
+  const { rows } = await pool.query(
+    `INSERT INTO paddle_webhook_events (event_id, event_type, occurred_at, processing_started_at, attempt_count)
+     VALUES ($1, $2, $3::timestamptz, now(), 1)
+     ON CONFLICT (event_id) DO UPDATE SET
+       event_type = EXCLUDED.event_type,
+       occurred_at = EXCLUDED.occurred_at,
+       processing_started_at = now(),
+       attempt_count = paddle_webhook_events.attempt_count + 1
+     WHERE paddle_webhook_events.processed_at IS NULL
+       AND paddle_webhook_events.failed_at IS NULL
+       AND (
+         paddle_webhook_events.processing_started_at IS NULL
+         OR paddle_webhook_events.processing_started_at < now() - interval '60 seconds'
+       )
+     RETURNING id`,
+    [eventId, eventType, occurredAt],
+  );
+  return { claimed: rows.length > 0 };
 }
 
 /** Mark event as successfully processed. */
 async function markProcessed(eventId: string, tenantId: string | null): Promise<void> {
-  await db.execute(sql`
-    UPDATE paddle_webhook_events
-    SET processed_at = now(), tenant_id = ${tenantId}
-    WHERE event_id = ${eventId}
-  `);
+  await pool.query(
+    `UPDATE paddle_webhook_events SET processed_at = now(), tenant_id = $1 WHERE event_id = $2`,
+    [tenantId, eventId],
+  );
 }
 
 /** Mark event as a terminal failure (poison event). Returns 200 to stop Paddle retries. */
 async function markFailed(eventId: string, error: string): Promise<void> {
-  await db.execute(sql`
-    UPDATE paddle_webhook_events
-    SET failed_at = now(), last_error = ${error}
-    WHERE event_id = ${eventId}
-  `);
+  await pool.query(
+    `UPDATE paddle_webhook_events SET failed_at = now(), last_error = $1 WHERE event_id = $2`,
+    [error, eventId],
+  );
 }
 
 /** Resolve tenant by Paddle subscription ID (SECURITY DEFINER RPC, bypasses RLS). */
 async function resolveTenantBySubscription(
   subscriptionId: string,
 ): Promise<{ tenant_id: string; plan_tier: string; paddle_updated_at: string | null } | null> {
-  const result = await db.execute(
-    sql`SELECT * FROM resolve_tenant_by_paddle_subscription(${subscriptionId})`,
+  const { rows } = await pool.query<{ tenant_id: string; plan_tier: string; paddle_updated_at: string | null }>(
+    `SELECT * FROM resolve_tenant_by_paddle_subscription($1)`,
+    [subscriptionId],
   );
-  const row = (result.rows as Array<{ tenant_id: string; plan_tier: string; paddle_updated_at: string | null }>)[0];
-  return row ?? null;
+  return rows[0] ?? null;
 }
 
 /**

@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   unmarshal: vi.fn(),
-  dbExecute: vi.fn(),
+  poolQuery: vi.fn(),
   tenantDbQuery: vi.fn(),
 }));
 
@@ -18,9 +18,9 @@ vi.mock('@paddle/paddle-node-sdk', () => {
 });
 
 vi.mock('@camello/db', () => {
-  const db = { execute: mocks.dbExecute };
+  const pool = { query: mocks.poolQuery };
   return {
-    db,
+    pool,
     tenants: { _table: 'tenants', id: 'id' },
     billingEvents: { _table: 'billingEvents' },
     createTenantDb: () => ({ query: mocks.tenantDbQuery }),
@@ -98,7 +98,7 @@ describe('paddle webhook handler', () => {
     vi.stubEnv('PADDLE_API_KEY', 'test_key');
 
     // Default: claim succeeds (returns a row)
-    mocks.dbExecute.mockResolvedValue({ rows: [{ id: 'claimed-uuid' }] });
+    mocks.poolQuery.mockResolvedValue({ rows: [{ id: 'claimed-uuid' }] });
     // Default: tenantDb.query executes the callback
     mocks.tenantDbQuery.mockImplementation(async (fn: any) => {
       const mockDb = {
@@ -152,7 +152,7 @@ describe('paddle webhook handler', () => {
     mocks.unmarshal.mockReturnValue(event);
 
     // claim succeeds
-    mocks.dbExecute.mockResolvedValue({ rows: [{ id: 'claimed' }] });
+    mocks.poolQuery.mockResolvedValue({ rows: [{ id: 'claimed' }] });
 
     let setPayload: any = null;
     mocks.tenantDbQuery.mockImplementation(async (fn: any) => {
@@ -194,8 +194,8 @@ describe('paddle webhook handler', () => {
     const res = await paddleWebhookRoutes.fetch(makeRequest(JSON.stringify(event)));
 
     expect(res.status).toBe(200);
-    // claim + markFailed = 2 db.execute calls, no tenantDb interaction
-    expect(mocks.dbExecute.mock.calls.length).toBe(2);
+    // claim + markFailed = 2 pool.query calls, no tenantDb interaction
+    expect(mocks.poolQuery.mock.calls.length).toBe(2);
     expect(mocks.tenantDbQuery).not.toHaveBeenCalled();
   });
 
@@ -215,14 +215,14 @@ describe('paddle webhook handler', () => {
 
     expect(res.status).toBe(200);
     // Should call markFailed
-    expect(mocks.dbExecute.mock.calls.length).toBeGreaterThan(1);
+    expect(mocks.poolQuery.mock.calls.length).toBeGreaterThan(1);
   });
 
   it('skips already-processed event (idempotent)', async () => {
     const event = makeEvent();
     mocks.unmarshal.mockReturnValue(event);
     // Claim returns empty → already processed
-    mocks.dbExecute.mockResolvedValue({ rows: [] });
+    mocks.poolQuery.mockResolvedValue({ rows: [] });
 
     const res = await paddleWebhookRoutes.fetch(makeRequest(JSON.stringify(event)));
 
@@ -245,7 +245,7 @@ describe('paddle webhook handler', () => {
     mocks.unmarshal.mockReturnValue(event);
 
     // claim succeeds
-    mocks.dbExecute
+    mocks.poolQuery
       .mockResolvedValueOnce({ rows: [{ id: 'claimed' }] }) // claim
       .mockResolvedValueOnce({ // resolveTenantBySubscription
         rows: [{
@@ -291,7 +291,7 @@ describe('paddle webhook handler', () => {
     });
     mocks.unmarshal.mockReturnValue(event);
 
-    mocks.dbExecute
+    mocks.poolQuery
       .mockResolvedValueOnce({ rows: [{ id: 'claimed' }] })
       .mockResolvedValueOnce({
         rows: [{
@@ -320,7 +320,7 @@ describe('paddle webhook handler', () => {
     });
     mocks.unmarshal.mockReturnValue(event);
 
-    mocks.dbExecute
+    mocks.poolQuery
       .mockResolvedValueOnce({ rows: [{ id: 'claimed' }] })
       .mockResolvedValueOnce({
         rows: [{
@@ -365,7 +365,7 @@ describe('paddle webhook handler', () => {
     });
     mocks.unmarshal.mockReturnValue(event);
 
-    mocks.dbExecute
+    mocks.poolQuery
       .mockResolvedValueOnce({ rows: [{ id: 'claimed' }] })
       .mockResolvedValueOnce({
         rows: [{
@@ -440,7 +440,7 @@ describe('paddle webhook handler', () => {
     const res = await paddleWebhookRoutes.fetch(makeRequest(JSON.stringify(event)));
 
     expect(res.status).toBe(200);
-    // Should call markProcessed (second db.execute), but NOT tenantDb
+    // Should call markProcessed (second pool.query), but NOT tenantDb
     expect(mocks.tenantDbQuery).not.toHaveBeenCalled();
   });
 
@@ -455,7 +455,7 @@ describe('paddle webhook handler', () => {
     });
     mocks.unmarshal.mockReturnValue(event);
 
-    mocks.dbExecute
+    mocks.poolQuery
       .mockResolvedValueOnce({ rows: [{ id: 'claimed' }] })
       .mockResolvedValueOnce({ rows: [] }) // no tenant found
       .mockResolvedValue({ rows: [] });
