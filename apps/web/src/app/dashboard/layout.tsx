@@ -2,11 +2,13 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Sidebar } from '@/components/sidebar';
 import { QueryError } from '@/components/query-error';
 import { trpc } from '@/lib/trpc';
 
 function OnboardingGate({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('common');
   const tenant = trpc.tenant.me.useQuery();
   const router = useRouter();
 
@@ -29,7 +31,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   if (tenant.isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+        <p className="text-gray-500">{t('loading')}</p>
       </div>
     );
   }

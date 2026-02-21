@@ -4,6 +4,7 @@ interface WidgetSession {
   token: string | null;
   tenantName: string;
   artifactName: string;
+  language: string;
   isLoading: boolean;
   error: string | null;
   init: () => void;
@@ -20,6 +21,7 @@ export function useWidgetSession(tenantSlug: string, apiUrl: string): WidgetSess
   const [token, setToken] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState('');
   const [artifactName, setArtifactName] = useState('');
+  const [language, setLanguage] = useState('en');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,11 +51,13 @@ export function useWidgetSession(tenantSlug: string, apiUrl: string): WidgetSess
         token: string;
         tenant_name: string;
         artifact_name: string;
+        language?: string;
       };
 
       setToken(data.token);
       setTenantName(data.tenant_name);
       setArtifactName(data.artifact_name);
+      setLanguage(data.language ?? 'en');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -61,7 +65,7 @@ export function useWidgetSession(tenantSlug: string, apiUrl: string): WidgetSess
     }
   }, [tenantSlug, apiUrl, token, isLoading]);
 
-  return { token, tenantName, artifactName, isLoading, error, init };
+  return { token, tenantName, artifactName, language, isLoading, error, init };
 }
 
 /** Simple browser fingerprint (not cryptographically strong, just for dedup). */

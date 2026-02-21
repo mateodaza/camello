@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { WizardProgress } from './components/WizardProgress';
 import { Step1CompanyName } from './components/Step1CompanyName';
@@ -27,6 +28,8 @@ export interface Suggestion {
 }
 
 export default function OnboardingPage() {
+  const t = useTranslations('onboarding');
+  const tc = useTranslations('common');
   const router = useRouter();
   const { organization, isLoaded } = useOrganization();
   const [step, setStep] = useState(1);
@@ -105,14 +108,14 @@ export default function OnboardingPage() {
 
   // If org exists but no tenant provisioned yet, start at step 1
   if (!isLoaded) {
-    return <p className="text-center text-gray-500">Loading...</p>;
+    return <p className="text-center text-gray-500">{tc('loading')}</p>;
   }
 
   return (
     <div>
-      <h1 className="mb-2 text-center text-2xl font-bold">Set up your AI workforce</h1>
+      <h1 className="mb-2 text-center text-2xl font-bold">{t('title')}</h1>
       <p className="mb-6 text-center text-sm text-gray-500">
-        {step <= 4 ? "Let's get your first agent ready" : 'Almost there!'}
+        {step <= 4 ? t('subtitle1') : t('subtitle2')}
       </p>
 
       <WizardProgress currentStep={step} />
@@ -122,7 +125,7 @@ export default function OnboardingPage() {
           onClick={() => setStep(step - 1)}
           className="mb-4 text-sm text-gray-500 hover:text-gray-800"
         >
-          &larr; Back
+          {t('back')}
         </button>
       )}
 
@@ -166,9 +169,9 @@ export default function OnboardingPage() {
 
       {step === 3 && !suggestion && (
         <div className="text-center">
-          <p className="text-sm text-gray-500">Missing agent configuration.</p>
+          <p className="text-sm text-gray-500">{t('missingConfig')}</p>
           <button onClick={() => setStep(2)} className="mt-2 text-sm text-gray-900 underline">
-            Go back to business description
+            {t('goBackDescription')}
           </button>
         </div>
       )}

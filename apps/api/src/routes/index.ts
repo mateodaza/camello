@@ -1,6 +1,7 @@
+import { z } from 'zod';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { tenants } from '@camello/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { artifactRouter } from './artifact.js';
 import { conversationRouter } from './conversation.js';
 import { knowledgeRouter } from './knowledge.js';
@@ -20,6 +21,18 @@ const tenantRouter = router({
     });
     return result[0] ?? null;
   }),
+
+  /** Update tenant preferred locale. */
+  updateLocale: tenantProcedure
+    .input(z.object({ locale: z.enum(['en', 'es']) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.tenantDb.query(async (db) => {
+        await db.update(tenants)
+          .set({ settings: sql`jsonb_set(COALESCE(settings, '{}'), '{preferredLocale}', ${JSON.stringify(input.locale)}::jsonb)` })
+          .where(eq(tenants.id, ctx.tenantId));
+      });
+      return { locale: input.locale };
+    }),
 });
 
 export const appRouter = router({

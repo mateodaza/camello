@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function Step5TestIt({ previewCustomerId }: Props) {
+  const t = useTranslations('onboarding');
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('Hi! What can you help me with?');
@@ -64,22 +66,22 @@ export function Step5TestIt({ previewCustomerId }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Try it out!</CardTitle>
+        <CardTitle>{t('testItTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-gray-600">
-          Send a test message to see your AI agent in action. This is a live conversation.
+          {t('testItDescription')}
         </p>
 
         {ensureCustomer.isError && (
           <p className="text-sm text-amber-600">
-            Could not set up preview chat. You can test your agent from the dashboard after setup.
+            {t('setupError')}
           </p>
         )}
 
         <div className="h-64 overflow-y-auto rounded-lg border bg-gray-50 p-3">
           {messages.length === 0 && (
-            <p className="text-center text-xs text-gray-400">Send a message to get started</p>
+            <p className="text-center text-xs text-gray-400">{t('chatEmpty')}</p>
           )}
           {messages.map((msg, i) => (
             <div
@@ -95,7 +97,7 @@ export function Step5TestIt({ previewCustomerId }: Props) {
           ))}
           {sendMessage.isPending && (
             <div className="mr-8 mb-2 rounded-lg border bg-white px-3 py-2 text-sm text-gray-400">
-              Thinking...
+              {t('thinking')}
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -105,12 +107,12 @@ export function Step5TestIt({ previewCustomerId }: Props) {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
+            placeholder={t('messagePlaceholder')}
             className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
             disabled={!customerId}
           />
           <Button type="submit" disabled={!input.trim() || !customerId || sendMessage.isPending}>
-            Send
+            {t('sendButton')}
           </Button>
         </form>
 
@@ -120,7 +122,7 @@ export function Step5TestIt({ previewCustomerId }: Props) {
 
         <div className="border-t pt-4">
           <Button onClick={() => complete.mutate()} disabled={complete.isPending}>
-            {complete.isPending ? 'Finishing...' : 'Go to Dashboard'}
+            {complete.isPending ? t('finishing') : t('goToDashboard')}
           </Button>
         </div>
       </CardContent>

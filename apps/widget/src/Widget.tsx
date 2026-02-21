@@ -21,6 +21,7 @@ export function Widget({ tenant, position, theme, apiUrl }: WidgetProps) {
           token={session.token}
           tenantName={session.tenantName}
           artifactName={session.artifactName}
+          language={session.language}
           apiUrl={apiUrl}
           position={position}
           theme={theme}
@@ -30,6 +31,7 @@ export function Widget({ tenant, position, theme, apiUrl }: WidgetProps) {
       <ChatBubble
         position={position}
         theme={theme}
+        language={session.language}
         isOpen={isOpen}
         isLoading={session.isLoading}
         onClick={() => {

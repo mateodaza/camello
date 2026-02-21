@@ -122,10 +122,10 @@ widgetRoutes.post('/session', async (c) => {
   const { id: tenantId, name: tenantName, default_artifact_id: defaultArtifactId } = tenant;
   const tenantDb = createTenantDb(tenantId);
 
-  // Fetch artifact name (within tenant context — RLS-safe)
+  // Fetch artifact name + personality (within tenant context — RLS-safe)
   const artifact = await tenantDb.query(async (qdb) => {
     const rows = await qdb
-      .select({ name: artifacts.name })
+      .select({ name: artifacts.name, personality: artifacts.personality })
       .from(artifacts)
       .where(eq(artifacts.id, defaultArtifactId))
       .limit(1);
@@ -165,10 +165,13 @@ widgetRoutes.post('/session', async (c) => {
     customerId,
   });
 
+  const language = (artifact.personality as Record<string, unknown>)?.language;
+
   return c.json({
     token,
     tenant_name: tenantName,
     artifact_name: artifact.name,
+    language: typeof language === 'string' ? language : 'en',
   });
 });
 

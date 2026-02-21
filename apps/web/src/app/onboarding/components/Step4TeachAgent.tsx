@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded, onSeeded, onComplete }: Props) {
+  const t = useTranslations('onboarding');
   const [quickFacts, setQuickFacts] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [seedStatus, setSeedStatus] = useState<'idle' | 'seeding' | 'done' | 'error'>(
@@ -92,7 +94,7 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Teach {agentName}</CardTitle>
+        <CardTitle>{t('teachAgentTitle', { agentName })}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         {/* Auto-seed status */}
@@ -104,41 +106,41 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               <div>
-                <p className="text-sm text-gray-600">Teaching {agentName} about your business...</p>
-                <p className="text-xs text-gray-400">This may take a few seconds</p>
+                <p className="text-sm text-gray-600">{t('teachingAbout', { agentName })}</p>
+                <p className="text-xs text-gray-400">{t('mayTakeSeconds')}</p>
               </div>
             </div>
           )}
           {seedStatus === 'done' && seedChunks > 0 && (
             <p className="text-sm text-green-700">
-              {agentName} learned about your business ({seedChunks} {seedChunks === 1 ? 'section' : 'sections'} indexed)
+              {t('learnedBusiness', { agentName, chunkCount: seedChunks })}
             </p>
           )}
           {seedStatus === 'done' && seedChunks === 0 && (
-            <p className="text-sm text-green-700">{agentName} already knows about your business.</p>
+            <p className="text-sm text-green-700">{t('alreadyKnows', { agentName })}</p>
           )}
           {seedStatus === 'error' && (
             <p className="text-sm text-amber-600">
-              Couldn&apos;t index your description right now — no worries, you can add knowledge later from the dashboard.
+              {t('indexError')}
             </p>
           )}
           {seedStatus === 'idle' && !businessDescription && (
-            <p className="text-sm text-gray-500">No business description to index. You can add knowledge below or skip for now.</p>
+            <p className="text-sm text-gray-500">{t('noDescription')}</p>
           )}
         </div>
 
         {/* Quick Facts */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">
-            Tell {agentName} more <span className="font-normal text-gray-400">(optional)</span>
+            {t('tellMoreLabel', { agentName })} <span className="font-normal text-gray-400">{t('tellMoreOptional')}</span>
           </label>
           <p className="text-xs text-gray-500">
-            Add specific facts, policies, or details your agent should know.
+            {t('quickFactsDescription')}
           </p>
           <textarea
             value={quickFacts}
             onChange={(e) => setQuickFacts(e.target.value)}
-            placeholder={`Return policy: 30-day money-back guarantee\nShipping: Free on orders over $50\nBusiness hours: Mon-Fri 9am-6pm EST`}
+            placeholder={t('quickFactsPlaceholder')}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
             rows={4}
             maxLength={5000}
@@ -148,27 +150,27 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
         {/* Website URL */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">
-            Import from website <span className="font-normal text-gray-400">(optional)</span>
+            {t('importFromWebsite')} <span className="font-normal text-gray-400">{t('tellMoreOptional')}</span>
           </label>
           <p className="text-xs text-gray-500">
-            We&apos;ll automatically scrape and index content from your website in a few minutes.
+            {t('importWebsiteDescription')}
           </p>
           <input
             type="url"
             value={websiteUrl}
             onChange={(e) => setWebsiteUrl(e.target.value)}
-            placeholder="https://yourwebsite.com"
+            placeholder={t('websitePlaceholder')}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           />
           {urlQueued && (
-            <p className="text-xs text-green-600">Queued for import. Content will appear in a few minutes.</p>
+            <p className="text-xs text-green-600">{t('queuedForImport')}</p>
           )}
         </div>
 
         {/* Error display */}
         {(ingest.isError || queueUrl.isError) && (
           <p className="text-sm text-red-600">
-            {ingest.error?.message ?? queueUrl.error?.message ?? 'Something went wrong.'}
+            {ingest.error?.message ?? queueUrl.error?.message ?? t('analyzeError')}
           </p>
         )}
 
@@ -178,10 +180,10 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
             onClick={handleContinue}
             disabled={submitting || seedStatus === 'seeding'}
           >
-            {submitting ? 'Saving...' : 'Continue'}
+            {submitting ? t('saving') : t('continue')}
           </Button>
           <Button variant="ghost" onClick={onComplete} disabled={submitting || seedStatus === 'seeding'}>
-            Skip for now
+            {t('skipForNow')}
           </Button>
         </div>
       </CardContent>

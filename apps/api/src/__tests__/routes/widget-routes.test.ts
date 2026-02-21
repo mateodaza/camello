@@ -103,13 +103,13 @@ describe('Widget routes', () => {
       expect(await json(res)).toEqual({ error: 'Unable to create session' });
     });
 
-    it('returns token + names for valid slug', async () => {
+    it('returns token + names + language for valid slug', async () => {
       // RPC → tenant found
       mockDbExecute.mockResolvedValueOnce({
         rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
       });
-      // tenantDb.query → artifact lookup
-      mockTenantDbQuery.mockResolvedValueOnce({ name: 'Support Bot' });
+      // tenantDb.query → artifact lookup (with personality)
+      mockTenantDbQuery.mockResolvedValueOnce({ name: 'Support Bot', personality: { language: 'es' } });
       // tenantDb.query → customer upsert
       mockTenantDbQuery.mockResolvedValueOnce(CUSTOMER_ID);
 
@@ -124,6 +124,24 @@ describe('Widget routes', () => {
       expect(body.token.split('.').length).toBe(3); // JWT format
       expect(body.tenant_name).toBe('Acme');
       expect(body.artifact_name).toBe('Support Bot');
+      expect(body.language).toBe('es');
+    });
+
+    it('defaults language to "en" when personality has no language field', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      // personality with no language
+      mockTenantDbQuery.mockResolvedValueOnce({ name: 'Support Bot', personality: {} });
+      mockTenantDbQuery.mockResolvedValueOnce(CUSTOMER_ID);
+
+      const res = await post('/session', {
+        tenant_slug: 'acme',
+        visitor_fingerprint: 'fp_abc',
+      });
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      expect(body.language).toBe('en');
     });
 
     it('returns 429 when rate limited (>10 req/min per IP+slug)', async () => {

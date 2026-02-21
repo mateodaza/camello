@@ -1,14 +1,16 @@
 import React from 'react';
+import { t } from '../i18n/messages.js';
 
 interface ChatBubbleProps {
   position: 'bottom-right' | 'bottom-left';
   theme: 'light' | 'dark';
+  language: string;
   isOpen: boolean;
   isLoading: boolean;
   onClick: () => void;
 }
 
-export function ChatBubble({ position, theme, isOpen, isLoading, onClick }: ChatBubbleProps) {
+export function ChatBubble({ position, theme, language, isOpen, isLoading, onClick }: ChatBubbleProps) {
   const positionStyle: React.CSSProperties = {
     position: 'fixed',
     bottom: '20px',
@@ -40,7 +42,7 @@ export function ChatBubble({ position, theme, isOpen, isLoading, onClick }: Chat
         fontSize: '24px',
         fontFamily: 'sans-serif',
       }}
-      aria-label={isOpen ? 'Close chat' : 'Open chat'}
+      aria-label={isOpen ? t('chat.close', language) : t('chat.open', language)}
     >
       {isLoading ? '...' : isOpen ? '\u00D7' : '\u{1F4AC}'}
     </button>

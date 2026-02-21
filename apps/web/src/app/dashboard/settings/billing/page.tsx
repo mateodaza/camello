@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Script from 'next/script';
+import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,16 +37,28 @@ function tierLabel(tier: PlanTier): string {
   return PLAN_PRICES[tier].label;
 }
 
-function fmtLimit(val: number): string {
-  return val === Infinity ? 'Unlimited' : val.toLocaleString();
-}
-
 export default function BillingPage() {
+  const t = useTranslations('billing');
+  const tc = useTranslations('common');
+  const locale = useLocale();
+  const router = useRouter();
   const utils = trpc.useUtils();
   const plan = trpc.billing.currentPlan.useQuery();
   const history = trpc.billing.history.useQuery();
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const paddleReady = useRef(false);
+
+  const updateLocale = trpc.tenant.updateLocale.useMutation({
+    onSuccess: (_data, variables) => {
+      document.cookie = `locale=${variables.locale};path=/;max-age=31536000`;
+      utils.tenant.me.invalidate();
+      router.refresh();
+    },
+  });
+
+  function fmtLimit(val: number): string {
+    return val === Infinity ? t('unlimited') : val.toLocaleString();
+  }
 
   const initPaddle = () => {
     if (!window.Paddle || paddleReady.current || !PADDLE_CLIENT_TOKEN) return;
@@ -89,7 +103,7 @@ export default function BillingPage() {
     },
   });
 
-  if (plan.isLoading) return <div className="text-gray-500">Loading...</div>;
+  if (plan.isLoading) return <div className="text-gray-500">{tc('loading')}</div>;
   if (plan.isError) return <QueryError error={plan.error} />;
 
   const current = plan.data!;
@@ -101,12 +115,31 @@ export default function BillingPage() {
         src="https://cdn.paddle.com/paddle/v2/paddle.js"
         onLoad={initPaddle}
       />
-      <h1 className="text-2xl font-bold">Billing</h1>
+      <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
+
+      {/* Language selector */}
+      <Card>
+        <CardContent className="flex items-center justify-between pt-6">
+          <div>
+            <p className="font-medium text-gray-900">{t('language')}</p>
+            <p className="text-sm text-gray-500">{t('languageDescription')}</p>
+          </div>
+          <select
+            value={locale}
+            onChange={(e) => updateLocale.mutate({ locale: e.target.value as 'en' | 'es' })}
+            disabled={updateLocale.isPending}
+            className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+          >
+            <option value="en">{t('english')}</option>
+            <option value="es">{t('spanish')}</option>
+          </select>
+        </CardContent>
+      </Card>
 
       {/* Current plan summary */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Current Plan</CardTitle>
+          <CardTitle className="text-base">{t('currentPlan')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
           <div className="flex items-center gap-3">
@@ -116,15 +149,15 @@ export default function BillingPage() {
             </Badge>
           </div>
           <p className="text-sm text-gray-600">
-            ${current.price.monthly}/mo &middot;{' '}
-            Up to {fmtLimit(current.limits.artifacts)} artifacts,{' '}
-            {fmtLimit(current.limits.modules)} modules,{' '}
-            {fmtLimit(current.limits.channels)} channels,{' '}
-            {fmtLimit(current.limits.resolutions_per_month)} resolutions/mo
+            ${current.price.monthly}{t('monthly')} &middot;{' '}
+            {fmtLimit(current.limits.artifacts)} {t('artifacts')},{' '}
+            {fmtLimit(current.limits.modules)} {t('modules')},{' '}
+            {fmtLimit(current.limits.channels)} {t('channels')},{' '}
+            {fmtLimit(current.limits.resolutions_per_month)} {t('resolutionsPerMonth')}
           </p>
           {current.monthlyCostBudgetUsd && (
             <p className="text-sm text-gray-500">
-              AI budget: {fmtCost(current.monthlyCostBudgetUsd)}/mo
+              {t('aiBudget', { budget: Number(current.monthlyCostBudgetUsd).toFixed(0) })}
             </p>
           )}
         </CardContent>
@@ -132,7 +165,7 @@ export default function BillingPage() {
 
       {/* Plan cards */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Plans</h2>
+        <h2 className="text-lg font-semibold">{t('plans')}</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           {tiers.map((tier) => {
             const price = PLAN_PRICES[tier];
@@ -144,23 +177,29 @@ export default function BillingPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between text-base">
                     {price.label}
-                    {isCurrent && <Badge>Current</Badge>}
+                    {isCurrent && <Badge>{t('current')}</Badge>}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 pt-0">
-                  <p className="text-2xl font-bold">${price.monthly}<span className="text-sm font-normal text-gray-500">/mo</span></p>
+                  <p className="text-2xl font-bold">${price.monthly}<span className="text-sm font-normal text-gray-500">{t('monthly')}</span></p>
                   <ul className="space-y-1 text-sm text-gray-600">
-                    <li>{fmtLimit(limits.artifacts)} artifacts</li>
-                    <li>{fmtLimit(limits.modules)} modules</li>
-                    <li>{fmtLimit(limits.channels)} channels</li>
-                    <li>{fmtLimit(limits.resolutions_per_month)} resolutions/mo</li>
+                    <li>{fmtLimit(limits.artifacts)} {t('artifacts')}</li>
+                    <li>{fmtLimit(limits.modules)} {t('modules')}</li>
+                    <li>{fmtLimit(limits.channels)} {t('channels')}</li>
+                    <li>{fmtLimit(limits.resolutions_per_month)} {t('resolutionsPerMonth')}</li>
                   </ul>
                   <Button
                     className="w-full"
                     disabled={isCurrent || checkout.isPending}
                     onClick={() => checkout.mutate({ planTier: tier })}
                   >
-                    {checkout.isPending ? 'Processing...' : isCurrent ? 'Current Plan' : isActive ? `Switch to ${price.label}` : `Subscribe to ${price.label}`}
+                    {checkout.isPending
+                      ? t('processing')
+                      : isCurrent
+                        ? t('current')
+                        : isActive
+                          ? t('switchTo', { label: price.label })
+                          : t('subscribeTo', { label: price.label })}
                   </Button>
                 </CardContent>
               </Card>
@@ -177,10 +216,8 @@ export default function BillingPage() {
         <Card>
           <CardContent className="flex items-center justify-between pt-6">
             <div>
-              <p className="font-medium text-gray-900">Cancel subscription</p>
-              <p className="text-sm text-gray-500">
-                Your plan will remain active until the end of the current billing period.
-              </p>
+              <p className="font-medium text-gray-900">{t('cancelSubscription')}</p>
+              <p className="text-sm text-gray-500">{t('cancelMessage')}</p>
             </div>
             {cancelConfirm ? (
               <div className="flex items-center gap-2">
@@ -189,15 +226,15 @@ export default function BillingPage() {
                   onClick={() => cancel.mutate()}
                   disabled={cancel.isPending}
                 >
-                  {cancel.isPending ? 'Canceling...' : 'Confirm Cancel'}
+                  {cancel.isPending ? t('canceling') : t('confirmCancel')}
                 </Button>
                 <Button variant="ghost" onClick={() => setCancelConfirm(false)}>
-                  Keep Plan
+                  {t('keepPlan')}
                 </Button>
               </div>
             ) : (
               <Button variant="destructive" onClick={() => setCancelConfirm(true)}>
-                Cancel Subscription
+                {t('cancelSubscription')}
               </Button>
             )}
           </CardContent>
@@ -209,28 +246,28 @@ export default function BillingPage() {
 
       {/* Billing history */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Billing History</h2>
+        <h2 className="text-lg font-semibold">{t('billingHistory')}</h2>
         {history.isError && <QueryError error={history.error} />}
         {history.isLoading ? (
-          <div className="text-gray-500">Loading...</div>
+          <div className="text-gray-500">{tc('loading')}</div>
         ) : !history.data?.length ? (
-          <p className="text-gray-500">No billing events yet.</p>
+          <p className="text-gray-500">{t('noBillingEvents')}</p>
         ) : (
           <div className="rounded-lg border bg-white">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-gray-500">
-                  <th className="px-4 py-3 font-medium">Date</th>
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 font-medium">Amount</th>
+                  <th className="px-4 py-3 font-medium">{t('columnDate')}</th>
+                  <th className="px-4 py-3 font-medium">{t('columnType')}</th>
+                  <th className="px-4 py-3 font-medium">{t('columnAmount')}</th>
                 </tr>
               </thead>
               <tbody>
                 {history.data.map((evt) => (
                   <tr key={evt.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 text-gray-500">{fmtDate(evt.createdAt)}</td>
+                    <td className="px-4 py-3 text-gray-500">{fmtDate(evt.createdAt, locale)}</td>
                     <td className="px-4 py-3">{evt.type}</td>
-                    <td className="px-4 py-3">{evt.amountUsd ? fmtCost(evt.amountUsd) : '—'}</td>
+                    <td className="px-4 py-3">{evt.amountUsd ? fmtCost(evt.amountUsd, locale) : '—'}</td>
                   </tr>
                 ))}
               </tbody>

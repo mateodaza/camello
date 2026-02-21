@@ -28,6 +28,7 @@ import {
 import type { MatchKnowledgeFn, EmbedFn } from '@camello/ai';
 import type { ArtifactModuleBinding, Channel, Intent, ModuleDbCallbacks, PlanTier } from '@camello/shared/types';
 import { COST_BUDGET_DEFAULTS, LEARNING_CONFIDENCE } from '@camello/shared/constants';
+import { t as tmsg } from '@camello/shared/messages';
 import { createClient } from '@supabase/supabase-js';
 import { buildTelemetry, createTrace } from '../lib/langfuse.js';
 
@@ -95,6 +96,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
         planTier: tenants.planTier,
         monthlyCostBudgetUsd: tenants.monthlyCostBudgetUsd,
         defaultArtifactId: tenants.defaultArtifactId,
+        settings: tenants.settings,
       })
       .from(tenants)
       .where(eq(tenants.id, tenantId))
@@ -124,9 +126,11 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   });
 
   if (isBudgetExceeded(monthCost, effectiveBudget)) {
+    const tenantLocale = (tenant?.settings as Record<string, unknown>)?.preferredLocale;
     return handleBudgetExceeded({
       tenantDb, tenantId, channel, customerId, messageText,
       existingConversationId, tenant, trace, startTime,
+      locale: typeof tenantLocale === 'string' ? tenantLocale : undefined,
     });
   }
 
@@ -294,6 +298,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   });
 
   // 9. Build system prompt (includes module instructions when bound)
+  const artifactLocale = (artifact.personality as Record<string, unknown>)?.language as string | undefined;
   const systemPrompt = buildSystemPrompt({
     artifact: {
       name: artifact.name,
@@ -313,6 +318,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       description: m.moduleDescription,
       autonomyLevel: m.autonomyLevel,
     })),
+    locale: artifactLocale,
   });
 
   // 10. Select model
@@ -644,6 +650,7 @@ export function isBudgetExceeded(currentMonthCost: number, effectiveBudget: numb
 // Budget-exceeded early return
 // ---------------------------------------------------------------------------
 
+/** @deprecated Use tmsg('error.budgetExceeded', locale) instead for locale-aware messages. Kept for backward compat in tests. */
 export const BUDGET_EXCEEDED_RESPONSE = 'Your AI team has reached its monthly usage limit. Please upgrade your plan or contact support.';
 
 export interface BudgetExceededInput {
@@ -656,10 +663,12 @@ export interface BudgetExceededInput {
   tenant: { name: string; defaultArtifactId: string | null } | undefined;
   trace: ReturnType<typeof createTrace>;
   startTime: number;
+  locale?: string;
 }
 
 export async function handleBudgetExceeded(input: BudgetExceededInput): Promise<HandleMessageOutput> {
-  const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId, tenant, trace, startTime } = input;
+  const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId, tenant, trace, startTime, locale } = input;
+  const budgetResponse = tmsg('error.budgetExceeded', locale);
   const budgetIntent: Intent = { type: 'general_inquiry', confidence: 0, complexity: 'simple', requires_knowledge_base: false, sentiment: 'neutral', source: 'regex' };
 
   // ── Resolve artifact + validate conversation ownership ──
@@ -740,7 +749,7 @@ export async function handleBudgetExceeded(input: BudgetExceededInput): Promise<
     return {
       conversationId: '',
       artifactId: '',
-      responseText: BUDGET_EXCEEDED_RESPONSE,
+      responseText: budgetResponse,
       intent: budgetIntent,
       modelUsed: 'budget_exceeded',
       tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,
@@ -773,7 +782,7 @@ export async function handleBudgetExceeded(input: BudgetExceededInput): Promise<
   await tenantDb.query(async (db) => {
     await db.insert(messages).values({
       tenantId, conversationId: conversationId!,
-      role: 'artifact', content: BUDGET_EXCEEDED_RESPONSE,
+      role: 'artifact', content: budgetResponse,
       tokensUsed: 0, modelUsed: 'budget_exceeded', costUsd: '0',
     });
   });
@@ -798,7 +807,7 @@ export async function handleBudgetExceeded(input: BudgetExceededInput): Promise<
   return {
     conversationId: conversationId!,
     artifactId: artifactId!,
-    responseText: BUDGET_EXCEEDED_RESPONSE,
+    responseText: budgetResponse,
     intent: budgetIntent,
     modelUsed: 'budget_exceeded',
     tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,

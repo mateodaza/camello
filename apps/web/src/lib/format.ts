@@ -14,30 +14,30 @@ export function thirtyDaysAgoStr(): string {
 }
 
 /** Format a numeric USD value as $X.XXXX (4 decimal places). */
-export function fmtCost(value: string | number): string {
-  return `$${Number(value).toFixed(4)}`;
+export function fmtCost(value: string | number, locale?: string): string {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(Number(value));
 }
 
 /** Format a numeric USD value as $X.XXXXXX (6 decimal places, for per-interaction). */
-export function fmtMicroCost(value: string | number): string {
-  return `$${Number(value).toFixed(6)}`;
+export function fmtMicroCost(value: string | number, locale?: string): string {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', minimumFractionDigits: 6, maximumFractionDigits: 6 }).format(Number(value));
 }
 
 /** Format an integer with locale separators (e.g. 1,234). */
-export function fmtInt(value: number): string {
-  return value.toLocaleString();
+export function fmtInt(value: number, locale?: string): string {
+  return new Intl.NumberFormat(locale).format(value);
 }
 
 /** Format a Date or date-string to a short local date (e.g. "2/19/2026"). */
-export function fmtDate(value: Date | string | null | undefined): string {
+export function fmtDate(value: Date | string | null | undefined, locale?: string): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString();
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value));
 }
 
 /** Format a Date or date-string to a short local datetime (e.g. "2/19/2026, 5:30 PM"). */
-export function fmtDateTime(value: Date | string | null | undefined): string {
+export function fmtDateTime(value: Date | string | null | undefined, locale?: string): string {
   if (!value) return '—';
-  return new Date(value).toLocaleString();
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
 /** Truncate a string to maxLen chars, appending "…" if truncated. */

@@ -2,26 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { LayoutDashboard, MessageSquare, Bot, BookOpen, BarChart3, CreditCard } from 'lucide-react';
 import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { href: '/dashboard/conversations', label: 'Conversations', icon: MessageSquare },
-  { href: '/dashboard/artifacts', label: 'Artifacts', icon: Bot },
-  { href: '/dashboard/knowledge', label: 'Knowledge', icon: BookOpen },
-  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/dashboard/settings/billing', label: 'Billing', icon: CreditCard },
+  { href: '/dashboard', labelKey: 'overview' as const, icon: LayoutDashboard },
+  { href: '/dashboard/conversations', labelKey: 'conversations' as const, icon: MessageSquare },
+  { href: '/dashboard/artifacts', labelKey: 'artifacts' as const, icon: Bot },
+  { href: '/dashboard/knowledge', labelKey: 'knowledge' as const, icon: BookOpen },
+  { href: '/dashboard/analytics', labelKey: 'analytics' as const, icon: BarChart3 },
+  { href: '/dashboard/settings/billing', labelKey: 'billing' as const, icon: CreditCard },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const t = useTranslations('sidebar');
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r bg-gray-50">
       <div className="flex h-14 items-center border-b px-4">
-        <span className="text-lg font-bold tracking-tight">Camello</span>
+        <span className="text-lg font-bold tracking-tight">{t('appName')}</span>
       </div>
 
       <div className="border-b p-3">
@@ -33,7 +35,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, labelKey, icon: Icon }) => {
           const isActive = href === '/dashboard'
             ? pathname === '/dashboard'
             : pathname.startsWith(href);
@@ -50,7 +52,7 @@ export function Sidebar() {
               )}
             >
               <Icon className="h-4 w-4" />
-              {label}
+              {t(labelKey)}
             </Link>
           );
         })}

@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../hooks/useChat.js';
+import { t } from '../i18n/messages.js';
 
 interface ChatWindowProps {
   token: string;
   tenantName: string;
   artifactName: string;
+  language: string;
   apiUrl: string;
   position: 'bottom-right' | 'bottom-left';
   theme: 'light' | 'dark';
@@ -15,6 +17,7 @@ export function ChatWindow({
   token,
   tenantName,
   artifactName,
+  language,
   apiUrl,
   position,
   theme,
@@ -91,7 +94,7 @@ export function ChatWindow({
             cursor: 'pointer',
             padding: '0 4px',
           }}
-          aria-label="Close chat"
+          aria-label={t('chat.close', language)}
         >
           {'\u00D7'}
         </button>
@@ -109,7 +112,7 @@ export function ChatWindow({
       >
         {messages.length === 0 && (
           <div style={{ textAlign: 'center', color: '#999', marginTop: '40px', fontSize: '14px' }}>
-            Send a message to get started
+            {t('chat.empty', language)}
           </div>
         )}
         {messages.map((msg, i) => (
@@ -141,7 +144,7 @@ export function ChatWindow({
         ))}
         {isSending && (
           <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
-            Typing...
+            {t('chat.typing', language)}
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -161,7 +164,7 @@ export function ChatWindow({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
+          placeholder={t('chat.placeholder', language)}
           disabled={isSending}
           style={{
             flex: 1,
@@ -189,7 +192,7 @@ export function ChatWindow({
             opacity: isSending || !input.trim() ? 0.5 : 1,
           }}
         >
-          Send
+          {t('chat.send', language)}
         </button>
       </form>
     </div>

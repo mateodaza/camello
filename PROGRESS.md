@@ -67,15 +67,12 @@
 | 39d | Smoke test: core flow (#39d) | Feb 21 | Sign-up → Clerk org creation → webhook fires → tenant provisioned in Supabase → 6-step onboarding wizard → AI chat with RAG (knowledge retrieval from seeded docs confirmed). Fixed: DATABASE_URL (Supabase pooler, not Railway Postgres), CORS (gray cloud for api CNAME), www→apex redirect (Vercel domains). |
 | 39c-deploy | Deploy jobs worker (#39c-deploy) | Feb 21 | Railway worker service from `Dockerfile.jobs`. Port 3001, node-cron, 3 cron schedules. Live and healthy. |
 | 39d-widget | Smoke test: widget embed (#39d-widget) | Feb 21 | Widget loads from `widget.camello.xyz`, resolves tenant slug, shows agent name + org, session creation + AI responses confirmed end-to-end. |
+| 39b-paddle | Paddle webhook registration (#39b-paddle) | Feb 21 | Registered at `sandbox-vendors.paddle.com` → Developer Tools → Notifications. URL: `https://api.camello.xyz/api/webhooks/paddle`. Events: `subscription.created`, `subscription.updated`, `subscription.canceled`, `transaction.completed`. Default payment link set to `https://camello.xyz`. `PADDLE_WEBHOOK_SECRET` set on Railway. |
+| 39d-billing | Billing smoke test (#39d-billing) | Feb 21 | Paddle sandbox checkout (test card 4242) → `subscription.created` + `transaction.completed` webhooks → tenant updated (`subscription_status: active`, `paddle_subscription_id` + `paddle_customer_id` set). **3 bugs found & fixed:** (1) Drizzle `sql` tag produces malformed SQL when bundled with tsup `noExternal` → switched webhook helpers to `pool.query()`. (2) `paddle.webhooks.unmarshal()` is async but wasn't awaited → added `await`. (3) Paddle Billing v2 uses overlay checkout (not hosted page) → refactored from redirect-based to Paddle.js overlay (`Paddle.Checkout.open({ transactionId })`), added `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` + `NEXT_PUBLIC_PADDLE_ENVIRONMENT` env vars on Vercel. Post-checkout auto-refresh with 2s/5s delayed invalidation. |
 
-### Next Up
+| 43 | Spanish language support (#43) | Feb 21 | Full i18n across all layers — 6 phases: widget localization (artifact-level `personality.language`), AI system prompts (locale-aware `buildSystemPrompt`), backend error messages (`@camello/shared/messages`), dashboard i18n (next-intl + cookie-based locale from tenant `preferredLocale`), onboarding wizard (all 8 components + `parseBusinessModel` locale input), metadata & polish (Intl formatters, Clerk `esES` localization, dynamic metadata). `LocaleSync` component syncs tenant locale → cookie → `router.refresh()`. `QueryError` switches on tRPC error `code` (not message text). Budget-exceeded uses tenant `preferredLocale`. ~640 translation strings (en.json + es.json). 210 tests (167 API + 43 web). |
 
-| # | Task | Priority | Estimate | Dependencies |
-|---|------|----------|----------|--------------|
-| 39b-paddle | Register Paddle webhook | P2 | 15 min | #39 |
-| 39d-billing | Smoke test: billing checkout (Paddle sandbox) | P2 | 30 min | #39b-paddle |
-
-### Post-Week 4 — Launch Readiness
+### Next Up — Launch Readiness
 
 | # | Task | Priority | Notes |
 |---|------|----------|-------|
@@ -84,7 +81,7 @@
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
 | 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
 | 45 | Docs / help center | P3 | Setup guide, API reference, widget embed instructions |
-| 46 | Paddle smoke test | P2 | Checkout flow + webhook via tunnel — see MEMORY.md for steps |
+| ~~46~~ | ~~Paddle smoke test~~ | ~~P2~~ | ~~DONE — checkout + webhooks confirmed end-to-end~~ |
 | 47 | WhatsApp Business setup | P3 | Meta Business verification + phone number for production WhatsApp channel |
 
 ### Post-Launch — Innovation Roadmap (Spec Section 20)
@@ -156,16 +153,16 @@
 - [x] Knowledge seeding during onboarding (auto-seed business description + quick facts + website URL queue)
 - [x] Billing integration (Paddle — Merchant of Record, no US LLC needed)
 - [x] Integration pipeline tests: full message flow, budget gate, module tool-calling, RAG knowledge flow (20 tests)
+- [x] Spanish language support (#43): widget, AI prompts, backend errors, dashboard, onboarding, metadata
 - [ ] Load testing, error handling, edge cases
 - [x] Production deploy: Railway (API), Vercel (web), Cloudflare Pages (widget)
 - [x] Clerk webhook registered + working
-- [ ] Paddle webhook registration
+- [x] Paddle webhook registration
 - [x] Jobs migration (Trigger.dev → Railway standalone worker with node-cron)
 - [x] Jobs deploy (Railway worker service)
 - [x] Smoke test: sign-up → onboarding → AI chat with RAG ✓
 - [x] Smoke test: widget embed ✓
-- [ ] Paddle webhook registration
-- [ ] Smoke test: billing checkout
+- [x] Smoke test: billing checkout (Paddle sandbox — overlay checkout + webhooks confirmed) ✓
 
 ---
 

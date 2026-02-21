@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { groupChunksByTitle, truncate, fmtDate } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -12,6 +13,9 @@ import { Plus, Pencil } from 'lucide-react';
 const sourceTypes = ['upload', 'url', 'api'] as const;
 
 export default function KnowledgePage() {
+  const t = useTranslations('knowledge');
+  const tc = useTranslations('common');
+  const locale = useLocale();
   const utils = trpc.useUtils();
 
   // --- Knowledge filters & pagination ---
@@ -126,7 +130,7 @@ export default function KnowledgePage() {
   );
 
   // --- Primary query gate ---
-  if (knowledgeList.isLoading) return <div className="text-gray-500">Loading...</div>;
+  if (knowledgeList.isLoading) return <div className="text-gray-500">{tc('loading')}</div>;
   if (knowledgeList.isError) return <QueryError error={knowledgeList.error} />;
 
   async function handleIngest(e: React.FormEvent) {
@@ -163,7 +167,7 @@ export default function KnowledgePage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Knowledge</h1>
+      <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
 
       {/* Secondary error banners */}
       {learningList.isError && <QueryError error={learningList.error} />}
@@ -171,21 +175,21 @@ export default function KnowledgePage() {
       {/* ===== SECTION 1: Knowledge Docs ===== */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Documents</h2>
+          <h2 className="text-lg font-semibold">{t('sectionDocuments')}</h2>
           <div className="flex items-center gap-3">
             <select
               value={filterSourceType}
               onChange={(e) => handleSourceTypeChange(e.target.value)}
               className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
             >
-              <option value="">All types</option>
-              {sourceTypes.map((t) => (
-                <option key={t} value={t}>{t}</option>
+              <option value="">{t('filterAllTypes')}</option>
+              {sourceTypes.map((st) => (
+                <option key={st} value={st}>{st}</option>
               ))}
             </select>
             <Button onClick={() => setShowIngest(!showIngest)}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Knowledge
+              {t('addKnowledge')}
             </Button>
           </div>
         </div>
@@ -194,16 +198,18 @@ export default function KnowledgePage() {
         {showIngest && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{editingTitle ? `Edit: ${editingTitle}` : 'Ingest Knowledge'}</CardTitle>
+              <CardTitle className="text-base">
+                {editingTitle ? t('editTitle', { title: editingTitle }) : t('ingestKnowledge')}
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <form onSubmit={handleIngest} className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Content</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelContent')}</label>
                   <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Paste knowledge text..."
+                    placeholder={t('placeholderContent')}
                     className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                     rows={5}
                     required
@@ -211,37 +217,37 @@ export default function KnowledgePage() {
                 </div>
                 <div className="flex items-end gap-3">
                   <div className="flex-1">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelTitle')}</label>
                     <input
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder="e.g. Return Policy"
+                      placeholder={t('placeholderTitle')}
                       className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                       maxLength={200}
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelType')}</label>
                     <select
                       value={sourceType}
                       onChange={(e) => setSourceType(e.target.value as typeof sourceType)}
                       className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                     >
-                      {sourceTypes.map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                      {sourceTypes.map((st) => (
+                        <option key={st} value={st}>{st}</option>
                       ))}
                     </select>
                   </div>
                 </div>
                 {sourceType === 'url' && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Source URL</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelSourceUrl')}</label>
                     <input
                       type="url"
                       value={sourceUrl}
                       onChange={(e) => setSourceUrl(e.target.value)}
-                      placeholder="https://example.com/docs"
+                      placeholder={t('placeholderSourceUrl')}
                       className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                       required
                     />
@@ -250,11 +256,11 @@ export default function KnowledgePage() {
                 <div className="flex items-center gap-3">
                   <Button type="submit" disabled={ingest.isPending || deleteByTitle.isPending}>
                     {ingest.isPending || deleteByTitle.isPending
-                      ? (editingTitle ? 'Updating...' : 'Ingesting...')
-                      : (editingTitle ? 'Update' : 'Ingest')}
+                      ? (editingTitle ? t('updating') : t('ingesting'))
+                      : (editingTitle ? t('update') : t('ingest'))}
                   </Button>
                   <Button type="button" variant="ghost" onClick={editingTitle ? cancelEdit : () => setShowIngest(false)}>
-                    Cancel
+                    {tc('cancel')}
                   </Button>
                 </div>
                 {ingest.isError && (
@@ -262,8 +268,7 @@ export default function KnowledgePage() {
                 )}
                 {ingestSuccess && (
                   <p className="text-sm text-green-700">
-                    Ingested {ingestSuccess.chunkCount} chunk{ingestSuccess.chunkCount !== 1 ? 's' : ''}
-                    {ingestSuccess.title ? ` for "${ingestSuccess.title}"` : ''}.
+                    {t('ingestedMessage', { chunkCount: ingestSuccess.chunkCount, title: ingestSuccess.title ?? '' })}
                   </p>
                 )}
               </form>
@@ -273,35 +278,35 @@ export default function KnowledgePage() {
 
         {/* Docs table */}
         {docs.length === 0 ? (
-          <p className="text-gray-500">No knowledge docs yet.</p>
+          <p className="text-gray-500">{t('noDocuments')}</p>
         ) : (
           <>
             <div className="rounded-lg border bg-white">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-gray-500">
-                    <th className="px-4 py-3 font-medium">Title</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
-                    <th className="px-4 py-3 font-medium">Chunks</th>
-                    <th className="px-4 py-3 font-medium">Created</th>
+                    <th className="px-4 py-3 font-medium">{t('columnTitle')}</th>
+                    <th className="px-4 py-3 font-medium">{t('columnType')}</th>
+                    <th className="px-4 py-3 font-medium">{t('columnChunks')}</th>
+                    <th className="px-4 py-3 font-medium">{t('columnCreated')}</th>
                     <th className="px-4 py-3 font-medium" />
                   </tr>
                 </thead>
                 <tbody>
                   {docs.map((doc) => (
                     <tr key={doc.key} className="border-b last:border-0">
-                      <td className="px-4 py-3 font-medium">{doc.title ?? '(untitled)'}</td>
+                      <td className="px-4 py-3 font-medium">{doc.title ?? t('untitled')}</td>
                       <td className="px-4 py-3">
                         <Badge>{doc.sourceType}</Badge>
                       </td>
                       <td className="px-4 py-3 text-gray-500">{doc.chunkCount}</td>
-                      <td className="px-4 py-3 text-gray-500">{fmtDate(doc.createdAt)}</td>
+                      <td className="px-4 py-3 text-gray-500">{fmtDate(doc.createdAt, locale)}</td>
                       <td className="px-4 py-3 text-right">
                         {doc.title ? (
                           deleteConfirm === doc.title ? (
                             <span className="flex items-center justify-end gap-2">
                               <span className="text-xs text-gray-500">
-                                Delete all chunks with title &quot;{doc.title}&quot;? ({doc.chunkCount} loaded in current view)
+                                {t('deleteConfirm', { title: doc.title })}
                               </span>
                               <Button
                                 size="sm"
@@ -309,25 +314,25 @@ export default function KnowledgePage() {
                                 onClick={() => deleteByTitle.mutate({ title: doc.title! })}
                                 disabled={deleteByTitle.isPending}
                               >
-                                {deleteByTitle.isPending ? 'Deleting...' : 'Confirm'}
+                                {deleteByTitle.isPending ? t('deleting') : tc('confirm')}
                               </Button>
                               <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(null)}>
-                                Cancel
+                                {tc('cancel')}
                               </Button>
                             </span>
                           ) : (
                             <span className="flex justify-end gap-1">
                               <Button size="sm" variant="ghost" onClick={() => handleEdit(doc.title!)}>
                                 <Pencil className="mr-1 h-3 w-3" />
-                                Edit
+                                {tc('edit')}
                               </Button>
                               <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(doc.title)}>
-                                Delete
+                                {tc('delete')}
                               </Button>
                             </span>
                           )
                         ) : (
-                          <span className="text-xs text-gray-400">untitled</span>
+                          <span className="text-xs text-gray-400">{t('untitled')}</span>
                         )}
                       </td>
                     </tr>
@@ -338,16 +343,16 @@ export default function KnowledgePage() {
             <div className="flex items-center gap-3">
               {offset > 0 && (
                 <Button variant="outline" size="sm" onClick={() => setOffset(Math.max(0, offset - 50))}>
-                  Previous
+                  {t('previous')}
                 </Button>
               )}
               {(knowledgeList.data?.length ?? 0) >= 50 && (
                 <Button variant="outline" size="sm" onClick={() => setOffset(offset + 50)}>
-                  Load more
+                  {t('loadMore')}
                 </Button>
               )}
               <span className="text-xs text-gray-400">
-                Showing {offset + 1}–{offset + (knowledgeList.data?.length ?? 0)} chunks
+                {t('showingChunks', { start: offset + 1, end: offset + (knowledgeList.data?.length ?? 0) })}
               </span>
             </div>
           </>
@@ -357,12 +362,12 @@ export default function KnowledgePage() {
       {/* ===== SECTION 2: Learnings ===== */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-lg font-semibold">Learnings</h2>
+          <h2 className="text-lg font-semibold">{t('sectionLearnings')}</h2>
           <input
             type="text"
             value={filterModuleSlug}
             onChange={(e) => setFilterModuleSlug(e.target.value)}
-            placeholder="Filter by module slug..."
+            placeholder={t('filterByModule')}
             className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
           />
           <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -371,7 +376,7 @@ export default function KnowledgePage() {
               checked={includeArchived}
               onChange={(e) => setIncludeArchived(e.target.checked)}
             />
-            Show archived
+            {t('showArchived')}
           </label>
           {filterModuleSlug.trim() && (
             <Button
@@ -380,25 +385,25 @@ export default function KnowledgePage() {
               onClick={() => bulkClear.mutate({ sourceModuleSlug: filterModuleSlug.trim() })}
               disabled={bulkClear.isPending || !filterModuleSlug.trim()}
             >
-              {bulkClear.isPending ? 'Clearing...' : `Clear all "${filterModuleSlug.trim()}"`}
+              {bulkClear.isPending ? t('clearing') : t('clearAll', { moduleSlug: filterModuleSlug.trim() })}
             </Button>
           )}
         </div>
 
         {learningList.isLoading ? (
-          <div className="text-gray-500">Loading learnings...</div>
+          <div className="text-gray-500">{tc('loading')}</div>
         ) : learnings.length === 0 ? (
-          <p className="text-gray-500">No learnings yet.</p>
+          <p className="text-gray-500">{t('noLearnings')}</p>
         ) : (
           <div className="rounded-lg border bg-white">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-gray-500">
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 font-medium">Content</th>
-                  <th className="px-4 py-3 font-medium">Confidence</th>
-                  <th className="px-4 py-3 font-medium">Module</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">{t('columnType')}</th>
+                  <th className="px-4 py-3 font-medium">{t('columnContent')}</th>
+                  <th className="px-4 py-3 font-medium">{t('columnConfidence')}</th>
+                  <th className="px-4 py-3 font-medium">{t('columnModule')}</th>
+                  <th className="px-4 py-3 font-medium">{t('columnStatus')}</th>
                   <th className="px-4 py-3 font-medium" />
                 </tr>
               </thead>
@@ -415,7 +420,7 @@ export default function KnowledgePage() {
                     <td className="px-4 py-3 text-gray-500">{l.sourceModuleSlug ?? '—'}</td>
                     <td className="px-4 py-3">
                       {l.archivedAt ? (
-                        <Badge>archived</Badge>
+                        <Badge>{t('archived')}</Badge>
                       ) : (
                         <Badge variant="active">active</Badge>
                       )}
@@ -429,7 +434,7 @@ export default function KnowledgePage() {
                             onClick={() => dismiss.mutate({ learningId: l.id })}
                             disabled={dismiss.isPending}
                           >
-                            Dismiss
+                            {t('dismiss')}
                           </Button>
                           <Button
                             size="sm"
@@ -437,7 +442,7 @@ export default function KnowledgePage() {
                             onClick={() => boost.mutate({ learningId: l.id })}
                             disabled={boost.isPending}
                           >
-                            Boost
+                            {t('boost')}
                           </Button>
                         </span>
                       )}

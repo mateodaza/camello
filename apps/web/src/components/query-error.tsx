@@ -1,18 +1,21 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 
-export function QueryError({ error }: { error: { message: string } }) {
-  const isUnauthorized = error.message.includes('UNAUTHORIZED');
-  const isForbidden = error.message.includes('FORBIDDEN');
+export function QueryError({ error }: { error: { message: string; data?: { code?: string } | null } }) {
+  const t = useTranslations('common');
+  const code = error.data?.code;
 
   return (
     <Card className="border-red-200 bg-red-50">
       <CardContent className="pt-6">
         <p className="font-medium text-red-800">
-          {isUnauthorized
-            ? 'Not authenticated. Please sign in again.'
-            : isForbidden
-              ? 'No tenant linked. Set camello_tenant_id in your Clerk organization metadata.'
-              : 'Something went wrong'}
+          {code === 'UNAUTHORIZED'
+            ? t('error.unauthorized')
+            : code === 'FORBIDDEN'
+              ? t('error.forbidden')
+              : t('error.generic')}
         </p>
         <p className="mt-1 text-sm text-red-600">{error.message}</p>
       </CardContent>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function Step3MeetAgent({ suggestion, onComplete }: Props) {
+  const t = useTranslations('onboarding');
   const [name, setName] = useState(suggestion.agentName);
   const [editing, setEditing] = useState(false);
   const modules = trpc.module.catalog.useQuery();
@@ -34,7 +36,7 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Meet your AI agent</CardTitle>
+        <CardTitle>{t('meetAgentTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-lg border bg-gray-50 p-4">
@@ -55,7 +57,7 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
               ) : (
                 <button onClick={() => setEditing(true)} className="text-left">
                   <p className="font-semibold">{name}</p>
-                  <p className="text-xs text-gray-500">Click to rename</p>
+                  <p className="text-xs text-gray-500">{t('clickToRename')}</p>
                 </button>
               )}
             </div>
@@ -64,12 +66,12 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-gray-700">Greeting</p>
+          <p className="text-sm font-medium text-gray-700">{t('greeting')}</p>
           <p className="mt-1 text-sm text-gray-600">&ldquo;{suggestion.personality.greeting}&rdquo;</p>
         </div>
 
         <div>
-          <p className="text-sm font-medium text-gray-700">Goals</p>
+          <p className="text-sm font-medium text-gray-700">{t('goals')}</p>
           <ul className="mt-1 list-inside list-disc text-sm text-gray-600">
             {suggestion.personality.goals.map((g, i) => (
               <li key={i}>{g}</li>
@@ -78,8 +80,8 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-gray-700">Modules</p>
-          {modules.isLoading && <p className="text-xs text-gray-400">Loading available modules...</p>}
+          <p className="text-sm font-medium text-gray-700">{t('modules')}</p>
+          {modules.isLoading && <p className="text-xs text-gray-400">{t('loadingModules')}</p>}
           {modules.data && (
             <div className="mt-1 flex flex-wrap gap-1">
               {modules.data.map((m: { id: string; slug: string }) => (
@@ -91,7 +93,7 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
 
         <div className="flex gap-2 pt-2">
           <Button onClick={handleCreate} disabled={setup.isPending || !name.trim()}>
-            {setup.isPending ? 'Creating...' : 'Looks Good'}
+            {setup.isPending ? t('creating') : t('looksGood')}
           </Button>
         </div>
 

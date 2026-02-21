@@ -1,21 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { STEPS } from '../components/WizardProgress';
+import { STEP_KEYS } from '../components/WizardProgress';
 
 // ---------------------------------------------------------------------------
 // Wizard step constants
 // ---------------------------------------------------------------------------
-describe('STEPS', () => {
+describe('STEP_KEYS', () => {
   it('has exactly 6 steps', () => {
-    expect(STEPS).toHaveLength(6);
+    expect(STEP_KEYS).toHaveLength(6);
   });
 
-  it('starts with Create Org and ends with Test It', () => {
-    expect(STEPS[0]).toBe('Create Org');
-    expect(STEPS[STEPS.length - 1]).toBe('Test It');
+  it('starts with step1 and ends with step6', () => {
+    expect(STEP_KEYS[0]).toBe('step1');
+    expect(STEP_KEYS[STEP_KEYS.length - 1]).toBe('step6');
   });
 
-  it('labels are unique', () => {
-    expect(new Set(STEPS).size).toBe(STEPS.length);
+  it('keys are unique', () => {
+    expect(new Set(STEP_KEYS).size).toBe(STEP_KEYS.length);
   });
 });
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,8 @@ import { Bot, Plus } from 'lucide-react';
 const artifactTypes = ['sales', 'support', 'marketing', 'custom'] as const;
 
 export default function ArtifactsPage() {
+  const t = useTranslations('artifacts');
+  const tc = useTranslations('common');
   const utils = trpc.useUtils();
   const artifacts = trpc.artifact.list.useQuery({ activeOnly: false });
   const createArtifact = trpc.artifact.create.useMutation({
@@ -29,16 +32,16 @@ export default function ArtifactsPage() {
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<(typeof artifactTypes)[number]>('sales');
 
-  if (artifacts.isLoading) return <div className="text-gray-500">Loading artifacts...</div>;
+  if (artifacts.isLoading) return <div className="text-gray-500">{t('loading')}</div>;
   if (artifacts.isError) return <QueryError error={artifacts.error} />;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Artifacts</h1>
+        <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
         <Button onClick={() => setShowCreate(!showCreate)}>
           <Plus className="mr-2 h-4 w-4" />
-          New Artifact
+          {t('newArtifact')}
         </Button>
       </div>
 
@@ -54,34 +57,34 @@ export default function ArtifactsPage() {
               }}
             >
               <div className="flex-1">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelName')}</label>
                 <input
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Sales Assistant"
+                  placeholder={t('placeholderName')}
                   className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                   maxLength={100}
                   required
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t('labelType')}</label>
                 <select
                   value={newType}
                   onChange={(e) => setNewType(e.target.value as typeof newType)}
                   className="rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                 >
-                  {artifactTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                  {artifactTypes.map((at) => (
+                    <option key={at} value={at}>{at}</option>
                   ))}
                 </select>
               </div>
               <Button type="submit" disabled={createArtifact.isPending}>
-                {createArtifact.isPending ? 'Creating...' : 'Create'}
+                {createArtifact.isPending ? t('creating') : t('create')}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>
-                Cancel
+                {tc('cancel')}
               </Button>
             </form>
           </CardContent>
@@ -89,7 +92,7 @@ export default function ArtifactsPage() {
       )}
 
       {(artifacts.data?.length ?? 0) === 0 ? (
-        <p className="text-gray-500">No artifacts yet. Create one to get started.</p>
+        <p className="text-gray-500">{t('noArtifacts')}</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {artifacts.data?.map((a) => (
@@ -116,7 +119,7 @@ export default function ArtifactsPage() {
                     }
                     disabled={updateArtifact.isPending}
                   >
-                    {a.isActive ? 'Deactivate' : 'Activate'}
+                    {a.isActive ? t('deactivate') : t('activate')}
                   </Button>
                 </div>
               </CardContent>

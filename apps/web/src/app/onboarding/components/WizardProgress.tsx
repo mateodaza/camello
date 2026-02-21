@@ -1,9 +1,13 @@
-export const STEPS = ['Create Org', 'Describe Business', 'Meet Agent', 'Teach Agent', 'Connect Channel', 'Test It'];
+import { useTranslations } from 'next-intl';
+
+export const STEP_KEYS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] as const;
 
 export function WizardProgress({ currentStep }: { currentStep: number }) {
+  const t = useTranslations('onboarding');
   return (
     <div className="mb-8 flex items-center justify-center gap-2">
-      {STEPS.map((label, i) => {
+      {STEP_KEYS.map((key, i) => {
+        const label = t(key);
         const step = i + 1;
         const isActive = step === currentStep;
         const isDone = step < currentStep;
@@ -26,7 +30,7 @@ export function WizardProgress({ currentStep }: { currentStep: number }) {
                 {label}
               </span>
             </div>
-            {i < STEPS.length - 1 && (
+            {i < STEP_KEYS.length - 1 && (
               <div className={`mb-4 h-0.5 w-6 ${isDone ? 'bg-green-600' : 'bg-gray-200'}`} />
             )}
           </div>

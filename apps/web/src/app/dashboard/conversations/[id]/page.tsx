@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,8 @@ import { ArrowLeft } from 'lucide-react';
 const statusOptions = ['active', 'resolved', 'escalated'] as const;
 
 export default function ConversationDetailPage() {
+  const t = useTranslations('conversations');
+  const tc = useTranslations('common');
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -24,7 +27,7 @@ export default function ConversationDetailPage() {
     },
   });
 
-  if (conversation.isLoading) return <div className="text-gray-500">Loading...</div>;
+  if (conversation.isLoading) return <div className="text-gray-500">{tc('loading')}</div>;
   if (conversation.isError) return <QueryError error={conversation.error} />;
   if (!conversation.data) return <div className="text-gray-500">Conversation not found.</div>;
 
@@ -39,12 +42,12 @@ export default function ConversationDetailPage() {
         onClick={() => router.push('/dashboard/conversations')}
         className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to conversations
+        <ArrowLeft className="h-4 w-4" /> {t('backToList')}
       </button>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Conversation</h1>
+          <h1 className="text-2xl font-bold">{t('conversation')}</h1>
           <Badge variant={conv.status ?? 'default'}>{conv.status}</Badge>
           {conv.channel && <Badge>{conv.channel}</Badge>}
         </div>
@@ -66,13 +69,13 @@ export default function ConversationDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Messages</CardTitle>
+          <CardTitle>{t('messages')}</CardTitle>
         </CardHeader>
         <CardContent>
           {messagesQuery.isError ? (
             <QueryError error={messagesQuery.error} />
           ) : chronological.length === 0 ? (
-            <p className="text-gray-500">No messages yet.</p>
+            <p className="text-gray-500">{t('noMessages')}</p>
           ) : (
             <div className="space-y-3">
               {chronological.map((msg) => (

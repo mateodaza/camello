@@ -90,14 +90,13 @@ export const onboardingRouter = router({
   parseBusinessModel: authedProcedure
     .input(z.object({
       description: z.string().min(10).max(2000),
+      locale: z.enum(['en', 'es']).optional().default('en'),
     }))
     .mutation(async ({ input }) => {
       try {
         const client = createLLMClient();
-        const { object } = await generateObject({
-          model: client(MODEL_MAP.fast),
-          schema: BusinessModelSuggestionSchema,
-          prompt: `You are a business analyst for an AI agent platform. Classify this business and suggest an AI sales agent configuration.
+
+        const promptEn = `You are a business analyst for an AI agent platform. Classify this business and suggest an AI sales agent configuration.
 
 Business description: "${input.description}"
 
@@ -111,7 +110,28 @@ Guidelines:
 - constraints.neverDiscuss: topics the agent should avoid
 - constraints.alwaysEscalate: situations requiring a human
 - industry: brief industry label
-- confidence: 0-1 how confident you are in this classification`,
+- confidence: 0-1 how confident you are in this classification`;
+
+        const promptEs = `Eres un analista de negocios para una plataforma de agentes IA. Clasifica este negocio y sugiere una configuración de agente de ventas.
+
+Descripción del negocio: "${input.description}"
+
+Directrices:
+- template: elige la opción más cercana (services para agencias/consultoría, ecommerce para tiendas en línea, saas para software, restaurant para comida/bebida, realestate para inmobiliaria)
+- agentName: sugiere un nombre amigable (ej. Alex, Sam, Maya, Camila)
+- agentType: casi siempre "sales" para el MVP
+- personality.tone: adapta al estilo del negocio
+- personality.greeting: una oración de bienvenida EN ESPAÑOL
+- personality.goals: 3 objetivos accionables para este agente EN ESPAÑOL
+- constraints.neverDiscuss: temas que el agente debe evitar EN ESPAÑOL
+- constraints.alwaysEscalate: situaciones que requieren un humano EN ESPAÑOL
+- industry: etiqueta breve de la industria EN ESPAÑOL
+- confidence: 0-1 qué tan seguro estás de esta clasificación`;
+
+        const { object } = await generateObject({
+          model: client(MODEL_MAP.fast),
+          schema: BusinessModelSuggestionSchema,
+          prompt: input.locale === 'es' ? promptEs : promptEn,
         });
 
         return object;
