@@ -11,6 +11,6 @@ export default defineConfig({
   noExternal: [/.*/],
   banner: {
     // Provide a real `require` for CJS packages (pg, etc.) bundled into ESM output
-    js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
+    js: "import { createRequire } from 'node:module'; import { fileURLToPath as __fileURLToPath } from 'node:url'; import { dirname as __dirname_fn } from 'node:path'; const require = createRequire(import.meta.url); const __filename = __fileURLToPath(import.meta.url); const __dirname = __dirname_fn(__filename);",
   },
 });
