@@ -256,5 +256,63 @@
     "finishing": "Finalizando...",
     "missingConfig": "Falta la configuración del agente.",
     "goBackDescription": "Volver a la descripción del negocio"
+  },
+  "landing": {
+    "nav": {
+      "features": "Funciones",
+      "pricing": "Precios",
+      "login": "Iniciar sesión",
+      "getStarted": "Comenzar"
+    },
+    "hero": {
+      "headline": "Tu equipo de IA, listo para trabajar",
+      "subheadline": "Crea agentes de IA que venden, atienden y crecen tu negocio — por WebChat y WhatsApp. Configura en minutos, no meses.",
+      "cta": "Comenzar Gratis",
+      "trust": "Hecho en Colombia"
+    },
+    "features": {
+      "title": "Todo lo que tus agentes necesitan",
+      "subtitle": "De la primera conversación al cierre de venta — tus agentes de IA se encargan de todo.",
+      "agents": {
+        "title": "Agentes IA",
+        "description": "Despliega agentes con personalidad, objetivos y conocimiento propio. Aprenden de cada conversación."
+      },
+      "channels": {
+        "title": "Multi-Canal",
+        "description": "Widget de WebChat para tu sitio y WhatsApp integrado. Llega a tus clientes donde ya están."
+      },
+      "knowledge": {
+        "title": "Base de Conocimiento",
+        "description": "Alimenta a tus agentes con documentos, URLs y políticas. Recuperan la info correcta en el momento correcto."
+      },
+      "analytics": {
+        "title": "Analítica",
+        "description": "Rastrea conversaciones, resoluciones, costos y rendimiento. Sabe exactamente qué hacen tus agentes."
+      }
+    },
+    "pricing": {
+      "title": "Precios simples",
+      "subtitle": "Empieza pequeño, escala cuando estés listo. Sin costos ocultos.",
+      "monthly": "/mes",
+      "agents": "agente | agentes",
+      "modules": "módulos",
+      "channels": "canales",
+      "resolutions": "resoluciones/mes",
+      "unlimited": "Ilimitado",
+      "cta": "Comenzar",
+      "popular": "Popular"
+    },
+    "footer": {
+      "builtIn": "Hecho en Colombia",
+      "product": "Producto",
+      "features": "Funciones",
+      "pricing": "Precios",
+      "company": "Empresa",
+      "blog": "Blog",
+      "legal": "Legal",
+      "privacy": "Privacidad",
+      "terms": "Términos",
+      "copyright": "Camello. Todos los derechos reservados."
+    }
   }
 }

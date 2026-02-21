@@ -256,5 +256,63 @@
     "finishing": "Finishing...",
     "missingConfig": "Missing agent configuration.",
     "goBackDescription": "Go back to business description"
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "login": "Log in",
+      "getStarted": "Get Started"
+    },
+    "hero": {
+      "headline": "Your AI workforce, ready to work",
+      "subheadline": "Create AI agents that sell, support, and grow your business — on WebChat and WhatsApp. Set up in minutes, not months.",
+      "cta": "Get Started Free",
+      "trust": "Built in Colombia"
+    },
+    "features": {
+      "title": "Everything your agents need",
+      "subtitle": "From first conversation to closed deal — your AI agents handle it all.",
+      "agents": {
+        "title": "AI Agents",
+        "description": "Deploy agents with custom personalities, goals, and knowledge. They learn from every conversation."
+      },
+      "channels": {
+        "title": "Multi-Channel",
+        "description": "WebChat widget for your site and WhatsApp integration. Meet your customers where they already are."
+      },
+      "knowledge": {
+        "title": "Knowledge Base",
+        "description": "Feed your agents docs, URLs, and policies. They retrieve the right info at the right moment."
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "Track conversations, resolutions, costs, and performance. Know exactly what your agents are doing."
+      }
+    },
+    "pricing": {
+      "title": "Simple pricing",
+      "subtitle": "Start small, scale when you're ready. No hidden fees.",
+      "monthly": "/mo",
+      "agents": "agent | agents",
+      "modules": "modules",
+      "channels": "channels",
+      "resolutions": "resolutions/mo",
+      "unlimited": "Unlimited",
+      "cta": "Get Started",
+      "popular": "Popular"
+    },
+    "footer": {
+      "builtIn": "Built in Colombia",
+      "product": "Product",
+      "features": "Features",
+      "pricing": "Pricing",
+      "company": "Company",
+      "blog": "Blog",
+      "legal": "Legal",
+      "privacy": "Privacy",
+      "terms": "Terms",
+      "copyright": "Camello. All rights reserved."
+    }
   }
 }

@@ -72,11 +72,13 @@
 
 | 43 | Spanish language support (#43) | Feb 21 | Full i18n across all layers — 6 phases: widget localization (artifact-level `personality.language`), AI system prompts (locale-aware `buildSystemPrompt`), backend error messages (`@camello/shared/messages`), dashboard i18n (next-intl + cookie-based locale from tenant `preferredLocale`), onboarding wizard (all 8 components + `parseBusinessModel` locale input), metadata & polish (Intl formatters, Clerk `esES` localization, dynamic metadata). `LocaleSync` component syncs tenant locale → cookie → `router.refresh()`. `QueryError` switches on tRPC error `code` (not message text). Budget-exceeded uses tenant `preferredLocale`. ~640 translation strings (en.json + es.json). 210 tests (167 API + 43 web). |
 
+| 40 | Landing page (#40) | Feb 21 | Full marketing landing page at `/`. Design system: Jost (headings) + DM Sans (body) Google Fonts, 8-color palette (midnight/sand/teal/sunset/gold/cream/charcoal/dune), 3-zone color blocking (dark hero → warm features → accent pricing). Sticky nav (auth-aware: signed-in shows Dashboard, signed-out shows Login + Get Started), hero with ALL CAPS headline + camel-sales illustration, 2x2 feature cards with camel illustrations (support/knowledge/analytics/sales), 3-col pricing from PLAN_PRICES/PLAN_LIMITS with teal checkmarks + gold "Popular" badge, 4-col footer. All i18n (en + es). Responsive (mobile stacks, nav collapses to CTA-only). OG image + metadata. `unoptimized` on illustrations (pre-generated 1K JPEGs, prevents double-compression artifacts). Smooth scroll anchors with scroll-padding. |
+
 ### Next Up — Launch Readiness
 
 | # | Task | Priority | Notes |
 |---|------|----------|-------|
-| 40 | Landing page (camello.xyz) | P1 | Marketing site — hero, features, pricing, CTA to dashboard |
+| ~~40~~ | ~~Landing page (camello.xyz)~~ | ~~P1~~ | ~~DONE~~ |
 | 41 | Clerk production instance | P1 | Swap test keys → production keys, configure custom domain auth |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
 | 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
@@ -163,6 +165,7 @@
 - [x] Smoke test: sign-up → onboarding → AI chat with RAG ✓
 - [x] Smoke test: widget embed ✓
 - [x] Smoke test: billing checkout (Paddle sandbox — overlay checkout + webhooks confirmed) ✓
+- [x] Landing page: design system (Jost + DM Sans, 8-color palette) + full marketing page with illustrations
 
 ---
 
@@ -515,3 +518,25 @@
 - **package.json:** removed `@trigger.dev/sdk`, added `node-cron` + `@types/node-cron` + `tsx` + `tsup`. Scripts: `build: tsup`, `start: node dist/main.js`, `dev: tsx watch src/main.ts`
 - **Deleted:** `trigger.config.ts`
 - **Gate:** 42 jobs tests pass (38 existing + 4 new worker), type-check clean, build produces `dist/main.js` (2.90 MB)
+
+### Session 18 — Feb 21 (Landing Page #40)
+- **Built full marketing landing page** at `/` (Server Component):
+  - `apps/web/src/app/globals.css` — 8-color palette (midnight/sand/teal/sunset/gold/cream/charcoal/dune) via `@theme` custom properties, `scroll-behavior: smooth` + `scroll-padding-top: 5rem`
+  - `apps/web/src/app/layout.tsx` — Jost (headings) + DM Sans (body) via `next/font/google`, OG metadata with `og-image.jpeg`, favicon from `camel-logo.jpeg`
+  - `apps/web/messages/en.json` + `es.json` — `landing` namespace (~60 strings each: nav, hero, features, pricing, footer)
+  - `apps/web/src/app/page.tsx` — full Server Component landing page
+- **Design system:**
+  - Typography: Jost 700 uppercase for hero, Jost 600 title case for sections, DM Sans 400 for body, Jost 500 uppercase tracking-widest for nav/buttons
+  - 3-zone color blocking: midnight (hero + nav + footer) → sand (features) → teal (pricing)
+  - 8px grid: py-20/32 sections, p-6/8 cards, gap-8 grids, max-w-6xl content / max-w-2xl centered text
+  - WCAG AA contrast on all text/bg combos
+- **Sections:**
+  - Sticky nav: auth-aware (signed-in = "Dashboard" CTA, signed-out = "Log in" + "Get Started"), mobile collapses to logo + CTA
+  - Hero: ALL CAPS headline, subheadline, teal CTA, "Built in Colombia 🇨🇴" trust line, `camel-sales.jpeg` (520px, rounded-2xl, no border — bg matches midnight)
+  - Features: 2x2 grid, each card with camel illustration (152px) + title + description. Solid cream bg, border-2, rounded-xl, hover:shadow-md. Mobile: stacks vertically with centered image
+  - Pricing: 3-col cards on midnight bg within teal section. Real data from `PLAN_PRICES` + `PLAN_LIMITS`. Growth plan gold border + "Popular" badge. Teal checkmark SVGs on list items. CTA buttons (gold for popular, cream/10 for others)
+  - Footer: 4-col grid (logo, product, company, legal), copyright with dynamic year
+- **Illustrations:** 7 pre-generated 1K JPEGs in `public/illustrations/` (camel-base, camel-sales, camel-support, camel-marketing, camel-analytics, camel-knowledge, camel-logo) + `og-image.jpeg`. All served with `unoptimized` prop (prevents Next.js double-compression artifacts on flat-color UPA style art)
+- **i18n:** Full Spanish support via `getTranslations('landing')` — nav, hero, features, pricing, footer all translated
+- **Auth behavior:** Landing page always shows (no redirect for signed-in users). Nav adapts based on auth state.
+- **Gate:** Web build clean (5.34 kB first load for `/`), lint 0 errors, type-check clean

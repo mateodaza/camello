@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+@theme {
+  --font-heading: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --color-sand: #F4E8D6;
+  --color-midnight: #16161D;
+  --color-teal: #00897B;
+  --color-sunset: #E8613C;
+  --color-gold: #C9A84C;
+  --color-cream: #FAF5ED;
+  --color-charcoal: #2D2D34;
+  --color-dune: #7A7268;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
