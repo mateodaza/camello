@@ -90,6 +90,7 @@
 | 53 | Scheduled automations | P3 | Time-based triggers (follow-up reminders, SLA alerts) |
 | 54 | Advisory council | P3 | Multi-agent deliberation for complex decisions |
 | 55 | Self-evolving system | P3 | Auto-generate learnings from successful interactions |
+| 56 | RAG upgrade: trigger taxonomy + chunk roles + extraction rules | P1 | ~7hrs, no schema changes. Intent profiles → chunk lead/support roles → structured metadata extraction in prompts. Cross-pollinated from Hivemind. Design: `memory/rag-upgrade-design.md` |
 
 ### Blocked
 
