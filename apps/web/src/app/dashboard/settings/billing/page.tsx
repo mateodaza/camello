@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import Script from 'next/script';
 import { trpc } from '@/lib/trpc';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,24 @@ import { QueryError } from '@/components/query-error';
 import { fmtDate, fmtCost } from '@/lib/format';
 import { PLAN_LIMITS, PLAN_PRICES } from '@camello/shared/constants';
 import type { PlanTier } from '@camello/shared/types';
+
+declare global {
+  interface Window {
+    Paddle?: {
+      Environment: { set: (env: string) => void };
+      Initialize: (opts: { token: string; eventCallback?: (event: PaddleEvent) => void }) => void;
+      Checkout: { open: (opts: { transactionId: string }) => void };
+    };
+  }
+}
+
+interface PaddleEvent {
+  name: string;
+  data?: unknown;
+}
+
+const PADDLE_CLIENT_TOKEN = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? '';
+const PADDLE_ENV = process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT ?? 'sandbox';
 
 const tiers: PlanTier[] = ['starter', 'growth', 'scale'];
 
@@ -25,12 +44,34 @@ export default function BillingPage() {
   const plan = trpc.billing.currentPlan.useQuery();
   const history = trpc.billing.history.useQuery();
   const [cancelConfirm, setCancelConfirm] = useState(false);
+  const paddleReady = useRef(false);
+
+  const initPaddle = () => {
+    if (!window.Paddle || paddleReady.current || !PADDLE_CLIENT_TOKEN) return;
+    window.Paddle.Environment.set(PADDLE_ENV);
+    window.Paddle.Initialize({
+      token: PADDLE_CLIENT_TOKEN,
+      eventCallback: (event) => {
+        if (event.name === 'checkout.completed') {
+          utils.billing.currentPlan.invalidate();
+          utils.billing.history.invalidate();
+        }
+      },
+    });
+    paddleReady.current = true;
+  };
+
+  useEffect(() => {
+    // If script was already loaded (e.g. cached), init immediately
+    if (window.Paddle) initPaddle();
+  }, []);
 
   const checkout = trpc.billing.createCheckout.useMutation({
     onSuccess: (data) => {
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+      if (data.transactionId && window.Paddle) {
+        window.Paddle.Checkout.open({ transactionId: data.transactionId });
       } else {
+        // In-place upgrade (no checkout needed)
         utils.billing.currentPlan.invalidate();
       }
     },
@@ -51,6 +92,10 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-8">
+      <Script
+        src="https://cdn.paddle.com/paddle/v2/paddle.js"
+        onLoad={initPaddle}
+      />
       <h1 className="text-2xl font-bold">Billing</h1>
 
       {/* Current plan summary */}

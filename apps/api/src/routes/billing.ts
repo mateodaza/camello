@@ -70,7 +70,7 @@ export const billingRouter = router({
           items: [{ priceId, quantity: 1 }],
           prorationBillingMode: 'prorated_immediately',
         });
-        return { updated: true, checkoutUrl: null };
+        return { updated: true, transactionId: null };
       }
 
       // No active subscription → create new checkout transaction
@@ -80,21 +80,7 @@ export const billingRouter = router({
         collectionMode: 'automatic',
       });
 
-      const checkoutUrl = transaction.checkout?.url ?? null;
-      if (!checkoutUrl) {
-        console.error('Paddle transaction created without checkout URL', {
-          transactionId: transaction.id,
-          status: transaction.status,
-          collectionMode: transaction.collectionMode,
-          checkout: transaction.checkout,
-        });
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to generate checkout URL. Please try again.',
-        });
-      }
-
-      return { updated: false, checkoutUrl };
+      return { updated: false, transactionId: transaction.id };
     }),
 
   cancelSubscription: tenantProcedure.mutation(async ({ ctx }) => {

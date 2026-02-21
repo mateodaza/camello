@@ -133,6 +133,7 @@ describe('billing router', () => {
       });
 
       mocks.paddleTransactionsCreate.mockResolvedValue({
+        id: 'txn_test_123',
         checkout: { url: 'https://checkout.paddle.com/test' },
       });
 
@@ -141,11 +142,12 @@ describe('billing router', () => {
 
       expect(result).toEqual({
         updated: false,
-        checkoutUrl: 'https://checkout.paddle.com/test',
+        transactionId: 'txn_test_123',
       });
       expect(mocks.paddleTransactionsCreate).toHaveBeenCalledWith({
         items: [{ priceId: 'pri_growth', quantity: 1 }],
         customData: { tenantId: TENANT_ID },
+        collectionMode: 'automatic',
       });
     });
 
@@ -172,7 +174,7 @@ describe('billing router', () => {
       const caller = createCaller(makeCtx(db));
       const result = await caller.createCheckout({ planTier: 'growth' });
 
-      expect(result).toEqual({ updated: true, checkoutUrl: null });
+      expect(result).toEqual({ updated: true, transactionId: null });
       expect(mocks.paddleSubscriptionsUpdate).toHaveBeenCalledWith('sub_existing_789', {
         items: [{ priceId: 'pri_growth', quantity: 1 }],
         prorationBillingMode: 'prorated_immediately',
