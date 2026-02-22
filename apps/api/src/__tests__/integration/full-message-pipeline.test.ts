@@ -204,7 +204,15 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockDb);
   });
 
-  // #3 transaction — Step 4: Create conversation + assignment
+  // #3 query — Step 1b: Daily customer ceiling count (under limit)
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [{ count: 5 }] }) }) }),
+    };
+    return fn(mockDb);
+  });
+
+  // #4 transaction — Step 4: Create conversation + assignment
   mocks.transactionFn.mockImplementationOnce(async (fn: Any) => {
     const mockTx = {
       insert: () => ({
@@ -216,7 +224,15 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockTx);
   });
 
-  // #4 query — Step 5: Insert customer message
+  // #5 query — Step 4b: Phase B conversation cap check (under limit)
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({ from: () => ({ where: () => [{ count: 5 }] }) }),
+    };
+    return fn(mockDb);
+  });
+
+  // #6 query — Step 5: Insert customer message
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       insert: () => ({
@@ -228,7 +244,7 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockDb);
   });
 
-  // #5 query — Step 6: Load artifact config
+  // #7 query — Step 6: Load artifact config
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       select: () => ({
@@ -242,7 +258,7 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockDb);
   });
 
-  // #6 query — Step 6b: Fetch module bindings
+  // #8 query — Step 6b: Fetch module bindings
   const moduleRows = overrides?.modules ?? [];
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
@@ -257,7 +273,7 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockDb);
   });
 
-  // #7 query — Step 8: Fetch learnings
+  // #9 query — Step 8: Fetch learnings
   const learningRows = overrides?.learnings ?? [];
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
@@ -274,7 +290,7 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockDb);
   });
 
-  // #8 query — Step 11: Fetch conversation history
+  // #10 query — Step 11: Fetch conversation history
   const historyRows = overrides?.historyRows ?? [
     { role: 'customer', content: 'Hello' },
   ];
@@ -293,7 +309,7 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockDb);
   });
 
-  // #9 query — Step 13: Save response message
+  // #11 query — Step 13: Save response message
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       insert: () => ({
@@ -303,7 +319,7 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockDb);
   });
 
-  // #10 query — Step 14: Log telemetry
+  // #12 query — Step 14: Log telemetry
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       insert: () => ({
@@ -313,7 +329,7 @@ function setupNewConversationFlow(overrides?: {
     return fn(mockDb);
   });
 
-  // #11 query — Step 15: Update conversation timestamp
+  // #13 query — Step 15: Update conversation timestamp
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       update: () => ({
@@ -385,9 +401,25 @@ function setupReuseConversationFlow() {
     return fn(mockDb);
   });
 
+  // #3 query — Step 1b: Daily customer ceiling count (under limit)
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [{ count: 5 }] }) }) }),
+    };
+    return fn(mockDb);
+  });
+
   // No transaction — findOrCreateConversation returns existing ID
 
-  // #3 query — Step 5: Insert customer message
+  // #4 query — Step 4b: Phase B conversation cap check (under limit)
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({ from: () => ({ where: () => [{ count: 5 }] }) }),
+    };
+    return fn(mockDb);
+  });
+
+  // #5 query — Step 5: Insert customer message
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       insert: () => ({ values: () => ({ returning: () => [{ id: MESSAGE_ID }] }) }),
@@ -395,7 +427,7 @@ function setupReuseConversationFlow() {
     return fn(mockDb);
   });
 
-  // #4 query — Step 6: Load artifact config
+  // #6 query — Step 6: Load artifact config
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       select: () => ({ from: () => ({ where: () => ({ limit: () => [DEFAULT_ARTIFACT] }) }) }),
@@ -403,7 +435,7 @@ function setupReuseConversationFlow() {
     return fn(mockDb);
   });
 
-  // #5 query — Step 6b: Fetch module bindings
+  // #7 query — Step 6b: Fetch module bindings
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [] }) }) }),
@@ -411,7 +443,7 @@ function setupReuseConversationFlow() {
     return fn(mockDb);
   });
 
-  // #6 query — Step 8: Fetch learnings
+  // #8 query — Step 8: Fetch learnings
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: () => [] }) }) }) }),
@@ -419,7 +451,7 @@ function setupReuseConversationFlow() {
     return fn(mockDb);
   });
 
-  // #7 query — Step 11: Fetch conversation history (includes current message)
+  // #9 query — Step 11: Fetch conversation history (includes current message)
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       select: () => ({
@@ -438,19 +470,19 @@ function setupReuseConversationFlow() {
     return fn(mockDb);
   });
 
-  // #8 query — Step 13: Save response message
+  // #10 query — Step 13: Save response message
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = { insert: () => ({ values: () => ({}) }) };
     return fn(mockDb);
   });
 
-  // #9 query — Step 14: Log telemetry
+  // #11 query — Step 14: Log telemetry
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = { insert: () => ({ values: () => ({}) }) };
     return fn(mockDb);
   });
 
-  // #10 query — Step 15: Update conversation timestamp
+  // #12 query — Step 15: Update conversation timestamp
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = { update: () => ({ set: () => ({ where: () => ({}) }) }) };
     return fn(mockDb);
@@ -496,8 +528,8 @@ describe('handleMessage — full pipeline integration', () => {
     // Verify new conversation created via transaction
     expect(mocks.transactionFn).toHaveBeenCalledOnce();
 
-    // Verify DB writes: 10 queries + 1 transaction
-    expect(mocks.queryFn).toHaveBeenCalledTimes(10);
+    // Verify DB writes: 12 queries + 1 transaction
+    expect(mocks.queryFn).toHaveBeenCalledTimes(12);
   });
 
   it('routes complex query to balanced model with RAG', async () => {
@@ -546,8 +578,8 @@ describe('handleMessage — full pipeline integration', () => {
     // No transaction — conversation already exists
     expect(mocks.transactionFn).not.toHaveBeenCalled();
 
-    // 10 queries (no transaction)
-    expect(mocks.queryFn).toHaveBeenCalledTimes(10);
+    // 12 queries (no transaction)
+    expect(mocks.queryFn).toHaveBeenCalledTimes(12);
   });
 
   it('includes conversation history in LLM messages', async () => {

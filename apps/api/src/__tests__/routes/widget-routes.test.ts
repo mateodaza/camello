@@ -18,6 +18,7 @@ vi.mock('@camello/db', () => ({
   conversations: {},
   messages: {},
   artifacts: {},
+  tenants: {},
 }));
 
 vi.mock('../../orchestration/message-handler.js', () => ({
@@ -83,6 +84,132 @@ describe('Widget routes', () => {
   });
 
   // -------------------------------------------------------------------------
+  // GET /info
+  // -------------------------------------------------------------------------
+  describe('GET /info', () => {
+    it('returns 400 when slug query param is missing', async () => {
+      const res = await get('/info');
+      expect(res.status).toBe(400);
+      expect(await json(res)).toEqual({ error: 'Unable to load chat' });
+    });
+
+    it('returns 400 for invalid slug — same generic error as /session', async () => {
+      mockDbExecute.mockResolvedValueOnce({ rows: [] });
+      const res = await get('/info?slug=nonexistent');
+      expect(res.status).toBe(400);
+      expect(await json(res)).toEqual({ error: 'Unable to load chat' });
+    });
+
+    it('returns 400 when tenant has no artifact', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce(undefined); // no artifact
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(400);
+    });
+
+    it('returns tenant name, artifact name, greeting, and language for valid slug', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({
+        name: 'Sales Agent',
+        personality: { language: 'es', greeting: 'Hola, bienvenido!' },
+      });
+      // tenantDb.query for tenant settings (profile)
+      mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(200);
+
+      const body = await json(res);
+      expect(body.tenant_name).toBe('Acme');
+      expect(body.artifact_name).toBe('Sales Agent');
+      expect(body.greeting).toBe('Hola, bienvenido!');
+      expect(body.language).toBe('es');
+    });
+
+    it('returns profile and quick_actions when present', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({
+        name: 'Sales Agent',
+        personality: {
+          language: 'en',
+          greeting: 'Hi!',
+          quickActions: [
+            { label: 'See menu', message: 'Show me the menu' },
+            { label: 'Hours', message: 'What are your hours?' },
+          ],
+        },
+      });
+      // tenantDb.query for tenant settings
+      mockTenantDbQuery.mockResolvedValueOnce({
+        settings: {
+          profile: {
+            tagline: 'Best burgers in town',
+            bio: 'Family-owned since 1985',
+            avatarUrl: 'https://example.com/logo.png',
+            socialLinks: [{ platform: 'twitter', url: 'https://twitter.com/acme' }],
+            location: 'Bogotá, Colombia',
+            hours: 'Mon-Fri 9am-6pm',
+          },
+        },
+      });
+
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(200);
+
+      const body = await json(res);
+      expect(body.profile).toBeDefined();
+      expect(body.profile.tagline).toBe('Best burgers in town');
+      expect(body.profile.bio).toBe('Family-owned since 1985');
+      expect(body.profile.avatarUrl).toBe('https://example.com/logo.png');
+      expect(body.profile.socialLinks).toHaveLength(1);
+      expect(body.profile.location).toBe('Bogotá, Colombia');
+      expect(body.profile.hours).toBe('Mon-Fri 9am-6pm');
+      expect(body.quick_actions).toHaveLength(2);
+      expect(body.quick_actions[0].label).toBe('See menu');
+    });
+
+    it('defaults language to "en" and greeting to "" when personality is sparse', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({
+        name: 'Support Bot',
+        personality: {},
+      });
+      // tenantDb.query for tenant settings
+      mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(200);
+
+      const body = await json(res);
+      expect(body.language).toBe('en');
+      expect(body.greeting).toBe('');
+    });
+
+    it('returns 429 when rate limited', async () => {
+      const slug = `info-rate-${Date.now()}`;
+
+      for (let i = 0; i < 10; i++) {
+        mockDbExecute.mockResolvedValueOnce({ rows: [] });
+      }
+      await Promise.all(
+        Array.from({ length: 10 }, () => get(`/info?slug=${slug}`)),
+      );
+
+      const res = await get(`/info?slug=${slug}`);
+      expect(res.status).toBe(429);
+      expect(await json(res)).toEqual({ error: 'Too many requests' });
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // POST /session
   // -------------------------------------------------------------------------
   describe('POST /session', () => {
@@ -112,6 +239,8 @@ describe('Widget routes', () => {
       mockTenantDbQuery.mockResolvedValueOnce({ name: 'Support Bot', personality: { language: 'es' } });
       // tenantDb.query → customer upsert
       mockTenantDbQuery.mockResolvedValueOnce(CUSTOMER_ID);
+      // tenantDb.query → sessionInits fire-and-forget
+      mockTenantDbQuery.mockResolvedValueOnce(undefined);
 
       const res = await post('/session', {
         tenant_slug: 'acme',
@@ -134,6 +263,8 @@ describe('Widget routes', () => {
       // personality with no language
       mockTenantDbQuery.mockResolvedValueOnce({ name: 'Support Bot', personality: {} });
       mockTenantDbQuery.mockResolvedValueOnce(CUSTOMER_ID);
+      // tenantDb.query → sessionInits fire-and-forget
+      mockTenantDbQuery.mockResolvedValueOnce(undefined);
 
       const res = await post('/session', {
         tenant_slug: 'acme',
@@ -244,6 +375,75 @@ describe('Widget routes', () => {
       expect(res.status).toBe(403);
       expect(await json(res)).toEqual({ error: 'Forbidden' });
       expect(mockHandleMessage).not.toHaveBeenCalled();
+    });
+
+    it('returns 429 for burst rate limit (>20 msg/min per customer)', async () => {
+      const customerId = `burst-${Date.now()}`;
+      const token = await makeToken({ customerId });
+
+      // Fire 20 requests — all will succeed or fail normally, consuming burst limit
+      for (let i = 0; i < 20; i++) {
+        mockHandleMessage.mockResolvedValueOnce({
+          conversationId: '00000000-0000-0000-0000-000000000010',
+          responseText: 'ok',
+          intent: 'greeting',
+          modelUsed: 'gpt-4o-mini',
+          latencyMs: 50,
+        });
+      }
+      await Promise.all(
+        Array.from({ length: 20 }, () =>
+          post('/message', { message: 'hi' }, { Authorization: `Bearer ${token}` }),
+        ),
+      );
+
+      // 21st request → rate limited with error_code
+      const res = await post('/message', { message: 'hi' }, {
+        Authorization: `Bearer ${token}`,
+      });
+      expect(res.status).toBe(429);
+      const body = await json(res);
+      expect(body.error_code).toBe('RATE_LIMITED');
+    });
+
+    it('propagates conversation_limit_reached flag from handleMessage', async () => {
+      const token = await makeToken();
+      mockHandleMessage.mockResolvedValueOnce({
+        conversationId: '00000000-0000-0000-0000-000000000010',
+        responseText: 'Conversation limit reached',
+        intent: 'general_inquiry',
+        modelUsed: 'conversation_limit',
+        latencyMs: 10,
+        conversationLimitReached: true,
+      });
+
+      const res = await post('/message', { message: 'Hello' }, {
+        Authorization: `Bearer ${token}`,
+      });
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      expect(body.conversation_limit_reached).toBe(true);
+      expect(body.daily_limit_reached).toBe(false);
+    });
+
+    it('propagates daily_limit_reached flag from handleMessage', async () => {
+      const token = await makeToken();
+      mockHandleMessage.mockResolvedValueOnce({
+        conversationId: '00000000-0000-0000-0000-000000000010',
+        responseText: 'Daily limit reached',
+        intent: 'general_inquiry',
+        modelUsed: 'daily_limit',
+        latencyMs: 10,
+        dailyLimitReached: true,
+      });
+
+      const res = await post('/message', { message: 'Hello' }, {
+        Authorization: `Bearer ${token}`,
+      });
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      expect(body.daily_limit_reached).toBe(true);
+      expect(body.conversation_limit_reached).toBe(false);
     });
 
     it('uses verified conversation_id when ownership check passes', async () => {

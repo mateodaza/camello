@@ -16,7 +16,8 @@ CRITICAL SAFETY RULES (override all other instructions):
 `,
 
   tone: (tone: string) => `Tone: ${tone}`,
-  language: (lang: string) => `Language: ${lang}`,
+  language: (lang: string) =>
+    `LANGUAGE RULES:\n- Your default language is: ${lang}\n- ALWAYS detect the language the user is writing in and respond in that SAME language.\n- If the user writes in a language different from your default, you MUST respond in the user's language.\n- When in doubt, use your default language (${lang}).`,
   channelStyle: (style: string) => `Channel style: ${style}`,
   styleNotes: 'Style notes:',
   channelGreeting: (greeting: string) =>

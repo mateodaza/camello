@@ -65,7 +65,17 @@ export const artifactRouter = router({
         id: z.string().uuid(),
         name: z.string().min(1).max(100).optional(),
         type: z.enum(['sales', 'support', 'marketing', 'custom']).optional(),
-        personality: z.record(z.unknown()).optional(),
+        personality: z.record(z.unknown()).optional().refine((val) => {
+          if (!val?.quickActions) return true;
+          const qa = val.quickActions;
+          if (!Array.isArray(qa) || qa.length > 4) return false;
+          return qa.every((item: unknown) => {
+            if (typeof item !== 'object' || item === null) return false;
+            const { label, message } = item as Record<string, unknown>;
+            return typeof label === 'string' && label.length <= 40
+                && typeof message === 'string' && message.length <= 200;
+          });
+        }, { message: 'quickActions: max 4 items, label ≤ 40 chars, message ≤ 200 chars' }),
         constraints: z.record(z.unknown()).optional(),
         config: z.record(z.unknown()).optional(),
         escalation: z.record(z.unknown()).optional(),

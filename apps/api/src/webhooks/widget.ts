@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Hono } from 'hono';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { db, createTenantDb } from '@camello/db';
-import { customers, conversations, messages, artifacts } from '@camello/db';
+import { customers, conversations, messages, artifacts, tenants } from '@camello/db';
 import { createWidgetToken, verifyWidgetToken } from '../lib/widget-jwt.js';
 import { handleMessage } from '../orchestration/message-handler.js';
 import { extractClientIp } from '../lib/client-ip.js';
@@ -16,12 +16,12 @@ const RATE_LIMIT_MAX = 10;
 
 const rateLimitMap = new Map<string, number[]>();
 
-function isRateLimited(key: string): boolean {
+function isRateLimited(key: string, max = RATE_LIMIT_MAX, windowMs = RATE_LIMIT_WINDOW_MS): boolean {
   const now = Date.now();
   const timestamps = rateLimitMap.get(key) ?? [];
   // Evict old entries
-  const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  if (valid.length >= RATE_LIMIT_MAX) {
+  const valid = timestamps.filter((t) => now - t < windowMs);
+  if (valid.length >= max) {
     rateLimitMap.set(key, valid);
     return true;
   }
@@ -84,6 +84,97 @@ async function resolveTenantBySlug(
 // ---------------------------------------------------------------------------
 
 export const widgetRoutes = new Hono();
+
+/**
+ * GET /info — Public tenant info for SSR metadata & chat page bootstrap.
+ *
+ * Query: ?slug=<tenant_slug>
+ * Returns: { tenant_name, artifact_name, greeting, language }
+ *
+ * Security:
+ * - Read-only, no session or JWT created
+ * - Rate-limited: 10 req/min per IP+slug
+ * - Generic error for invalid slug (same 400 as /session)
+ *
+ * Note: This endpoint intentionally reveals tenant/artifact identity for
+ * valid slugs. This is an accepted tradeoff — the public chat page at
+ * /chat/[slug] inherently reveals the same information by rendering.
+ */
+widgetRoutes.get('/info', async (c) => {
+  const slug = c.req.query('slug')?.trim();
+  if (!slug) {
+    return c.json({ error: 'Unable to load chat' }, 400);
+  }
+
+  const ip = extractClientIp(c.req.raw);
+  if (isRateLimited(`info:${ip}:${slug}`)) {
+    return c.json({ error: 'Too many requests' }, 429);
+  }
+
+  const tenant = await resolveTenantBySlug(slug);
+  if (!tenant) {
+    return c.json({ error: 'Unable to load chat' }, 400);
+  }
+
+  const { name: tenantName, default_artifact_id: defaultArtifactId } = tenant;
+  const tenantDb = createTenantDb(tenant.id);
+
+  const artifact = await tenantDb.query(async (qdb) => {
+    const rows = await qdb
+      .select({ name: artifacts.name, personality: artifacts.personality })
+      .from(artifacts)
+      .where(eq(artifacts.id, defaultArtifactId))
+      .limit(1);
+    return rows[0];
+  });
+
+  if (!artifact) {
+    return c.json({ error: 'Unable to load chat' }, 400);
+  }
+
+  // Fetch tenant settings for profile data
+  const tenantInfo = await tenantDb.query(async (qdb) => {
+    const rows = await qdb
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenant.id))
+      .limit(1);
+    return rows[0];
+  });
+
+  const personality = artifact.personality as Record<string, unknown> | null;
+  const language = typeof personality?.language === 'string' ? personality.language : 'en';
+  const greeting = typeof personality?.greeting === 'string' ? personality.greeting : '';
+
+  // Extract profile from tenant settings
+  const settings = tenantInfo?.settings as Record<string, unknown> | null;
+  const profile = (settings?.profile as Record<string, unknown>) ?? null;
+
+  // Extract quickActions from artifact personality (defense-in-depth: clamp to 4, truncate)
+  let quickActions: Array<{ label: string; message: string }> = [];
+  if (Array.isArray(personality?.quickActions)) {
+    quickActions = (personality.quickActions as Array<unknown>)
+      .slice(0, 4)
+      .filter((item): item is { label: string; message: string } => {
+        if (typeof item !== 'object' || item === null) return false;
+        const { label, message } = item as Record<string, unknown>;
+        return typeof label === 'string' && typeof message === 'string';
+      })
+      .map((item) => ({
+        label: item.label.slice(0, 40),
+        message: item.message.slice(0, 200),
+      }));
+  }
+
+  return c.json({
+    tenant_name: tenantName,
+    artifact_name: artifact.name,
+    greeting,
+    language,
+    profile,
+    quick_actions: quickActions,
+  });
+});
 
 /**
  * POST /session — Create an anonymous widget session.
@@ -165,6 +256,17 @@ widgetRoutes.post('/session', async (c) => {
     customerId,
   });
 
+  // Increment sessionInits counter (fire-and-forget, best-effort)
+  tenantDb.query(async (qdb) => {
+    await qdb.execute(sql`UPDATE tenants SET settings = jsonb_set(
+      COALESCE(settings, '{}'), '{sessionInits}',
+      to_jsonb(COALESCE(
+        CASE WHEN jsonb_typeof(settings->'sessionInits') = 'number'
+             THEN (settings->>'sessionInits')::int ELSE 0 END, 0
+      ) + 1)
+    ) WHERE id = ${tenantId}`);
+  }).catch(() => {});
+
   const language = (artifact.personality as Record<string, unknown>)?.language;
 
   return c.json({
@@ -195,6 +297,11 @@ widgetRoutes.post('/message', async (c) => {
     claims = await verifyWidgetToken(token);
   } catch {
     return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  // Per-customer burst rate limit: 20 msgs/min
+  if (isRateLimited(`msg:${claims.customer_id}`, 20)) {
+    return c.json({ error: 'Too many requests', error_code: 'RATE_LIMITED' }, 429);
   }
 
   const body = await c.req.json<{ message?: string; conversation_id?: string }>();
@@ -245,6 +352,8 @@ widgetRoutes.post('/message', async (c) => {
     model_used: result.modelUsed,
     latency_ms: result.latencyMs,
     budget_exceeded: result.budgetExceeded ?? false,
+    conversation_limit_reached: result.conversationLimitReached ?? false,
+    daily_limit_reached: result.dailyLimitReached ?? false,
   });
 });
 

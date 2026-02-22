@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Script from 'next/script';
-import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -41,20 +40,11 @@ export default function BillingPage() {
   const t = useTranslations('billing');
   const tc = useTranslations('common');
   const locale = useLocale();
-  const router = useRouter();
   const utils = trpc.useUtils();
   const plan = trpc.billing.currentPlan.useQuery();
   const history = trpc.billing.history.useQuery();
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const paddleReady = useRef(false);
-
-  const updateLocale = trpc.tenant.updateLocale.useMutation({
-    onSuccess: (_data, variables) => {
-      document.cookie = `locale=${variables.locale};path=/;max-age=31536000`;
-      utils.tenant.me.invalidate();
-      router.refresh();
-    },
-  });
 
   function fmtLimit(val: number): string {
     return val === Infinity ? t('unlimited') : val.toLocaleString();
@@ -116,25 +106,6 @@ export default function BillingPage() {
         onLoad={initPaddle}
       />
       <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
-
-      {/* Language selector */}
-      <Card>
-        <CardContent className="flex items-center justify-between pt-6">
-          <div>
-            <p className="font-medium text-charcoal">{t('language')}</p>
-            <p className="text-sm text-dune">{t('languageDescription')}</p>
-          </div>
-          <select
-            value={locale}
-            onChange={(e) => updateLocale.mutate({ locale: e.target.value as 'en' | 'es' })}
-            disabled={updateLocale.isPending}
-            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-          >
-            <option value="en">{t('english')}</option>
-            <option value="es">{t('spanish')}</option>
-          </select>
-        </CardContent>
-      </Card>
 
       {/* Current plan summary */}
       <Card>

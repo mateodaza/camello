@@ -24,6 +24,7 @@
     "knowledge": "Conocimiento",
     "analytics": "Analítica",
     "billing": "Facturación",
+    "profile": "Perfil",
     "collapse": "Colapsar barra lateral",
     "expand": "Expandir barra lateral"
   },
@@ -43,7 +44,31 @@
     "costUsed": "${used} / ${limit} presupuesto IA",
     "unlimited": "Ilimitado",
     "advanced": "Avanzado",
-    "hideAdvanced": "Ocultar Avanzado"
+    "hideAdvanced": "Ocultar Avanzado",
+    "intentBreakdown": "Qué Preguntan tus Clientes",
+    "recentQuestions": "Preguntas Recientes",
+    "noIntentsYet": "Sin conversaciones este mes",
+    "other": "Otros",
+    "intent_greeting": "Saludo",
+    "intent_pricing": "Precios",
+    "intent_availability": "Disponibilidad",
+    "intent_product_question": "Pregunta de Producto",
+    "intent_complaint": "Queja",
+    "intent_booking_request": "Reserva",
+    "intent_followup": "Seguimiento",
+    "intent_negotiation": "Negociación",
+    "intent_technical_support": "Soporte Técnico",
+    "intent_general_inquiry": "Consulta General",
+    "intent_escalation_request": "Escalación",
+    "intent_simple_question": "Pregunta Simple",
+    "intent_farewell": "Despedida",
+    "intent_thanks": "Agradecimiento",
+    "viewConversation": "Ver",
+    "shareLink": "Enlace de Chat Público",
+    "shareLinkDescription": "Comparte este enlace para que cualquiera pueda chatear con tu agente de IA.",
+    "copyLink": "Copiar",
+    "linkCopied": "¡Copiado!",
+    "openLink": "Abrir"
   },
   "conversations": {
     "pageTitle": "Conversaciones",
@@ -79,7 +104,13 @@
     "chatEmpty": "Envía un mensaje para probar tu agente",
     "thinking": "Pensando...",
     "messagePlaceholder": "Escribe un mensaje...",
-    "sendButton": "Enviar"
+    "sendButton": "Enviar",
+    "quickActions": "Acciones Rápidas",
+    "quickActionLabel": "Texto del botón",
+    "quickActionMessage": "Mensaje automático",
+    "addQuickAction": "Agregar acción",
+    "removeQuickAction": "Eliminar",
+    "maxQuickActions": "Máximo 4 acciones rápidas"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",
@@ -330,5 +361,35 @@
       "terms": "Términos",
       "copyright": "Camello. Todos los derechos reservados."
     }
+  },
+  "profile": {
+    "title": "Perfil Público",
+    "description": "Personaliza lo que ven los visitantes en tu página de chat público.",
+    "businessCard": "Tarjeta de Presentación",
+    "tagline": "Eslogan",
+    "taglinePlaceholder": "Una frase sobre tu negocio",
+    "bio": "Biografía corta",
+    "bioPlaceholder": "Cuéntales a los visitantes qué haces...",
+    "avatarUrl": "URL del Avatar",
+    "avatarUrlPlaceholder": "https://ejemplo.com/logo.png",
+    "location": "Ubicación",
+    "locationPlaceholder": "ej. Bogotá, Colombia",
+    "hours": "Horario",
+    "hoursPlaceholder": "ej. Lun-Vie 9am-6pm",
+    "socialLinks": "Redes Sociales",
+    "addLink": "Agregar enlace",
+    "removeLink": "Eliminar",
+    "shareLink": "Enlace para Compartir",
+    "copyLink": "Copiar enlace",
+    "linkCopied": "¡Copiado!",
+    "downloadQr": "Descargar QR",
+    "sessionInits": "Sesiones de chat",
+    "save": "Guardar perfil",
+    "saved": "¡Guardado!"
+  },
+  "publicChat": {
+    "ogDescription": "Chatea con {name} — impulsado por Camello",
+    "ogFallbackTitle": "Chatea con nosotros | Camello",
+    "ogFallbackDescription": "Habla con nuestro agente de IA para ayuda inmediata"
   }
 }

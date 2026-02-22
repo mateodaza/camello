@@ -62,6 +62,8 @@ export interface HandleMessageOutput {
   latencyMs: number;
   moduleExecutions: Array<{ moduleSlug: string; status: string }>;
   budgetExceeded?: boolean;
+  conversationLimitReached?: boolean;
+  dailyLimitReached?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +139,57 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       existingConversationId, tenant, trace, startTime,
       locale: typeof tenantLocale === 'string' ? tenantLocale : undefined,
     });
+  }
+
+  // ── 1b. Daily customer ceiling (100 msgs/day) — before any paid LLM work ──
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const dailyCount = await tenantDb.query(async (db) => {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(
+        and(
+          eq(conversations.customerId, customerId),
+          eq(conversations.tenantId, tenantId),
+          eq(messages.role, 'customer'),
+          gte(messages.createdAt, todayStart),
+        ),
+      );
+    return row.count;
+  });
+
+  if (dailyCount >= 100) {
+    return handleDailyLimitReached({
+      tenantDb, tenantId, channel, customerId, messageText,
+      existingConversationId, tenant, trace, startTime,
+    });
+  }
+
+  // ── 1c. Conversation cap phase A (50 msgs) — when existingConversationId provided ──
+  if (existingConversationId) {
+    const convMsgCount = await tenantDb.query(async (db) => {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(messages)
+        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+        .where(
+          and(
+            eq(conversations.id, existingConversationId),
+            eq(conversations.tenantId, tenantId),
+            eq(conversations.customerId, customerId),
+          ),
+        );
+      return row.count;
+    });
+
+    if (convMsgCount >= 50) {
+      return handleConversationLimitReached({
+        tenantDb, tenantId, channel, customerId, messageText,
+        existingConversationId, tenant, trace, startTime,
+      });
+    }
   }
 
   // ── 2. Resolve override artifact BEFORE paid work (caller already validated existence) ──
@@ -228,6 +281,25 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     conversationMetadata,
   );
   trace.setMetadata({ conversationId });
+
+  // 4b. Conversation cap phase B — for resolver-found conversations (WhatsApp path)
+  // Skip if we already checked this conversation in step 1c
+  if (!existingConversationId || conversationId !== existingConversationId) {
+    const convMsgCountB = await tenantDb.query(async (db) => {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(messages)
+        .where(eq(messages.conversationId, conversationId));
+      return row.count;
+    });
+
+    if (convMsgCountB >= 50) {
+      return handleConversationLimitReached({
+        tenantDb, tenantId, channel, customerId, messageText,
+        existingConversationId: conversationId, tenant, trace, startTime,
+      });
+    }
+  }
 
   // 5. Save inbound customer message (capture ID for tool idempotency)
   const triggerMessageId = await tenantDb.query(async (db) => {
@@ -878,5 +950,269 @@ export async function handleBudgetExceeded(input: BudgetExceededInput): Promise<
     tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,
     moduleExecutions: [],
     budgetExceeded: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Conversation limit handler
+// ---------------------------------------------------------------------------
+
+interface LimitHandlerInput {
+  tenantDb: TenantDb;
+  tenantId: string;
+  channel: Channel;
+  customerId: string;
+  messageText: string;
+  existingConversationId?: string;
+  tenant: { name: string; defaultArtifactId: string | null } | undefined;
+  trace: ReturnType<typeof createTrace>;
+  startTime: number;
+}
+
+const LIMIT_INTENT: Intent = {
+  type: 'general_inquiry', confidence: 0, complexity: 'simple',
+  requires_knowledge_base: false, sentiment: 'neutral', source: 'regex',
+};
+
+const CONVERSATION_LIMIT_RESPONSE = 'This conversation has reached its message limit. Please start a new conversation to continue.';
+const DAILY_LIMIT_RESPONSE = 'You have reached your daily message limit. Please try again tomorrow.';
+
+export async function handleConversationLimitReached(input: LimitHandlerInput): Promise<HandleMessageOutput> {
+  const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId, tenant, trace, startTime } = input;
+
+  let conversationId = existingConversationId;
+  let artifactId: string | null = null;
+
+  // Resolve artifact from existing conversation
+  if (conversationId) {
+    const assignment = await tenantDb.query(async (db) => {
+      const rows = await db
+        .select({ artifactId: conversationArtifactAssignments.artifactId })
+        .from(conversationArtifactAssignments)
+        .where(
+          and(
+            eq(conversationArtifactAssignments.conversationId, conversationId!),
+            eq(conversationArtifactAssignments.isActive, true),
+            isNull(conversationArtifactAssignments.endedAt),
+          ),
+        )
+        .limit(1);
+      return rows[0] ?? null;
+    });
+    artifactId = assignment?.artifactId ?? null;
+  }
+
+  // Fallback artifact resolution
+  if (!artifactId) {
+    artifactId = tenant?.defaultArtifactId ?? null;
+    if (!artifactId) {
+      const fallback = await tenantDb.query(async (db) => {
+        const rows = await db
+          .select({ id: artifacts.id })
+          .from(artifacts)
+          .where(and(eq(artifacts.tenantId, tenantId), eq(artifacts.isActive, true)))
+          .orderBy(asc(artifacts.createdAt))
+          .limit(1);
+        return rows[0] ?? null;
+      });
+      artifactId = fallback?.id ?? null;
+    }
+  }
+
+  if (!artifactId) {
+    const latencyMs = Date.now() - startTime;
+    trace.finalize({ modelUsed: 'conversation_limit', costUsd: 0, tokensIn: 0, tokensOut: 0, latencyMs });
+    return {
+      conversationId: conversationId ?? '',
+      artifactId: '',
+      responseText: CONVERSATION_LIMIT_RESPONSE,
+      intent: LIMIT_INTENT,
+      modelUsed: 'conversation_limit',
+      tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,
+      moduleExecutions: [],
+      conversationLimitReached: true,
+    };
+  }
+
+  // Create conversation if needed
+  if (!conversationId) {
+    conversationId = await tenantDb.transaction(async (tx) => {
+      const [conv] = await tx
+        .insert(conversations)
+        .values({ tenantId, artifactId: artifactId!, customerId, channel, status: 'active' })
+        .returning({ id: conversations.id });
+      await tx.insert(conversationArtifactAssignments).values({
+        tenantId, conversationId: conv.id, artifactId: artifactId!,
+        assignmentReason: 'tenant_default_fallback',
+      });
+      return conv.id;
+    });
+  }
+
+  // Save customer message + canned response
+  await tenantDb.query(async (db) => {
+    await db.insert(messages).values({ tenantId, conversationId: conversationId!, role: 'customer', content: messageText });
+  });
+  await tenantDb.query(async (db) => {
+    await db.insert(messages).values({
+      tenantId, conversationId: conversationId!,
+      role: 'artifact', content: CONVERSATION_LIMIT_RESPONSE,
+      tokensUsed: 0, modelUsed: 'conversation_limit', costUsd: '0',
+    });
+  });
+
+  const latencyMs = Date.now() - startTime;
+
+  await tenantDb.query(async (db) => {
+    await db.insert(interactionLogs).values({
+      tenantId, artifactId: artifactId!, conversationId: conversationId!,
+      intent: 'conversation_limit', modelUsed: 'conversation_limit',
+      tokensIn: 0, tokensOut: 0, costUsd: '0', latencyMs,
+    });
+  });
+
+  await tenantDb.query(async (db) => {
+    await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, conversationId!));
+  });
+
+  trace.finalize({ modelUsed: 'conversation_limit', costUsd: 0, tokensIn: 0, tokensOut: 0, latencyMs });
+
+  return {
+    conversationId: conversationId!,
+    artifactId: artifactId!,
+    responseText: CONVERSATION_LIMIT_RESPONSE,
+    intent: LIMIT_INTENT,
+    modelUsed: 'conversation_limit',
+    tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,
+    moduleExecutions: [],
+    conversationLimitReached: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Daily limit handler
+// ---------------------------------------------------------------------------
+
+export async function handleDailyLimitReached(input: LimitHandlerInput): Promise<HandleMessageOutput> {
+  const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId, tenant, trace, startTime } = input;
+
+  let conversationId: string | undefined;
+  let artifactId: string | null = null;
+
+  if (existingConversationId) {
+    const owned = await tenantDb.query(async (db) => {
+      const rows = await db
+        .select({
+          id: conversations.id,
+          artifactId: conversationArtifactAssignments.artifactId,
+        })
+        .from(conversations)
+        .innerJoin(
+          conversationArtifactAssignments,
+          and(
+            eq(conversationArtifactAssignments.conversationId, conversations.id),
+            eq(conversationArtifactAssignments.isActive, true),
+            isNull(conversationArtifactAssignments.endedAt),
+          ),
+        )
+        .where(
+          and(
+            eq(conversations.id, existingConversationId),
+            eq(conversations.customerId, customerId),
+            eq(conversations.tenantId, tenantId),
+            eq(conversations.status, 'active'),
+          ),
+        )
+        .limit(1);
+      return rows[0] ?? null;
+    });
+
+    if (owned) {
+      conversationId = owned.id;
+      artifactId = owned.artifactId;
+    }
+  }
+
+  if (!artifactId) {
+    artifactId = tenant?.defaultArtifactId ?? null;
+    if (!artifactId) {
+      const fallback = await tenantDb.query(async (db) => {
+        const rows = await db
+          .select({ id: artifacts.id })
+          .from(artifacts)
+          .where(and(eq(artifacts.tenantId, tenantId), eq(artifacts.isActive, true)))
+          .orderBy(asc(artifacts.createdAt))
+          .limit(1);
+        return rows[0] ?? null;
+      });
+      artifactId = fallback?.id ?? null;
+    }
+  }
+
+  if (!artifactId) {
+    const latencyMs = Date.now() - startTime;
+    trace.finalize({ modelUsed: 'daily_limit', costUsd: 0, tokensIn: 0, tokensOut: 0, latencyMs });
+    return {
+      conversationId: '',
+      artifactId: '',
+      responseText: DAILY_LIMIT_RESPONSE,
+      intent: LIMIT_INTENT,
+      modelUsed: 'daily_limit',
+      tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,
+      moduleExecutions: [],
+      dailyLimitReached: true,
+    };
+  }
+
+  if (!conversationId) {
+    conversationId = await tenantDb.transaction(async (tx) => {
+      const [conv] = await tx
+        .insert(conversations)
+        .values({ tenantId, artifactId: artifactId!, customerId, channel, status: 'active' })
+        .returning({ id: conversations.id });
+      await tx.insert(conversationArtifactAssignments).values({
+        tenantId, conversationId: conv.id, artifactId: artifactId!,
+        assignmentReason: 'tenant_default_fallback',
+      });
+      return conv.id;
+    });
+  }
+
+  await tenantDb.query(async (db) => {
+    await db.insert(messages).values({ tenantId, conversationId: conversationId!, role: 'customer', content: messageText });
+  });
+  await tenantDb.query(async (db) => {
+    await db.insert(messages).values({
+      tenantId, conversationId: conversationId!,
+      role: 'artifact', content: DAILY_LIMIT_RESPONSE,
+      tokensUsed: 0, modelUsed: 'daily_limit', costUsd: '0',
+    });
+  });
+
+  const latencyMs = Date.now() - startTime;
+
+  await tenantDb.query(async (db) => {
+    await db.insert(interactionLogs).values({
+      tenantId, artifactId: artifactId!, conversationId: conversationId!,
+      intent: 'daily_limit', modelUsed: 'daily_limit',
+      tokensIn: 0, tokensOut: 0, costUsd: '0', latencyMs,
+    });
+  });
+
+  await tenantDb.query(async (db) => {
+    await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, conversationId!));
+  });
+
+  trace.finalize({ modelUsed: 'daily_limit', costUsd: 0, tokensIn: 0, tokensOut: 0, latencyMs });
+
+  return {
+    conversationId: conversationId!,
+    artifactId: artifactId!,
+    responseText: DAILY_LIMIT_RESPONSE,
+    intent: LIMIT_INTENT,
+    modelUsed: 'daily_limit',
+    tokensIn: 0, tokensOut: 0, costUsd: 0, latencyMs,
+    moduleExecutions: [],
+    dailyLimitReached: true,
   };
 }

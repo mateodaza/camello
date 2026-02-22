@@ -203,6 +203,14 @@ function setupUnderBudgetFlow(opts: {
 }) {
   const { trace } = setupBudgetExceededFlow(opts);
 
+  // #3 query — Step 1b: Daily customer ceiling count (under limit)
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [{ count: 5 }] }) }) }),
+    };
+    return fn(mockDb);
+  });
+
   // Pipeline proceeds — mock remaining @camello/ai functions
   mocks.classifyIntent.mockResolvedValue({
     type: 'greeting', confidence: 0.85, complexity: 'simple',
@@ -229,7 +237,7 @@ function setupUnderBudgetFlow(opts: {
     channel: () => ({ send: vi.fn().mockResolvedValue(undefined) }),
   });
 
-  // #3 transaction — Create conversation
+  // #4 transaction — Create conversation
   mocks.transactionFn.mockImplementationOnce(async (fn: Any) => {
     const mockTx = {
       insert: () => ({ values: () => ({ returning: () => [{ id: CONVERSATION_ID }] }) }),
@@ -237,7 +245,15 @@ function setupUnderBudgetFlow(opts: {
     return fn(mockTx);
   });
 
-  // #4 query — Insert customer message
+  // #5 query — Step 4b: Phase B conversation cap check (under limit)
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({ from: () => ({ where: () => [{ count: 5 }] }) }),
+    };
+    return fn(mockDb);
+  });
+
+  // #6 query — Insert customer message
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = { insert: () => ({ values: () => ({ returning: () => [{ id: 'msg_1' }] }) }) };
     return fn(mockDb);

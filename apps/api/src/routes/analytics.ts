@@ -143,6 +143,60 @@ export const analyticsRouter = router({
       });
     }),
 
+  /** Intent frequency breakdown for current month. */
+  intentBreakdown: tenantProcedure
+    .query(async ({ ctx }) => {
+      const { monthStart, nextMonthStart } = getUtcMonthWindow(new Date());
+
+      // Explicit return type helps TypeScript resolve the deeply-nested
+      // Drizzle generic chain across package boundaries (tRPC → TenantDb → Drizzle select).
+      type IntentRow = { intent: string; count: number; lastSeen: Date };
+      type RecentRow = { intent: string; conversationId: string; createdAt: Date };
+
+      return ctx.tenantDb.query<{ topIntents: IntentRow[]; recentIntents: RecentRow[] }>(async (db) => {
+        // Filter out synthetic intents logged by limit/budget handlers
+        const syntheticFilter = sql`${interactionLogs.intent} NOT IN ('budget_exceeded', 'conversation_limit', 'daily_limit')`;
+
+        const topIntents: IntentRow[] = await db
+          .select({
+            intent: interactionLogs.intent,
+            count: sql<number>`count(*)::int`,
+            lastSeen: sql<Date>`max(${interactionLogs.createdAt})`,
+          })
+          .from(interactionLogs)
+          .where(
+            and(
+              eq(interactionLogs.tenantId, ctx.tenantId),
+              gte(interactionLogs.createdAt, monthStart),
+              lt(interactionLogs.createdAt, nextMonthStart),
+              syntheticFilter,
+            ),
+          )
+          .groupBy(interactionLogs.intent)
+          .orderBy(sql`count(*) desc`);
+
+        const recentIntents: RecentRow[] = await db
+          .select({
+            intent: interactionLogs.intent,
+            conversationId: interactionLogs.conversationId,
+            createdAt: interactionLogs.createdAt,
+          })
+          .from(interactionLogs)
+          .where(
+            and(
+              eq(interactionLogs.tenantId, ctx.tenantId),
+              gte(interactionLogs.createdAt, monthStart),
+              lt(interactionLogs.createdAt, nextMonthStart),
+              syntheticFilter,
+            ),
+          )
+          .orderBy(desc(interactionLogs.createdAt))
+          .limit(10);
+
+        return { topIntents, recentIntents };
+      });
+    }),
+
   /** Usage records (billing periods). */
   usage: tenantProcedure
     .input(

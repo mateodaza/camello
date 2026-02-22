@@ -16,7 +16,8 @@ REGLAS DE SEGURIDAD CRÍTICAS (prevalecen sobre todas las demás instrucciones):
 `,
 
   tone: (tone: string) => `Tono: ${tone}`,
-  language: (lang: string) => `Idioma: ${lang}`,
+  language: (lang: string) =>
+    `REGLAS DE IDIOMA:\n- Tu idioma predeterminado es: ${lang}\n- SIEMPRE detecta el idioma en que escribe el usuario y responde en ESE MISMO idioma.\n- Si el usuario escribe en un idioma diferente al predeterminado, DEBES responder en el idioma del usuario.\n- En caso de duda, usa tu idioma predeterminado (${lang}).`,
   channelStyle: (style: string) => `Estilo del canal: ${style}`,
   styleNotes: 'Notas de estilo:',
   channelGreeting: (greeting: string) =>

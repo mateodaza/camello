@@ -7,10 +7,15 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
-import { Bot, Plus, MessageSquare } from 'lucide-react';
+import { Bot, Plus, MessageSquare, ChevronDown, ChevronUp, Zap, Trash2 } from 'lucide-react';
 import { TestChatPanel } from '@/components/test-chat-panel';
 
 const artifactTypes = ['sales', 'support', 'marketing', 'custom'] as const;
+
+interface QuickAction {
+  label: string;
+  message: string;
+}
 
 export default function ArtifactsPage() {
   const t = useTranslations('artifacts');
@@ -33,6 +38,8 @@ export default function ArtifactsPage() {
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<(typeof artifactTypes)[number]>('sales');
   const [testingArtifact, setTestingArtifact] = useState<{ id: string; name: string } | null>(null);
+  const [editingQA, setEditingQA] = useState<string | null>(null);
+  const [qaEdits, setQaEdits] = useState<QuickAction[]>([]);
 
   if (artifacts.isLoading) return <div className="text-dune">{t('loading')}</div>;
   if (artifacts.isError) return <QueryError error={artifacts.error} />;
@@ -97,7 +104,12 @@ export default function ArtifactsPage() {
         <p className="text-dune">{t('noArtifacts')}</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {artifacts.data?.map((a) => (
+          {artifacts.data?.map((a) => {
+            const personality = a.personality as Record<string, unknown> | null;
+            const currentQA = (personality?.quickActions as QuickAction[]) ?? [];
+            const isEditingThis = editingQA === a.id;
+
+            return (
             <Card key={a.id} className={a.isActive ? '' : 'opacity-60'}>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -108,7 +120,7 @@ export default function ArtifactsPage() {
                   <Badge variant={a.type ?? 'default'}>{a.type}</Badge>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-dune">
                     v{a.version} &middot; {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
@@ -136,9 +148,103 @@ export default function ArtifactsPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* Quick actions */}
+                <div className="border-t border-charcoal/10 pt-2">
+                  <button
+                    className="flex w-full items-center justify-between text-sm font-medium text-charcoal"
+                    onClick={() => {
+                      if (isEditingThis) {
+                        setEditingQA(null);
+                      } else {
+                        setEditingQA(a.id);
+                        setQaEdits([...currentQA]);
+                      }
+                    }}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5" />
+                      {t('quickActions')} {currentQA.length > 0 && `(${currentQA.length})`}
+                    </span>
+                    {isEditingThis ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  </button>
+
+                  {isEditingThis && (
+                    <div className="mt-2 space-y-2">
+                      {qaEdits.map((qa, idx) => (
+                        <div key={idx} className="flex gap-1.5">
+                          <input
+                            type="text"
+                            value={qa.label}
+                            onChange={(e) => {
+                              const updated = [...qaEdits];
+                              updated[idx] = { ...qa, label: e.target.value };
+                              setQaEdits(updated);
+                            }}
+                            placeholder={t('quickActionLabel')}
+                            maxLength={40}
+                            className="w-28 rounded-md border border-charcoal/15 bg-cream px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-teal"
+                          />
+                          <input
+                            type="text"
+                            value={qa.message}
+                            onChange={(e) => {
+                              const updated = [...qaEdits];
+                              updated[idx] = { ...qa, message: e.target.value };
+                              setQaEdits(updated);
+                            }}
+                            placeholder={t('quickActionMessage')}
+                            maxLength={200}
+                            className="flex-1 rounded-md border border-charcoal/15 bg-cream px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-teal"
+                          />
+                          <button
+                            onClick={() => setQaEdits(qaEdits.filter((_, i) => i !== idx))}
+                            className="rounded p-1 text-dune hover:text-sunset"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {qaEdits.length < 4 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => setQaEdits([...qaEdits, { label: '', message: '' }])}
+                        >
+                          <Plus className="mr-1 h-3 w-3" />
+                          {t('addQuickAction')}
+                        </Button>
+                      )}
+                      {qaEdits.length >= 4 && (
+                        <p className="text-xs text-dune">{t('maxQuickActions')}</p>
+                      )}
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          className="text-xs"
+                          disabled={updateArtifact.isPending}
+                          onClick={() => {
+                            const filtered = qaEdits.filter((qa) => qa.label.trim() && qa.message.trim());
+                            updateArtifact.mutate(
+                              { id: a.id, personality: { ...personality, quickActions: filtered } },
+                              { onSuccess: () => setEditingQA(null) },
+                            );
+                          }}
+                        >
+                          {updateArtifact.isPending ? tc('loading') : tc('save')}
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setEditingQA(null)}>
+                          {tc('cancel')}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

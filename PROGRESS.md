@@ -85,8 +85,9 @@
 | ~~40~~ | ~~Landing page (camello.xyz)~~ | ~~P1~~ | ~~DONE~~ |
 | ~~48~~ | ~~Dashboard retheme + collapsible sidebar~~ | ~~P1~~ | ~~DONE~~ |
 | ~~49~~ | ~~Dashboard UX simplification~~ | ~~P2~~ | ~~DONE~~ |
-| 57 | Public chat page | P0 | **MVP-blocking.** `camello.xyz/chat/[slug]` — shareable link for Linktree/bio. Next.js SSR (dynamic OG per tenant, mobile-first). Reuses widget API. Future: per-org subdomain (`acme.camello.xyz`), custom domains. |
-| 58 | Intent dashboard | P1 | Surface intent frequency + recent intents on dashboard. Business owners see "what are my customers asking about?" Read from `interaction_logs`, no schema changes. Future: intent priority/categorization (Growth/Scale tier feature). |
+| ~~57~~ | ~~Public chat page~~ | ~~P0~~ | ~~DONE — `camello.xyz/chat/[slug]`, SSR metadata, mobile-first chat UI, error differentiation, typing indicator, greeting from /info, i18n (en+es)~~ |
+| ~~58~~ | ~~Intent dashboard~~ | ~~P1~~ | ~~DONE — `analytics.intentBreakdown` procedure, CSS-only bar chart on overview, recent questions list, empty-state placeholder, i18n (en+es)~~ |
+| ~~60~~ | ~~Chat page → business card ("Linktree for AI")~~ | ~~P1~~ | ~~DONE — Collapsible business card (avatar+name+tagline header, expandable bio/location/hours/social), QR share modal, quick actions, profile dashboard page, tenant.updateProfile tRPC, session counter, message rate limit (20/min), conversation cap (50 msgs), daily customer cap (100 msgs/day), synthetic intent filtering, artifact quickActions validation, SSR metadata from profile, language prompt fix. Limits: tagline 50, bio 150, location/hours 50.~~ |
 | 41 | Clerk production instance | P2 | Deferred — closed beta uses dev keys. Swap when ready for public launch. |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
 | 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
@@ -106,6 +107,9 @@
 | 55 | Self-evolving system | P3 | Auto-generate learnings from successful interactions |
 | 56 | RAG upgrade: trigger taxonomy + chunk roles + extraction rules | P1 | ~7hrs, no schema changes. Intent profiles → chunk lead/support roles → structured metadata extraction in prompts. Cross-pollinated from Hivemind. Design: `memory/rag-upgrade-design.md` |
 | 59 | Intent prioritization + categorization | P2 | Tenants tag/prioritize intent types (e.g., "pricing inquiry" = high priority, "hours" = low). Dashboard alerts on high-priority intents. Growth/Scale tier feature. |
+| 60b | Business card Phase 2 enhancements | P2 | Dynamic greetings (daily cron + LLM pre-generation, ~$0.001/tenant/day), subdomain routing (`acme.camello.xyz` via wildcard CNAME + middleware, ~2hrs), custom domains (post-MVP), avatar file upload (replace paste-URL), chat session analytics (chart/graph from sessionInits counter), conversation summarization for long threads, per-customer daily cap pre-aggregation via cron (if count query perf degrades). |
+| 61 | Dynamic intent labels | P3 | Currently intent types are a hardcoded Zod enum (14 types) with i18n keys in en/es JSON. Adding a new intent = update 3 places (schema + 2 JSON files). Future: classify intent into user-facing label at classification time (stored alongside canonical slug in `interaction_logs`), so dashboard renders DB values directly. Eliminates per-intent i18n maintenance. |
+| 62 | Agent archetype framework | P2 | Parametrize agent creation so new verticals are data-driven, not code changes. Currently: intent enum, module catalog, and personality are all hardcoded. Future: agent archetypes as DB/config records defining: intent taxonomy (custom per vertical), default module set, personality template, suggested knowledge structure, onboarding prompts. Adding a new agent type (e.g. "Restaurant Host", "Real Estate Agent") = insert archetype config, not touch Zod/i18n/code. Ties into #52 (marketplace) and #61 (dynamic labels). |
 
 ### Blocked
 
@@ -178,6 +182,9 @@
 - [x] Dashboard retheme: applied landing page design system to all 23 dashboard + onboarding files
 - [x] Collapsible sidebar: icon rail (w-16), localStorage persistence, tooltips, Clerk component adaptation
 - [x] Dashboard UX simplification (#49): layout width constraint, agent test chat (sandbox mode), simplified overview (plan usage bars + collapsible advanced), 11 new tests
+- [x] Public chat page (#57): `/chat/[slug]` with SSR OG metadata, mobile-first chat UI, widget API reuse, error differentiation (not_found vs connection), typing indicator, greeting from `/info` endpoint, i18n (en+es), 64 web tests
+- [x] Intent dashboard (#58): `analytics.intentBreakdown` tRPC procedure, CSS-only bar chart on overview, recent questions with conversation links, empty-state placeholder, i18n (en+es), 183 API tests
+- [x] Business card (#60): collapsible business card + QR share + quick actions + profile dashboard + abuse prevention (burst/conv/daily caps) + SSR metadata + AI language prompt fix, 269 tests
 
 ---
 
@@ -575,3 +582,62 @@
   - Artifact override validated after intent classification (wasted paid LLM calls) → restructured pipeline: override resolution before intent classification
 - **Tests:** 11 new (5 sandbox-chat, 2 analytics-monthly-usage, 4 test-chat-panel logic)
 - **Gate:** 221 tests pass (174 API + 47 Web), lint 0 errors, type-check clean
+
+### Session 21 — Feb 22 (Public Chat Page #57 + Intent Dashboard #58)
+- **Built public chat page** at `/chat/[slug]` — shareable link for Linktree/bio traffic:
+- **Backend — `apps/api/src/webhooks/widget.ts`:**
+  - New `GET /api/widget/info?slug=X` — public endpoint returning `{ tenant_name, artifact_name, greeting, language }` (no session/JWT). Uses existing `resolveTenantBySlug()` RPC + artifact query. Rate-limited (10/min per IP+slug). Needed for SSR `generateMetadata()` (can't generate fingerprint server-side).
+- **Frontend — `apps/web/src/app/chat/[slug]/`:**
+  - `page.tsx` — Server Component wrapper. `generateMetadata()` fetches `/info` for dynamic OG title/description (5s timeout, graceful fallback). Renders `<ChatPage slug={slug} />`.
+  - `chat-page.tsx` — Main client component (`'use client'`). State machine: `idle` → `connecting` → `ready` → `error`. Browser fingerprint (SHA-256 of UA+lang+screen+timezone — same algo as widget). Bootstrap: POST `/session` → JWT + tenant info, GET `/history` for conversation restore, GET `/info` for greeting (if no history). Message flow: optimistic add → POST `/message` → append AI response. Error differentiation: HTTP 400 → `not_found` (invalid slug), network/500 → `connection` (retry button). Budget exceeded: polite notice. i18n: inline string map keyed by artifact language (en+es, 10 keys each).
+  - `chat-page.module.css` — Typing indicator: 3 bouncing dots with staggered `animation-delay`, `@keyframes bounce` (0→-6px→0).
+  - Layout: `h-dvh` flexbox. Midnight header (tenant name + logo), cream message area (auto-scroll), teal user bubbles / sand agent bubbles, sticky input bar, "Powered by Camello" footer.
+- **Built intent dashboard** on overview page:
+- **Backend — `apps/api/src/routes/analytics.ts`:**
+  - New `intentBreakdown` procedure: `GROUP BY intent ORDER BY count DESC` from `interaction_logs` (current UTC month). Returns `topIntents` (intent, count, lastSeen) + `recentIntents` (last 10 with conversationId for linking). Explicit type annotations to fix cross-package tRPC inference.
+- **Frontend — `apps/web/src/app/dashboard/page.tsx`:**
+  - New `IntentSection` component: CSS-only horizontal bar chart (top 8 intents, rest grouped as "Other"), percentage width bars with count labels. "Recent Questions" list (last 5 with relative timestamps + conversation links). Empty state placeholder (`noIntentsYet` card).
+- **i18n:** +12 keys in en.json + es.json (`publicChat.title/description`, `dashboard.intentBreakdown/recentQuestions/noIntentsYet/other/viewConversation`)
+- **Type inference fix:** `ReturnType<typeof trpc.*.useQuery>` collapsed to `{}` across package boundaries (deeply nested Drizzle generics). Fix: explicit interface props on `IntentSection` instead of inferred query type.
+- **P2 audit fixes** (2 findings resolved):
+  - `noIntentsYet` key was unused (section hidden when empty) → always render section, show placeholder card
+  - Chat errors undifferentiated (all showed `errorNotFound`) → added `ErrorKind` type, HTTP 400 → `not_found`, network/500 → `connection`
+- **Tests:** 3 new error differentiation tests + existing 61 web tests + 183 API tests pass
+- **Gate:** All 4 packages build, 247 tests pass (183 API + 64 Web), lint 0 errors, type-check clean
+
+### Session 22 — Feb 22 (Business Card + AI Chat "Linktree for AI" #60)
+- **Evolved public chat page into business card + AI chat** — full "Linktree for businesses" experience:
+- **Backend — abuse prevention (3-layer):**
+  - Message burst rate limit: 20 msgs/min per customer_id on `POST /message` (429 + `RATE_LIMITED` error code)
+  - Conversation length cap: 50 messages per conversation (two-phase: pre-classifyIntent fast path for widget, post-findOrCreateConversation for WhatsApp/resolver). Returns `conversation_limit_reached` flag
+  - Daily customer ceiling: 100 customer msgs/day per customer_id (JOIN messages→conversations, runs before classifyIntent). Returns `daily_limit_reached` flag
+  - Both caps follow `handleBudgetExceeded()` pattern: synthetic Intent, full `HandleMessageOutput`, save customer msg + canned response, log telemetry
+  - New `HandleMessageOutput` fields: `conversationLimitReached?: boolean`, `dailyLimitReached?: boolean`
+- **Backend — profile + quick actions:**
+  - `tenant.updateProfile` tRPC mutation: HTTPS-only URL validation, merge semantics (omitted fields preserved), max lengths (tagline 50, bio 150, location/hours 50, socialLinks max 6)
+  - Expanded `GET /api/widget/info` to return `profile` (from `tenants.settings`) + `quick_actions` (from `artifacts.personality.quickActions`)
+  - Session counter: fire-and-forget `sessionInits++` on `POST /session`
+  - Artifact `quickActions` server validation: `.refine()` on personality field (max 4 items, label ≤ 40, message ≤ 200)
+  - Synthetic intent filtering: `intentBreakdown` query excludes `budget_exceeded`, `conversation_limit`, `daily_limit` from analytics (fixes pre-existing pollution)
+- **Frontend — chat page evolution:**
+  - SSR `/info` fetch in `page.tsx` → passed as `ssrInfo` prop (eliminates client-side `/info` re-fetch)
+  - Collapsible business card: compact horizontal header (avatar 40px + name + truncated tagline + social icons on desktop + chevron) → expandable section (bio + location/hours/social links in horizontal row with vertical separators). Default: collapsed
+  - Quick action buttons: auto-sent messages, hidden after first user message
+  - QR share modal: inline SVG QR code generator (`apps/web/src/lib/qr-svg.ts`, ~80 lines, zero deps)
+  - Navbar: "CAMELLO" branding (logo + uppercase text), QR share button
+  - Handle limit/rate responses: `conversation_limit_reached` / `daily_limit_reached` → polite i18n message + disable input. HTTP 429 → "slow down" message
+  - Enhanced OG metadata: uses profile tagline + bio for social sharing
+- **Frontend — dashboard:**
+  - New profile settings page (`/dashboard/settings/profile`): tagline, short bio, avatar URL, location, hours, social links (dynamic list), share link (copy + QR + download), session counter display, language selector (moved from billing page)
+  - Quick actions editor on artifacts page: dynamic label + message pairs (max 4), saves via `artifact.update`
+  - Sidebar: added "Profile" nav item under Settings
+- **Design refinements (iterative smoke testing, 6 rounds):**
+  - Mobile-first char limits calibrated on iPhone SE (320px) + iPhone 14 Pro Max (430px): tagline 50, bio 150, location/hours 50
+  - "Bio" → "Short bio" label to set user expectations
+  - Card default collapsed (visitors come to chat, not read bio)
+  - Removed tenant org name from navbar (redundant with business card)
+  - Added "CAMELLO" brand to navbar
+- **AI prompt fix:** Language directive upgraded from weak `Language: {lang}` to explicit `LANGUAGE RULES` block with strict instructions (prevents AI reverting to English)
+- **i18n:** ~30 new keys in en.json + es.json (profile form, quick actions editor, chat limit messages, sidebar)
+- **Tests:** 22 new (5 widget route + 12 abuse controls + 6 tenant profile + 4 artifact quickActions). 269 tests pass (205 API + 64 Web)
+- **Gate:** Lint 0 errors, type-check clean, build clean

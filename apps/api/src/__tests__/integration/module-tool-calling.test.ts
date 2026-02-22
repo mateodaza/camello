@@ -187,7 +187,15 @@ function setupModuleFlow(opts: {
     return fn(mockDb);
   });
 
-  // #3 transaction — Step 4: Create conversation + assignment
+  // #3 query — Step 1b: Daily customer ceiling count (under limit)
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [{ count: 5 }] }) }) }),
+    };
+    return fn(mockDb);
+  });
+
+  // #4 transaction — Step 4: Create conversation + assignment
   mocks.transactionFn.mockImplementationOnce(async (fn: Any) => {
     const mockTx = {
       insert: () => ({ values: () => ({ returning: () => [{ id: CONVERSATION_ID }] }) }),
@@ -195,7 +203,15 @@ function setupModuleFlow(opts: {
     return fn(mockTx);
   });
 
-  // #4 query — Step 5: Insert customer message
+  // #5 query — Step 4b: Phase B conversation cap check (under limit)
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({ from: () => ({ where: () => [{ count: 5 }] }) }),
+    };
+    return fn(mockDb);
+  });
+
+  // #6 query — Step 5: Insert customer message
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       insert: () => ({ values: () => ({ returning: () => [{ id: MESSAGE_ID }] }) }),
@@ -203,7 +219,7 @@ function setupModuleFlow(opts: {
     return fn(mockDb);
   });
 
-  // #5 query — Step 6: Load artifact config
+  // #7 query — Step 6: Load artifact config
   mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
     const mockDb = {
       select: () => ({

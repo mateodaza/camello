@@ -24,6 +24,7 @@
     "knowledge": "Knowledge",
     "analytics": "Analytics",
     "billing": "Billing",
+    "profile": "Profile",
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar"
   },
@@ -43,7 +44,31 @@
     "costUsed": "${used} / ${limit} AI budget",
     "unlimited": "Unlimited",
     "advanced": "Advanced",
-    "hideAdvanced": "Hide Advanced"
+    "hideAdvanced": "Hide Advanced",
+    "intentBreakdown": "What Customers Are Asking",
+    "recentQuestions": "Recent Questions",
+    "noIntentsYet": "No conversations yet this month",
+    "other": "Other",
+    "intent_greeting": "Greeting",
+    "intent_pricing": "Pricing",
+    "intent_availability": "Availability",
+    "intent_product_question": "Product Question",
+    "intent_complaint": "Complaint",
+    "intent_booking_request": "Booking Request",
+    "intent_followup": "Follow-up",
+    "intent_negotiation": "Negotiation",
+    "intent_technical_support": "Technical Support",
+    "intent_general_inquiry": "General Inquiry",
+    "intent_escalation_request": "Escalation",
+    "intent_simple_question": "Simple Question",
+    "intent_farewell": "Farewell",
+    "intent_thanks": "Thanks",
+    "viewConversation": "View",
+    "shareLink": "Public Chat Link",
+    "shareLinkDescription": "Share this link so anyone can chat with your AI agent.",
+    "copyLink": "Copy",
+    "linkCopied": "Copied!",
+    "openLink": "Open"
   },
   "conversations": {
     "pageTitle": "Conversations",
@@ -79,7 +104,13 @@
     "chatEmpty": "Send a message to test your agent",
     "thinking": "Thinking...",
     "messagePlaceholder": "Type a message...",
-    "sendButton": "Send"
+    "sendButton": "Send",
+    "quickActions": "Quick Actions",
+    "quickActionLabel": "Button text",
+    "quickActionMessage": "Auto-sent message",
+    "addQuickAction": "Add action",
+    "removeQuickAction": "Remove",
+    "maxQuickActions": "Maximum 4 quick actions"
   },
   "knowledge": {
     "pageTitle": "Knowledge",
@@ -330,5 +361,35 @@
       "terms": "Terms",
       "copyright": "Camello. All rights reserved."
     }
+  },
+  "profile": {
+    "title": "Public Profile",
+    "description": "Customize what visitors see on your public chat page.",
+    "businessCard": "Business Card",
+    "tagline": "Tagline",
+    "taglinePlaceholder": "One-liner about your business",
+    "bio": "Short bio",
+    "bioPlaceholder": "Tell visitors what you do...",
+    "avatarUrl": "Avatar URL",
+    "avatarUrlPlaceholder": "https://example.com/logo.png",
+    "location": "Location",
+    "locationPlaceholder": "e.g. Bogotá, Colombia",
+    "hours": "Hours",
+    "hoursPlaceholder": "e.g. Mon-Fri 9am-6pm",
+    "socialLinks": "Social Links",
+    "addLink": "Add link",
+    "removeLink": "Remove",
+    "shareLink": "Share Link",
+    "copyLink": "Copy link",
+    "linkCopied": "Copied!",
+    "downloadQr": "Download QR",
+    "sessionInits": "Chat sessions",
+    "save": "Save profile",
+    "saved": "Saved!"
+  },
+  "publicChat": {
+    "ogDescription": "Chat with {name} — powered by Camello",
+    "ogFallbackTitle": "Chat with us | Camello",
+    "ogFallbackDescription": "Talk to our AI agent for instant help"
   }
 }
