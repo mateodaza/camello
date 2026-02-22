@@ -37,7 +37,13 @@
     "totalCost": "Costo Total",
     "interactions": "Interacciones",
     "tokensIn": "Tokens Entrada",
-    "tokensOut": "Tokens Salida"
+    "tokensOut": "Tokens Salida",
+    "planUsage": "Uso del Plan",
+    "resolutionsUsed": "{used} / {limit} resoluciones",
+    "costUsed": "${used} / ${limit} presupuesto IA",
+    "unlimited": "Ilimitado",
+    "advanced": "Avanzado",
+    "hideAdvanced": "Ocultar Avanzado"
   },
   "conversations": {
     "pageTitle": "Conversaciones",
@@ -65,7 +71,15 @@
     "create": "Crear",
     "creating": "Creando...",
     "deactivate": "Desactivar",
-    "activate": "Activar"
+    "activate": "Activar",
+    "test": "Probar",
+    "testChat": "Chat de Prueba",
+    "closeTest": "Cerrar",
+    "testChatDescription": "Prueba tu agente en modo sandbox. Estas conversaciones no aparecerán en tu lista de conversaciones.",
+    "chatEmpty": "Envía un mensaje para probar tu agente",
+    "thinking": "Pensando...",
+    "messagePlaceholder": "Escribe un mensaje...",
+    "sendButton": "Enviar"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",

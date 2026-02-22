@@ -7,7 +7,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
-import { Bot, Plus } from 'lucide-react';
+import { Bot, Plus, MessageSquare } from 'lucide-react';
+import { TestChatPanel } from '@/components/test-chat-panel';
 
 const artifactTypes = ['sales', 'support', 'marketing', 'custom'] as const;
 
@@ -31,6 +32,7 @@ export default function ArtifactsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<(typeof artifactTypes)[number]>('sales');
+  const [testingArtifact, setTestingArtifact] = useState<{ id: string; name: string } | null>(null);
 
   if (artifacts.isLoading) return <div className="text-dune">{t('loading')}</div>;
   if (artifacts.isError) return <QueryError error={artifacts.error} />;
@@ -111,22 +113,41 @@ export default function ArtifactsPage() {
                   <span className="text-sm text-dune">
                     v{a.version} &middot; {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      updateArtifact.mutate({ id: a.id, isActive: !a.isActive })
-                    }
-                    disabled={updateArtifact.isPending}
-                  >
-                    {a.isActive ? t('deactivate') : t('activate')}
-                  </Button>
+                  <div className="flex gap-1">
+                    {a.isActive && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTestingArtifact({ id: a.id, name: a.name })}
+                      >
+                        <MessageSquare className="mr-1 h-3.5 w-3.5" />
+                        {t('test')}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        updateArtifact.mutate({ id: a.id, isActive: !a.isActive })
+                      }
+                      disabled={updateArtifact.isPending}
+                    >
+                      {a.isActive ? t('deactivate') : t('activate')}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <TestChatPanel
+        artifactId={testingArtifact?.id ?? ''}
+        artifactName={testingArtifact?.name ?? ''}
+        open={!!testingArtifact}
+        onClose={() => setTestingArtifact(null)}
+      />
     </div>
   );
 }

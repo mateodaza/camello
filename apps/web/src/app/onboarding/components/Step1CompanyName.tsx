@@ -59,7 +59,7 @@ export function Step1CompanyName({ onComplete }: Props) {
       <CardContent>
         {provision.isPending && <p className="text-sm text-dune">{t('provisioning')}</p>}
         {provision.isError && (
-          <p className="text-sm text-sunset">
+          <p className="text-sm text-error">
             {t('errorMessage', { message: provision.error.message })}
           </p>
         )}

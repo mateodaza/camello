@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { customers } from '@camello/db';
+import { artifacts, customers } from '@camello/db';
 import { channelSchema } from '@camello/shared/schemas';
 import { handleMessage } from '../orchestration/message-handler.js';
 
@@ -15,7 +15,17 @@ export const chatRouter = router({
         channel: channelSchema.default('webchat'),
         customerId: z.string().uuid(),
         conversationId: z.string().uuid().optional(),
-      }),
+        sandbox: z.boolean().optional(),
+        artifactId: z.string().uuid().optional(),
+      })
+        .refine((d) => !d.sandbox || d.artifactId, {
+          message: 'sandbox mode requires artifactId',
+          path: ['artifactId'],
+        })
+        .refine((d) => !d.artifactId || d.sandbox, {
+          message: 'artifactId requires sandbox mode',
+          path: ['sandbox'],
+        }),
     )
     .mutation(async ({ ctx, input }) => {
       // Validate that the customer belongs to this tenant
@@ -32,6 +42,28 @@ export const chatRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
       }
 
+      // Validate artifact before any paid work (intent classification, RAG)
+      if (input.sandbox && input.artifactId) {
+        const artifact = await ctx.tenantDb.query(async (db) => {
+          const rows = await db
+            .select({ id: artifacts.id })
+            .from(artifacts)
+            .where(
+              and(
+                eq(artifacts.id, input.artifactId!),
+                eq(artifacts.tenantId, ctx.tenantId),
+                eq(artifacts.isActive, true),
+              ),
+            )
+            .limit(1);
+          return rows[0];
+        });
+
+        if (!artifact) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Artifact not found or inactive' });
+        }
+      }
+
       const result = await handleMessage({
         tenantDb: ctx.tenantDb,
         tenantId: ctx.tenantId,
@@ -39,6 +71,9 @@ export const chatRouter = router({
         customerId: input.customerId,
         messageText: input.message,
         existingConversationId: input.conversationId,
+        ...(input.sandbox && input.artifactId
+          ? { artifactId: input.artifactId, conversationMetadata: { sandbox: true } }
+          : {}),
       });
 
       return {

@@ -123,7 +123,7 @@ export function Step4ConnectChannel({ onComplete }: Props) {
           <Button variant="ghost" onClick={onComplete}>{t('whatsAppSkip')}</Button>
         </div>
         {channelUpsert.isError && (
-          <p className="text-sm text-sunset">{channelUpsert.error.message}</p>
+          <p className="text-sm text-error">{channelUpsert.error.message}</p>
         )}
       </CardContent>
     </Card>

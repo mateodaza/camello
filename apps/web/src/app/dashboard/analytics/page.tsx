@@ -264,7 +264,7 @@ export default function AnalyticsPage() {
                     <td className="px-4 py-3">{fmtCost(rec.llmCostUsd, locale)}</td>
                     <td className="px-4 py-3">
                       {Number(rec.overageCostUsd) > 0 ? (
-                        <span className="text-sunset">{fmtCost(rec.overageCostUsd, locale)}</span>
+                        <span className="text-error">{fmtCost(rec.overageCostUsd, locale)}</span>
                       ) : (
                         <span className="text-dune">$0.0000</span>
                       )}

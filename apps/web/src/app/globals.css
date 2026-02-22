@@ -8,10 +8,11 @@
   --color-midnight: #16161D;
   --color-teal: #00897B;
   --color-sunset: #E8613C;
+  --color-error: #B5391A;
   --color-gold: #C9A84C;
   --color-cream: #FAF5ED;
   --color-charcoal: #2D2D34;
-  --color-dune: #7A7268;
+  --color-dune: #6B6359;
 }
 
 html {

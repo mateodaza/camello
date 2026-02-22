@@ -14,7 +14,10 @@ export const conversationRouter = router({
     )
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
-        const conditions = [eq(conversations.tenantId, ctx.tenantId)];
+        const conditions = [
+          eq(conversations.tenantId, ctx.tenantId),
+          sql`NOT (${conversations.metadata} @> '{"sandbox": true}'::jsonb)`,
+        ];
         if (input.status) conditions.push(eq(conversations.status, input.status));
 
         // Keyset pagination: if cursor provided, fetch that row's updatedAt

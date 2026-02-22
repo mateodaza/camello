@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { eq, and, sql, gte, lte, desc } from 'drizzle-orm';
+import { eq, and, sql, gte, lte, lt, desc } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
 import {
   artifactMetricsDaily,
@@ -7,6 +7,7 @@ import {
   interactionLogs,
   usageRecords,
 } from '@camello/db';
+import { getUtcMonthWindow } from '../lib/date-utils.js';
 
 export const analyticsRouter = router({
   /** Daily metrics for a specific artifact (date range). */
@@ -104,6 +105,41 @@ export const analyticsRouter = router({
           .where(and(...conditions))
           .orderBy(desc(interactionLogs.createdAt))
           .limit(input.limit);
+      });
+    }),
+
+  /** Current month usage for plan usage bars. Uses UTC month boundaries matching budget gate. */
+  monthlyUsage: tenantProcedure
+    .query(async ({ ctx }) => {
+      const { monthStart, nextMonthStart } = getUtcMonthWindow(new Date());
+
+      return ctx.tenantDb.query(async (db) => {
+        const resolvedRows = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.tenantId, ctx.tenantId),
+              gte(conversations.resolvedAt, monthStart),
+              lt(conversations.resolvedAt, nextMonthStart),
+            ),
+          );
+
+        const costRows = await db
+          .select({ totalCost: sql<string>`coalesce(sum(cost_usd), 0)` })
+          .from(interactionLogs)
+          .where(
+            and(
+              eq(interactionLogs.tenantId, ctx.tenantId),
+              gte(interactionLogs.createdAt, monthStart),
+              lt(interactionLogs.createdAt, nextMonthStart),
+            ),
+          );
+
+        return {
+          resolvedThisMonth: resolvedRows[0]?.count ?? 0,
+          costThisMonth: parseFloat(costRows[0]?.totalCost ?? '0'),
+        };
       });
     }),
 

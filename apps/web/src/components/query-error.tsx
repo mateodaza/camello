@@ -17,7 +17,7 @@ export function QueryError({ error }: { error: { message: string; data?: { code?
               ? t('error.forbidden')
               : t('error.generic')}
         </p>
-        <p className="mt-1 text-sm text-charcoal/70">{error.message}</p>
+        <p className="mt-1 text-sm text-charcoal/80">{error.message}</p>
       </CardContent>
     </Card>
   );

@@ -31,6 +31,7 @@ import { COST_BUDGET_DEFAULTS, LEARNING_CONFIDENCE } from '@camello/shared/const
 import { t as tmsg } from '@camello/shared/messages';
 import { createClient } from '@supabase/supabase-js';
 import { buildTelemetry, createTrace } from '../lib/langfuse.js';
+import { getUtcMonthWindow } from '../lib/date-utils.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +44,10 @@ export interface HandleMessageInput {
   customerId: string;
   messageText: string;
   existingConversationId?: string;
+  /** Skip artifact resolution — use this artifact directly (sandbox/test mode). */
+  artifactId?: string;
+  /** Merged into conversation row on creation (e.g. { sandbox: true }). */
+  conversationMetadata?: Record<string, unknown>;
 }
 
 export interface HandleMessageOutput {
@@ -79,7 +84,7 @@ export interface HandleMessageOutput {
  * 12. Return response
  */
 export async function handleMessage(input: HandleMessageInput): Promise<HandleMessageOutput> {
-  const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId } = input;
+  const { tenantDb, tenantId, channel, customerId, messageText, existingConversationId, artifactId: overrideArtifactId, conversationMetadata } = input;
   const startTime = Date.now();
   const trace = createTrace({
     tenantId,
@@ -134,28 +139,84 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     });
   }
 
-  // ── 2. Classify intent (first potentially paid step — LLM fallback) ──
+  // ── 2. Resolve override artifact BEFORE paid work (caller already validated existence) ──
+  let resolved: { artifactId: string; conversationId?: string; isNewConversation: boolean; source: string } | null = null;
+
+  if (overrideArtifactId) {
+    // Check if we can reuse the existing conversation
+    let canReuse = false;
+    if (existingConversationId) {
+      const existing = await tenantDb.query(async (db) => {
+        const rows = await db
+          .select({
+            id: conversations.id,
+            metadata: conversations.metadata,
+            assignedArtifactId: conversationArtifactAssignments.artifactId,
+          })
+          .from(conversations)
+          .innerJoin(
+            conversationArtifactAssignments,
+            and(
+              eq(conversationArtifactAssignments.conversationId, conversations.id),
+              eq(conversationArtifactAssignments.isActive, true),
+              isNull(conversationArtifactAssignments.endedAt),
+            ),
+          )
+          .where(
+            and(
+              eq(conversations.id, existingConversationId),
+              eq(conversations.tenantId, tenantId),
+              eq(conversations.customerId, customerId),
+              eq(conversations.status, 'active'),
+            ),
+          )
+          .limit(1);
+        return rows[0] ?? null;
+      });
+
+      // Reuse only if: owned, active, same artifact, and already sandbox
+      if (
+        existing &&
+        existing.assignedArtifactId === overrideArtifactId &&
+        (existing.metadata as Record<string, unknown> | null)?.sandbox === true
+      ) {
+        canReuse = true;
+      }
+    }
+
+    resolved = {
+      artifactId: overrideArtifactId,
+      conversationId: canReuse ? existingConversationId : undefined,
+      isNewConversation: !canReuse,
+      source: 'manual_override',
+    };
+    trace.setMetadata({ artifactId: resolved.artifactId });
+  }
+
+  // ── 3. Classify intent (first potentially paid step — LLM fallback) ──
   const intent = await trace.span('classify-intent', () => classifyIntent(messageText));
 
-  // 3. Resolve artifact
-  const resolver = createArtifactResolver({
-    findActiveConversation: (custId) => findActiveConversation(tenantDb, custId),
-    findMatchingRule: (ch, intentType, confidence) =>
-      findMatchingRule(tenantDb, ch, intentType, confidence),
-    getDefaultArtifact: () => getDefaultArtifact(tenantDb, tenantId),
-  });
+  // 4. Resolve artifact via normal resolver (only when no override)
+  if (!resolved) {
+    const resolver = createArtifactResolver({
+      findActiveConversation: (custId) => findActiveConversation(tenantDb, custId),
+      findMatchingRule: (ch, intentType, confidence) =>
+        findMatchingRule(tenantDb, ch, intentType, confidence),
+      getDefaultArtifact: () => getDefaultArtifact(tenantDb, tenantId),
+    });
 
-  const resolved = await trace.span('artifact-resolver', () =>
-    resolver.resolve({
-      tenantId,
-      channel,
-      customerId,
-      intent,
-      existingConversationId,
-      isReturningCustomer: false, // TODO: derive from customer record
-    }),
-  );
-  trace.setMetadata({ artifactId: resolved.artifactId });
+    resolved = await trace.span('artifact-resolver', () =>
+      resolver.resolve({
+        tenantId,
+        channel,
+        customerId,
+        intent,
+        existingConversationId,
+        isReturningCustomer: false, // TODO: derive from customer record
+      }),
+    );
+    trace.setMetadata({ artifactId: resolved.artifactId });
+  }
 
   // 4. Find or create conversation
   const conversationId = await findOrCreateConversation(
@@ -164,6 +225,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     resolved,
     customerId,
     channel,
+    conversationMetadata,
   );
   trace.setMetadata({ conversationId });
 
@@ -578,6 +640,7 @@ async function findOrCreateConversation(
   resolved: { artifactId: string; conversationId?: string; isNewConversation: boolean; source: string },
   customerId: string,
   channel: Channel,
+  metadata?: Record<string, unknown>,
 ): Promise<string> {
   // Reuse existing conversation
   if (resolved.conversationId && !resolved.isNewConversation) {
@@ -594,17 +657,22 @@ async function findOrCreateConversation(
         customerId,
         channel,
         status: 'active',
+        ...(metadata ? { metadata } : {}),
       })
       .returning({ id: conversations.id });
 
     // Record the artifact assignment
+    const assignmentReason = resolved.source === 'manual_override'
+      ? 'manual_override' as const
+      : resolved.source === 'existing_conversation'
+        ? 'route_rule' as const
+        : resolved.source as 'route_rule' | 'tenant_default_fallback';
+
     await tx.insert(conversationArtifactAssignments).values({
       tenantId,
       conversationId: conv.id,
       artifactId: resolved.artifactId,
-      assignmentReason: resolved.source === 'existing_conversation'
-        ? 'route_rule'
-        : resolved.source as 'route_rule' | 'tenant_default_fallback',
+      assignmentReason,
     });
 
     return conv.id;
@@ -627,11 +695,8 @@ function estimateCost(model: string, tokensIn: number, tokensOut: number): numbe
   return (tokensIn / 1000) * rates.input + (tokensOut / 1000) * rates.output;
 }
 
-export function getUtcMonthWindow(date: Date): { monthStart: Date; nextMonthStart: Date } {
-  const monthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-  const nextMonthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
-  return { monthStart, nextMonthStart };
-}
+// Re-export from shared util for backward compat (tests import from here)
+export { getUtcMonthWindow } from '../lib/date-utils.js';
 
 export function resolveEffectiveMonthlyBudget(
   planTier: PlanTier,

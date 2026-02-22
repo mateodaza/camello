@@ -1,0 +1,18 @@
+feat: dashboard UX simplification — sandbox test chat, plan usage bars, layout width (#49)
+
+Three UX improvements for non-technical dashboard users:
+
+1. Layout: max-w-5xl centered container prevents ultrawide content stretch
+2. Agent test chat (sandbox mode):
+   - TestChatPanel slide-over with conversation continuity
+   - chat.send accepts sandbox + artifactId (bidirectional refine validation)
+   - handleMessage override path: artifact resolution before intent classification
+   - Route-layer artifact validation (TRPCError before paid LLM calls)
+   - Sandbox conversations hidden from conversation.list (JSONB @> filter)
+3. Overview simplification:
+   - Plan-tier usage bars (resolutions + cost vs limits)
+   - analytics.monthlyUsage procedure (resolvedAt UTC window)
+   - LLM details behind collapsible Advanced toggle (default closed)
+   - Extracted getUtcMonthWindow() into shared date-utils.ts
+
+i18n: +20 keys (en+es). Tests: 11 new (221 total: 174 API + 47 web).

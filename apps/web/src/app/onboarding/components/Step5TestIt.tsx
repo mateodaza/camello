@@ -117,7 +117,7 @@ export function Step5TestIt({ previewCustomerId }: Props) {
         </form>
 
         {sendMessage.isError && (
-          <p className="text-sm text-sunset">{sendMessage.error.message}</p>
+          <p className="text-sm text-error">{sendMessage.error.message}</p>
         )}
 
         <div className="border-t border-charcoal/8 pt-4">

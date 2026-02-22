@@ -207,7 +207,7 @@ export default function BillingPage() {
           })}
         </div>
         {checkout.isError && (
-          <p className="text-sm text-sunset">{checkout.error.message}</p>
+          <p className="text-sm text-error">{checkout.error.message}</p>
         )}
       </div>
 
@@ -241,7 +241,7 @@ export default function BillingPage() {
         </Card>
       )}
       {cancel.isError && (
-        <p className="text-sm text-sunset">{cancel.error.message}</p>
+        <p className="text-sm text-error">{cancel.error.message}</p>
       )}
 
       {/* Billing history */}

@@ -264,7 +264,7 @@ export default function KnowledgePage() {
                   </Button>
                 </div>
                 {ingest.isError && (
-                  <p className="text-sm text-sunset">{ingest.error.message}</p>
+                  <p className="text-sm text-error">{ingest.error.message}</p>
                 )}
                 {ingestSuccess && (
                   <p className="text-sm text-teal">

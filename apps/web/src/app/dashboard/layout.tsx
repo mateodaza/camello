@@ -58,7 +58,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex h-screen">
         <Sidebar />
         <main className="flex-1 overflow-y-auto bg-sand p-6">
-          {children}
+          <div className="mx-auto max-w-5xl">
+            {children}
+          </div>
         </main>
       </div>
     </OnboardingGate>

@@ -98,7 +98,7 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
         </div>
 
         {setup.isError && (
-          <p className="text-sm text-sunset">{setup.error.message}</p>
+          <p className="text-sm text-error">{setup.error.message}</p>
         )}
       </CardContent>
     </Card>

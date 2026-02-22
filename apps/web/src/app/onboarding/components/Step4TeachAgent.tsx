@@ -169,7 +169,7 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
 
         {/* Error display */}
         {(ingest.isError || queueUrl.isError) && (
-          <p className="text-sm text-sunset">
+          <p className="text-sm text-error">
             {ingest.error?.message ?? queueUrl.error?.message ?? t('analyzeError')}
           </p>
         )}

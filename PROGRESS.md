@@ -76,16 +76,18 @@
 
 | 48 | Dashboard retheme + collapsible sidebar (#48) | Feb 21 | Applied landing page design system to all dashboard + onboarding. 23 files modified: 3 shared UI (card/button/badge), 2 shared components (stat-card/query-error), 2 layout (sidebar/dashboard layout), 7 dashboard pages, 9 onboarding files. Gray→design system: midnight sidebar, sand content bg, teal primary buttons/focus rings, cream cards/tables, charcoal text, dune secondary text, sunset errors, gold warnings. WCAG AA contrast on all tinted-bg badges (charcoal on teal/15 ≈ 10:1). Collapsible sidebar: `w-60`↔`w-16`, CSS transition (200ms), localStorage persistence, ChevronsLeft/Right toggle, Tooltip on collapsed icons (CSS group-hover), Clerk OrganizationSwitcher crop approach, logo link to landing. New: `hooks/use-sidebar-collapsed.ts`, `ui/tooltip.tsx`. i18n: +2 keys (collapse/expand en+es). 43 tests pass, build clean. |
 
+| 49 | Dashboard UX simplification (#49) | Feb 21 | **3 areas:** (1) Layout: `max-w-5xl mx-auto` container in dashboard layout — centers content, prevents ultrawide stretch. (2) Agent test chat (sandbox mode): `TestChatPanel` slide-over with conversation continuity, `chat.send` accepts `sandbox` + `artifactId` (bidirectional `.refine()` validation), `handleMessage` override path (artifact resolution before intent classification), sandbox conversations hidden from `conversation.list` via JSONB `@>` containment filter, route-layer artifact validation (TRPCError before paid LLM calls). (3) Overview simplification: plan-tier usage bars (`UsageBar` component, `analytics.monthlyUsage` procedure with `resolvedAt` UTC window), business KPIs stay, LLM details behind collapsible "Advanced" toggle. Extracted `getUtcMonthWindow()` into shared `date-utils.ts`. i18n: +20 keys (en+es). **Tests:** 11 new (7 API: 5 sandbox-chat + 2 analytics-monthly-usage, 4 web: test-chat-panel logic). **Totals:** 221 tests (174 API + 47 web). Lint 0 errors, type-check clean. |
+
 ### Next Up — Launch Readiness
 
 | # | Task | Priority | Notes |
 |---|------|----------|-------|
 | ~~40~~ | ~~Landing page (camello.xyz)~~ | ~~P1~~ | ~~DONE~~ |
 | ~~48~~ | ~~Dashboard retheme + collapsible sidebar~~ | ~~P1~~ | ~~DONE~~ |
+| ~~49~~ | ~~Dashboard UX simplification~~ | ~~P2~~ | ~~DONE~~ |
 | 41 | Clerk production instance | P1 | Swap test keys → production keys, configure custom domain auth |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
 | 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
-| 49 | Dashboard UX simplification | P2 | Hide AI costs behind "Advanced", integrate tiers with usage, agent test chat (non-persisted), simplify overview for non-technical users |
 | 45 | Docs / help center | P3 | Setup guide, API reference, widget embed instructions |
 | ~~46~~ | ~~Paddle smoke test~~ | ~~P2~~ | ~~DONE — checkout + webhooks confirmed end-to-end~~ |
 | 47 | WhatsApp Business setup | P3 | Meta Business verification + phone number for production WhatsApp channel |
@@ -172,6 +174,7 @@
 - [x] Landing page: design system (Jost + DM Sans, 8-color palette) + full marketing page with illustrations
 - [x] Dashboard retheme: applied landing page design system to all 23 dashboard + onboarding files
 - [x] Collapsible sidebar: icon rail (w-16), localStorage persistence, tooltips, Clerk component adaptation
+- [x] Dashboard UX simplification (#49): layout width constraint, agent test chat (sandbox mode), simplified overview (plan usage bars + collapsible advanced), 11 new tests
 
 ---
 
@@ -546,3 +549,26 @@
 - **i18n:** Full Spanish support via `getTranslations('landing')` — nav, hero, features, pricing, footer all translated
 - **Auth behavior:** Landing page always shows (no redirect for signed-in users). Nav adapts based on auth state.
 - **Gate:** Web build clean (5.34 kB first load for `/`), lint 0 errors, type-check clean
+
+### Session 20 — Feb 21 (Dashboard UX Simplification #49)
+- **3 areas of UX improvement** — layout width, agent test chat, overview simplification:
+- **Part 1 — Layout width constraint:**
+  - `apps/web/src/app/dashboard/layout.tsx` — added `max-w-5xl mx-auto` inner container to `<main>`
+  - Centers content at 1024px max, prevents ultrawide stretch
+- **Part 2 — Agent test chat (sandbox mode):**
+  - `apps/api/src/routes/chat.ts` — added `sandbox` + `artifactId` optional fields with bidirectional `.refine()` validation, early artifact validation (TRPCError before paid LLM calls)
+  - `apps/api/src/orchestration/message-handler.ts` — added `artifactId` + `conversationMetadata` to `HandleMessageInput`, override path runs BEFORE intent classification, conversation reuse checks (ownership + artifact match + sandbox metadata), `findOrCreateConversation` accepts optional `metadata`, handles `manual_override` assignment reason
+  - `apps/api/src/routes/conversation.ts` — sandbox exclusion via JSONB containment: `NOT (metadata @> '{"sandbox": true}'::jsonb)`
+  - `apps/web/src/components/test-chat-panel.tsx` — new slide-over panel with chat UI, conversation continuity tracking (`conversationId` state), reset on close, uses `ensurePreviewCustomer` + `chat.send` with sandbox params
+  - `apps/web/src/app/dashboard/artifacts/page.tsx` — "Test" button per active artifact, `TestChatPanel` rendering
+- **Part 3 — Overview simplification:**
+  - `apps/api/src/routes/analytics.ts` — new `monthlyUsage` procedure (`resolvedThisMonth` via `resolvedAt` range, `costThisMonth` via `interaction_logs` range, UTC month boundaries)
+  - `apps/api/src/lib/date-utils.ts` — extracted `getUtcMonthWindow()` from message-handler (shared by budget gate + analytics)
+  - `apps/web/src/app/dashboard/page.tsx` — restructured: Plan Usage section (tier badge + resolution/cost progress bars), Business KPIs (stat cards), collapsible Advanced section (LLM details, default closed)
+  - `apps/web/src/components/stat-card.tsx` — added `UsageBar` component (teal fill, charcoal/8 track, gold >80%)
+- **i18n:** +20 keys in en.json + es.json (dashboard.planUsage/advanced/resolutionsUsed/costUsed/unlimited, artifacts.test/testChat/closeTest/testChatDescription/chatEmpty/thinking/messagePlaceholder/sendButton)
+- **P1 audit fixes** (2 findings resolved):
+  - Invalid artifact override threw generic `Error` → moved validation to route layer, throws `TRPCError({ code: 'NOT_FOUND' })`
+  - Artifact override validated after intent classification (wasted paid LLM calls) → restructured pipeline: override resolution before intent classification
+- **Tests:** 11 new (5 sandbox-chat, 2 analytics-monthly-usage, 4 test-chat-panel logic)
+- **Gate:** 221 tests pass (174 API + 47 Web), lint 0 errors, type-check clean

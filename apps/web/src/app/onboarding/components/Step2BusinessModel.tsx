@@ -58,7 +58,7 @@ export function Step2BusinessModel({ initialDescription = '', onComplete }: Prop
             </Button>
           </div>
           {parse.isError && (
-            <p className="text-sm text-sunset">{t('analyzeError')}</p>
+            <p className="text-sm text-error">{t('analyzeError')}</p>
           )}
         </form>
       </CardContent>
