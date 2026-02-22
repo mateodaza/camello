@@ -85,7 +85,9 @@
 | ~~40~~ | ~~Landing page (camello.xyz)~~ | ~~P1~~ | ~~DONE~~ |
 | ~~48~~ | ~~Dashboard retheme + collapsible sidebar~~ | ~~P1~~ | ~~DONE~~ |
 | ~~49~~ | ~~Dashboard UX simplification~~ | ~~P2~~ | ~~DONE~~ |
-| 41 | Clerk production instance | P1 | Swap test keys → production keys, configure custom domain auth |
+| 57 | Public chat page | P0 | **MVP-blocking.** `camello.xyz/chat/[slug]` — shareable link for Linktree/bio. Next.js SSR (dynamic OG per tenant, mobile-first). Reuses widget API. Future: per-org subdomain (`acme.camello.xyz`), custom domains. |
+| 58 | Intent dashboard | P1 | Surface intent frequency + recent intents on dashboard. Business owners see "what are my customers asking about?" Read from `interaction_logs`, no schema changes. Future: intent priority/categorization (Growth/Scale tier feature). |
+| 41 | Clerk production instance | P2 | Deferred — closed beta uses dev keys. Swap when ready for public launch. |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
 | 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
 | 45 | Docs / help center | P3 | Setup guide, API reference, widget embed instructions |
@@ -103,6 +105,7 @@
 | 54 | Advisory council | P3 | Multi-agent deliberation for complex decisions |
 | 55 | Self-evolving system | P3 | Auto-generate learnings from successful interactions |
 | 56 | RAG upgrade: trigger taxonomy + chunk roles + extraction rules | P1 | ~7hrs, no schema changes. Intent profiles → chunk lead/support roles → structured metadata extraction in prompts. Cross-pollinated from Hivemind. Design: `memory/rag-upgrade-design.md` |
+| 59 | Intent prioritization + categorization | P2 | Tenants tag/prioritize intent types (e.g., "pricing inquiry" = high priority, "hours" = low). Dashboard alerts on high-priority intents. Growth/Scale tier feature. |
 
 ### Blocked
 
