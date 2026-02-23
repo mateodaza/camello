@@ -47,8 +47,8 @@ export default function DashboardOverview() {
       {/* ===== Public Chat Link ===== */}
       {tenant.data?.slug && <ShareLinkCard slug={tenant.data.slug} t={t} />}
 
-      {overview.isError && <QueryError error={overview.error} />}
-      {artifacts.isError && <QueryError error={artifacts.error} />}
+      {overview.isError && <QueryError error={overview.error} onRetry={() => overview.refetch()} />}
+      {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}
 
       {/* ===== Plan Usage ===== */}
       {tenant.data && (
@@ -74,7 +74,7 @@ export default function DashboardOverview() {
       )}
 
       {/* ===== Intent Breakdown ===== */}
-      {intents.isError && <QueryError error={intents.error} />}
+      {intents.isError && <QueryError error={intents.error} onRetry={() => intents.refetch()} />}
       {!intents.isLoading && !intents.isError && (
         <IntentSection
           topIntents={intents.data?.topIntents ?? []}

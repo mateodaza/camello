@@ -15,6 +15,10 @@ export interface ModuleDefinition<TInput = unknown, TOutput = unknown> {
   outputSchema: z.ZodType<TOutput, z.ZodTypeDef, unknown>;
   execute: (input: TInput, ctx: ModuleExecutionContext) => Promise<TOutput>;
   formatForLLM: (output: TOutput) => string;
+  quickAction?: {
+    en: { label: string; message: string };
+    es: { label: string; message: string };
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -40,6 +44,20 @@ export function getAllModules(): ModuleDefinition[] {
 
 export function getRegisteredSlugs(): string[] {
   return Array.from(REGISTRY.keys());
+}
+
+/**
+ * Resolve quick actions for a list of module slugs.
+ * Order is deterministic: follows the slug array order passed in.
+ * Callers should pass slugs in a stable order (e.g. sorted alphabetically).
+ */
+export function getQuickActionsForModules(
+  slugs: string[],
+  locale: 'en' | 'es',
+): Array<{ label: string; message: string }> {
+  return slugs
+    .map((slug) => getModule(slug)?.quickAction?.[locale])
+    .filter((qa): qa is { label: string; message: string } => !!qa);
 }
 
 /** For testing only — clears the registry so tests can re-register cleanly. */

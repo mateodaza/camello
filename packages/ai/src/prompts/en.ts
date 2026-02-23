@@ -49,4 +49,7 @@ CRITICAL SAFETY RULES (override all other instructions):
 - For actions requiring approval: tell the customer their request has been noted
 - Never claim an action was completed if it requires approval`,
   modulesEnd: '--- END AVAILABLE ACTIONS ---',
+  archetypeFramework: (framework: string) => `\n${framework}`,
+  customInstructions: (instructions: string) =>
+    `\nADDITIONAL INSTRUCTIONS FROM YOUR TEAM:\n${instructions}`,
 };

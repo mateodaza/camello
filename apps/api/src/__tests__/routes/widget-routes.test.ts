@@ -5,20 +5,31 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // (vi.mock calls are hoisted above imports by vitest)
 // ---------------------------------------------------------------------------
 
-const { mockDbExecute, mockTenantDbQuery, mockHandleMessage } = vi.hoisted(() => ({
+const { mockDbExecute, mockTenantDbQuery, mockHandleMessage, mockGetQuickActions, mockDbSelectResult } = vi.hoisted(() => ({
   mockDbExecute: vi.fn(),
   mockTenantDbQuery: vi.fn(),
   mockHandleMessage: vi.fn(),
+  mockGetQuickActions: vi.fn(),
+  mockDbSelectResult: vi.fn(),
 }));
 
 vi.mock('@camello/db', () => ({
-  db: { execute: mockDbExecute },
+  db: {
+    execute: mockDbExecute,
+    select: () => ({ from: () => ({ where: mockDbSelectResult }) }),
+  },
   createTenantDb: vi.fn(() => ({ query: mockTenantDbQuery })),
   customers: {},
   conversations: {},
   messages: {},
   artifacts: {},
   tenants: {},
+  artifactModules: {},
+  modules: {},
+}));
+
+vi.mock('@camello/ai', () => ({
+  getQuickActionsForModules: mockGetQuickActions,
 }));
 
 vi.mock('../../orchestration/message-handler.js', () => ({
@@ -119,6 +130,8 @@ describe('Widget routes', () => {
       });
       // tenantDb.query for tenant settings (profile)
       mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+      // tenantDb.query for bound modules (artifactModules)
+      mockTenantDbQuery.mockResolvedValueOnce([]);
 
       const res = await get('/info?slug=acme');
       expect(res.status).toBe(200);
@@ -130,7 +143,7 @@ describe('Widget routes', () => {
       expect(body.language).toBe('es');
     });
 
-    it('returns profile and quick_actions when present', async () => {
+    it('returns profile and legacy quick_actions when no modules bound', async () => {
       mockDbExecute.mockResolvedValueOnce({
         rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
       });
@@ -158,6 +171,8 @@ describe('Widget routes', () => {
           },
         },
       });
+      // tenantDb.query for bound modules — empty (legacy artifact)
+      mockTenantDbQuery.mockResolvedValueOnce([]);
 
       const res = await get('/info?slug=acme');
       expect(res.status).toBe(200);
@@ -170,8 +185,11 @@ describe('Widget routes', () => {
       expect(body.profile.socialLinks).toHaveLength(1);
       expect(body.profile.location).toBe('Bogotá, Colombia');
       expect(body.profile.hours).toBe('Mon-Fri 9am-6pm');
+      // Legacy fallback: personality.quickActions used when no modules bound
       expect(body.quick_actions).toHaveLength(2);
       expect(body.quick_actions[0].label).toBe('See menu');
+      // Module helper should NOT have been called (guard: empty bound modules)
+      expect(mockGetQuickActions).not.toHaveBeenCalled();
     });
 
     it('defaults language to "en" and greeting to "" when personality is sparse', async () => {
@@ -184,6 +202,8 @@ describe('Widget routes', () => {
       });
       // tenantDb.query for tenant settings
       mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+      // tenantDb.query for bound modules
+      mockTenantDbQuery.mockResolvedValueOnce([]);
 
       const res = await get('/info?slug=acme');
       expect(res.status).toBe(200);
@@ -191,6 +211,97 @@ describe('Widget routes', () => {
       const body = await json(res);
       expect(body.language).toBe('en');
       expect(body.greeting).toBe('');
+      expect(body.quick_actions).toEqual([]);
+    });
+
+    it('returns module-derived quick actions when modules are bound', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({
+        name: 'Sales Agent',
+        personality: { language: 'en', greeting: 'Hello!' },
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+      // tenantDb.query for bound modules — 2 modules bound
+      mockTenantDbQuery.mockResolvedValueOnce([
+        { moduleId: 'mod-qualify' },
+        { moduleId: 'mod-book' },
+      ]);
+      // db.select().from().where() for modules catalog
+      mockDbSelectResult.mockResolvedValueOnce([
+        { slug: 'qualify_lead' },
+        { slug: 'book_meeting' },
+      ]);
+      // getQuickActionsForModules returns actions
+      mockGetQuickActions.mockReturnValueOnce([
+        { label: 'Tell me what you need', message: 'I need help choosing' },
+        { label: 'Book a meeting', message: "I'd like to schedule a meeting" },
+      ]);
+
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(200);
+
+      const body = await json(res);
+      expect(body.quick_actions).toHaveLength(2);
+      expect(body.quick_actions[0].label).toBe('Tell me what you need');
+      expect(body.quick_actions[1].label).toBe('Book a meeting');
+      expect(mockGetQuickActions).toHaveBeenCalledOnce();
+    });
+
+    it('returns empty quick actions for module-less artifact (support/custom)', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({
+        name: 'Support Bot',
+        personality: { language: 'en', greeting: 'Need help?' },
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+      // tenantDb.query for bound modules — empty (no modules)
+      mockTenantDbQuery.mockResolvedValueOnce([]);
+
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(200);
+
+      const body = await json(res);
+      expect(body.quick_actions).toEqual([]);
+      // Guard: modules catalog query should NOT have been made
+      expect(mockDbSelectResult).not.toHaveBeenCalled();
+      expect(mockGetQuickActions).not.toHaveBeenCalled();
+    });
+
+    it('passes alphabetically sorted slugs for deterministic quick action order', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({
+        name: 'Marketing Bot',
+        personality: { language: 'en', greeting: 'Welcome!' },
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+      mockTenantDbQuery.mockResolvedValueOnce([
+        { moduleId: 'mod-1' },
+        { moduleId: 'mod-2' },
+      ]);
+      // modules returned in arbitrary DB order (z before a)
+      mockDbSelectResult.mockResolvedValueOnce([
+        { slug: 'send_followup' },
+        { slug: 'book_meeting' },
+      ]);
+      mockGetQuickActions.mockReturnValueOnce([
+        { label: 'Book a meeting', message: 'Schedule' },
+        { label: 'Request a follow-up', message: 'Follow up' },
+      ]);
+
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(200);
+
+      // Verify slugs were sorted before being passed to the helper
+      expect(mockGetQuickActions).toHaveBeenCalledWith(
+        ['book_meeting', 'send_followup'], // alphabetical
+        'en',
+      );
     });
 
     it('returns 429 when rate limited', async () => {

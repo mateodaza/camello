@@ -13,6 +13,10 @@ const bookMeetingModule: ModuleDefinition<Input, Output> = {
     'Book a meeting with the customer. Specify preferred date, time, and topic. ' +
     'Call this when the customer wants to schedule a call or demo.',
   category: 'sales',
+  quickAction: {
+    en: { label: 'Book a meeting', message: "I'd like to schedule a meeting" },
+    es: { label: 'Agendar reunión', message: 'Me gustaría agendar una reunión' },
+  },
   inputSchema: bookMeetingInputSchema,
   outputSchema: bookMeetingOutputSchema,
 

@@ -437,6 +437,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     artifact: {
       name: artifact.name,
       role: artifact.type,
+      type: artifact.type,
       personality: artifact.personality as Record<string, unknown>,
       constraints: artifact.constraints as Record<string, unknown>,
       config: artifact.config as Record<string, unknown>,

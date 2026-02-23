@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard, MessageSquare, Bot, BookOpen,
-  BarChart3, CreditCard, ChevronsLeft, ChevronsRight, User,
+  BarChart3, CreditCard, ChevronsLeft, ChevronsRight, User, HelpCircle,
 } from 'lucide-react';
 import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ const navItems = [
   { href: '/dashboard/analytics', labelKey: 'analytics' as const, icon: BarChart3 },
   { href: '/dashboard/settings/billing', labelKey: 'billing' as const, icon: CreditCard },
   { href: '/dashboard/settings/profile', labelKey: 'profile' as const, icon: User },
+  { href: '/dashboard/docs', labelKey: 'help' as const, icon: HelpCircle },
 ];
 
 export function Sidebar() {

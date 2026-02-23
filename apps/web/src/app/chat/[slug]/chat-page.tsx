@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import styles from './chat-page.module.css';
 import { generateQrSvg } from '@/lib/qr-svg';
+import { SimpleMarkdown } from '@/components/simple-markdown';
 import type { InfoData } from './page';
 
 // ---------------------------------------------------------------------------
@@ -500,13 +501,13 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
               className={`flex ${msg.role === 'customer' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 font-body text-sm leading-relaxed ${
+                className={`max-w-[80%] rounded-2xl px-4 py-2.5 font-body text-sm leading-relaxed ${
                   msg.role === 'customer'
-                    ? 'bg-teal text-cream'
+                    ? 'whitespace-pre-wrap bg-teal text-cream'
                     : 'bg-sand text-charcoal'
                 }`}
               >
-                {msg.content}
+                {msg.role === 'artifact' ? <SimpleMarkdown text={msg.content} /> : msg.content}
               </div>
             </div>
           ))}

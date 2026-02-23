@@ -77,6 +77,13 @@ describe('artifact.update — quickActions validation', () => {
   it('accepts valid quickActions (4 items, within limits)', async () => {
     const db = mockTenantDb(async (fn: Any) => {
       const mockDb = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => [{ personality: {} }],
+            }),
+          }),
+        }),
         update: () => ({
           set: () => ({
             where: () => ({

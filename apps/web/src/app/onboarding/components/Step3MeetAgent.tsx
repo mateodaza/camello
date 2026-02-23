@@ -29,7 +29,6 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
       type: suggestion.agentType as 'sales' | 'support' | 'marketing' | 'custom',
       personality: suggestion.personality,
       constraints: suggestion.constraints,
-      moduleIds: modules.data?.map((m: { id: string }) => m.id) ?? [],
     });
   };
 

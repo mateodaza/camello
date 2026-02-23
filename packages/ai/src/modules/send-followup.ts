@@ -13,6 +13,10 @@ const sendFollowupModule: ModuleDefinition<Input, Output> = {
     'Send a follow-up message to a customer who has not responded. ' +
     'Choose a template: gentle_reminder, value_add, or last_chance.',
   category: 'marketing',
+  quickAction: {
+    en: { label: 'Request a follow-up', message: 'Can you follow up with me about this?' },
+    es: { label: 'Solicitar seguimiento', message: '¿Pueden darme seguimiento sobre esto?' },
+  },
   inputSchema: sendFollowupInputSchema,
   outputSchema: sendFollowupOutputSchema,
 

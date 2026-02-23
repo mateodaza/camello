@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import { X } from 'lucide-react';
+import { SimpleMarkdown } from '@/components/simple-markdown';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -14,11 +15,12 @@ interface ChatMessage {
 interface Props {
   artifactId: string;
   artifactName: string;
+  artifactType: string;
   open: boolean;
   onClose: () => void;
 }
 
-export function TestChatPanel({ artifactId, artifactName, open, onClose }: Props) {
+export function TestChatPanel({ artifactId, artifactName, artifactType, open, onClose }: Props) {
   const t = useTranslations('artifacts');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -105,7 +107,12 @@ export function TestChatPanel({ artifactId, artifactName, open, onClose }: Props
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4">
           {messages.length === 0 && (
-            <p className="text-center text-sm text-dune">{t('chatEmpty')}</p>
+            <div className="text-center">
+              <p className="text-sm text-dune">{t('chatEmpty')}</p>
+              <p className="mt-1 text-xs text-dune/70">
+                {t(`testHint${artifactType.charAt(0).toUpperCase()}${artifactType.slice(1)}` as Parameters<typeof t>[0])}
+              </p>
+            </div>
           )}
           {messages.map((msg, i) => (
             <div
@@ -116,7 +123,7 @@ export function TestChatPanel({ artifactId, artifactName, open, onClose }: Props
                   : 'mr-8 border border-charcoal/10 bg-sand'
               }`}
             >
-              {msg.text}
+              {msg.role === 'assistant' ? <SimpleMarkdown text={msg.text} /> : msg.text}
             </div>
           ))}
           {sendMessage.isPending && (

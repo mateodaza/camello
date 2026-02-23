@@ -2,11 +2,14 @@ import { z } from 'zod';
 import { eq, and, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { generateObject } from 'ai';
-import { createLLMClient } from '@camello/ai';
+import { createLLMClient, ARCHETYPE_DEFAULT_TONES } from '@camello/ai';
 import { MODEL_MAP } from '@camello/shared/constants';
-import { artifacts, artifactModules, tenants, customers } from '@camello/db';
+import { artifacts, tenants, customers } from '@camello/db';
+import type { ArtifactType } from '@camello/shared/types';
 import { router, authedProcedure, tenantProcedure } from '../trpc/init.js';
 import { provisionTenant } from '../services/tenant-provisioning.js';
+import { applyArchetypeDefaults } from '../lib/apply-archetype-defaults.js';
+import { validatePersonality, PERSONALITY_VALIDATION_MESSAGE } from '../lib/personality-validator.js';
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -149,12 +152,13 @@ Directrices:
     .input(z.object({
       name: z.string().min(1).max(100),
       type: z.enum(['sales', 'support', 'marketing', 'custom']),
-      personality: z.record(z.unknown()).default({}),
+      personality: z.record(z.unknown()).default({}).refine(validatePersonality, { message: PERSONALITY_VALIDATION_MESSAGE }),
       constraints: z.record(z.unknown()).default({}),
+      // moduleIds kept optional for backward compat — ignored by backend
       moduleIds: z.array(z.string().uuid()).default([]),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Idempotency: if tenant already has a default artifact, return it
+      // Fast-path idempotency: if tenant already has a default artifact, return it
       const [existing] = await ctx.tenantDb.query(async (db) => {
         return db
           .select({ defaultArtifactId: tenants.defaultArtifactId })
@@ -174,6 +178,53 @@ Directrices:
       }
 
       return ctx.tenantDb.transaction(async (tx) => {
+        // Advisory lock: serialize concurrent setupArtifact for same tenant+type
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${ctx.tenantId}), hashtext(${input.type}))`,
+        );
+
+        // Re-check inside transaction: another request may have won the race
+        const [tenantRow] = await tx
+          .select({ defaultArtifactId: tenants.defaultArtifactId, settings: tenants.settings })
+          .from(tenants)
+          .where(eq(tenants.id, ctx.tenantId))
+          .limit(1);
+
+        if (tenantRow?.defaultArtifactId) {
+          const [art] = await tx
+            .select()
+            .from(artifacts)
+            .where(eq(artifacts.id, tenantRow.defaultArtifactId))
+            .limit(1);
+          if (art) return art;
+        }
+
+        // Check if an artifact of this type already exists (idempotent adopt)
+        const [existingByType] = await tx
+          .select()
+          .from(artifacts)
+          .where(and(eq(artifacts.tenantId, ctx.tenantId), eq(artifacts.type, input.type)))
+          .limit(1);
+
+        if (existingByType) {
+          await tx
+            .update(tenants)
+            .set({ defaultArtifactId: existingByType.id, updatedAt: new Date() })
+            .where(eq(tenants.id, ctx.tenantId));
+          return existingByType;
+        }
+
+        // Resolve locale for archetype defaults
+        const locale = ((tenantRow?.settings as Record<string, unknown>)?.preferredLocale === 'es' ? 'es' : 'en') as 'en' | 'es';
+        const archetypeType = input.type as ArtifactType;
+
+        // Apply archetype defaults to personality if not already set by LLM suggestion
+        const p = input.personality as Record<string, unknown>;
+        if (!p.tone) {
+          const defaultTone = ARCHETYPE_DEFAULT_TONES[archetypeType][locale];
+          if (defaultTone) p.tone = defaultTone;
+        }
+
         // 1. Create artifact
         const [artifact] = await tx
           .insert(artifacts)
@@ -181,23 +232,14 @@ Directrices:
             tenantId: ctx.tenantId,
             name: input.name,
             type: input.type,
-            personality: input.personality,
+            personality: p,
             constraints: input.constraints,
             escalation: { escalate_on: ['human_requested', 'complaint'] },
           })
           .returning();
 
-        // 2. Attach modules
-        if (input.moduleIds.length > 0) {
-          await tx.insert(artifactModules).values(
-            input.moduleIds.map((moduleId) => ({
-              artifactId: artifact.id,
-              moduleId,
-              tenantId: ctx.tenantId,
-              autonomyLevel: 'draft_and_approve' as const,
-            })),
-          );
-        }
+        // 2. Auto-bind archetype-specific modules (ignores client-sent moduleIds)
+        await applyArchetypeDefaults(tx, artifact.id, ctx.tenantId, archetypeType);
 
         // 3. Set as default artifact for the tenant
         await tx

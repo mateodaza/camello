@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { QueryError } from '@/components/query-error';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ArrowLeft } from 'lucide-react';
 
@@ -27,8 +28,24 @@ export default function ConversationDetailPage() {
     },
   });
 
-  if (conversation.isLoading) return <div className="text-dune">{tc('loading')}</div>;
-  if (conversation.isError) return <QueryError error={conversation.error} />;
+  if (conversation.isLoading) return (
+    <div className="space-y-4">
+      <Skeleton className="h-4 w-32" />
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-6 w-16 rounded-full" />
+      </div>
+      <Card>
+        <CardHeader><Skeleton className="h-5 w-24" /></CardHeader>
+        <CardContent className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className={cn('h-12 rounded-lg', i % 2 === 0 ? 'w-3/4' : 'ml-auto w-2/3')} />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+  if (conversation.isError) return <QueryError error={conversation.error} onRetry={() => conversation.refetch()} />;
   if (!conversation.data) return <div className="text-dune">Conversation not found.</div>;
 
   const conv = conversation.data;
@@ -73,7 +90,7 @@ export default function ConversationDetailPage() {
         </CardHeader>
         <CardContent>
           {messagesQuery.isError ? (
-            <QueryError error={messagesQuery.error} />
+            <QueryError error={messagesQuery.error} onRetry={() => messagesQuery.refetch()} />
           ) : chronological.length === 0 ? (
             <p className="text-dune">{t('noMessages')}</p>
           ) : (

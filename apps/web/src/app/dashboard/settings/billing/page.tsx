@@ -8,8 +8,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fmtDate, fmtCost } from '@/lib/format';
 import { PLAN_LIMITS, PLAN_PRICES } from '@camello/shared/constants';
+import { useToast } from '@/hooks/use-toast';
 import type { PlanTier } from '@camello/shared/types';
 
 declare global {
@@ -41,6 +43,7 @@ export default function BillingPage() {
   const tc = useTranslations('common');
   const locale = useLocale();
   const utils = trpc.useUtils();
+  const { addToast } = useToast();
   const plan = trpc.billing.currentPlan.useQuery();
   const history = trpc.billing.history.useQuery();
   const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -90,11 +93,25 @@ export default function BillingPage() {
     onSuccess: () => {
       utils.billing.currentPlan.invalidate();
       setCancelConfirm(false);
+      addToast(t('canceledToast'), 'success');
     },
   });
 
-  if (plan.isLoading) return <div className="text-dune">{tc('loading')}</div>;
-  if (plan.isError) return <QueryError error={plan.error} />;
+  if (plan.isLoading) return (
+    <div className="space-y-8">
+      <Skeleton className="h-8 w-32" />
+      <Skeleton className="h-28 rounded-xl" />
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-24" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-48 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+  if (plan.isError) return <QueryError error={plan.error} onRetry={() => plan.refetch()} />;
 
   const current = plan.data!;
   const isActive = current.subscriptionStatus === 'active';
@@ -218,9 +235,13 @@ export default function BillingPage() {
       {/* Billing history */}
       <div className="space-y-3">
         <h2 className="font-heading text-lg font-semibold text-charcoal">{t('billingHistory')}</h2>
-        {history.isError && <QueryError error={history.error} />}
+        {history.isError && <QueryError error={history.error} onRetry={() => history.refetch()} />}
         {history.isLoading ? (
-          <div className="text-dune">{tc('loading')}</div>
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
         ) : !history.data?.length ? (
           <p className="text-dune">{t('noBillingEvents')}</p>
         ) : (

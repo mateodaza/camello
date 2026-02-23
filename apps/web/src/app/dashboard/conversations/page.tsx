@@ -6,19 +6,35 @@ import { trpc } from '@/lib/trpc';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
+import { Skeleton } from '@/components/ui/skeleton';
+import { MessageSquare } from 'lucide-react';
 
 export default function ConversationsPage() {
   const t = useTranslations('conversations');
   const tc = useTranslations('common');
   const router = useRouter();
-  const { data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  const { data, isLoading, isError, error, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     trpc.conversation.list.useInfiniteQuery(
       { limit: 30 },
       { getNextPageParam: (last) => last.nextCursor ?? undefined },
     );
 
-  if (isLoading) return <div className="text-dune">{t('loading')}</div>;
-  if (isError) return <QueryError error={error} />;
+  if (isLoading) return (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-48" />
+      <div className="rounded-xl border-2 border-charcoal/8 bg-cream p-1">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex gap-4 px-4 py-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  if (isError) return <QueryError error={error} onRetry={() => refetch()} />;
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -26,7 +42,14 @@ export default function ConversationsPage() {
     return (
       <div className="space-y-4">
         <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
-        <p className="text-dune">{t('noConversations')}</p>
+        <div className="flex flex-col items-center gap-3 py-12">
+          <MessageSquare className="h-12 w-12 text-dune/40" />
+          <p className="font-heading text-lg font-semibold text-charcoal">{t('emptyTitle')}</p>
+          <p className="max-w-sm text-center text-sm text-dune">{t('emptyDescription')}</p>
+          <Button variant="outline" onClick={() => router.push('/dashboard/settings/profile')}>
+            {t('copyLink')}
+          </Button>
+        </div>
       </div>
     );
   }

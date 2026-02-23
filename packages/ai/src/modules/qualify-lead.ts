@@ -13,6 +13,10 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
     'Score and tag a lead based on conversation signals (budget, timeline, needs). ' +
     'Call this when you identify buying signals or the customer shares qualification info.',
   category: 'sales',
+  quickAction: {
+    en: { label: 'Tell me what you need', message: 'I need help choosing the right option for me' },
+    es: { label: 'Cuéntanos qué necesitas', message: 'Necesito ayuda para elegir la mejor opción' },
+  },
   inputSchema: qualifyLeadInputSchema,
   outputSchema: qualifyLeadOutputSchema,
 

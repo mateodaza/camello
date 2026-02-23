@@ -8,7 +8,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
-import { Plus, Pencil } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Plus, Pencil, BookOpen, Lightbulb } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const sourceTypes = ['upload', 'url', 'api'] as const;
 
@@ -17,6 +19,7 @@ export default function KnowledgePage() {
   const tc = useTranslations('common');
   const locale = useLocale();
   const utils = trpc.useUtils();
+  const { addToast } = useToast();
 
   // --- Knowledge filters & pagination ---
   const [filterSourceType, setFilterSourceType] = useState('');
@@ -69,12 +72,13 @@ export default function KnowledgePage() {
       setTitle('');
       setSourceUrl('');
       if (editingTitle) {
-        // Edit complete — close form, show the list
         setEditingTitle(null);
         setShowIngest(false);
         setIngestSuccess(null);
+        addToast(t('updatedToast'), 'success');
       } else {
         setIngestSuccess(data);
+        addToast(t('ingestedToast'), 'success');
       }
     },
   });
@@ -99,19 +103,29 @@ export default function KnowledgePage() {
     onSuccess: () => {
       utils.knowledge.list.invalidate();
       setDeleteConfirm(null);
+      addToast(t('deletedToast'), 'success');
     },
   });
 
   const dismiss = trpc.learning.dismiss.useMutation({
-    onSuccess: () => utils.learning.list.invalidate(),
+    onSuccess: () => {
+      utils.learning.list.invalidate();
+      addToast(t('dismissedToast'), 'success');
+    },
   });
 
   const boost = trpc.learning.boost.useMutation({
-    onSuccess: () => utils.learning.list.invalidate(),
+    onSuccess: () => {
+      utils.learning.list.invalidate();
+      addToast(t('boostedToast'), 'success');
+    },
   });
 
   const bulkClear = trpc.learning.bulkClearByModule.useMutation({
-    onSuccess: () => utils.learning.list.invalidate(),
+    onSuccess: () => {
+      utils.learning.list.invalidate();
+      addToast(t('clearedToast'), 'success');
+    },
   });
 
   // --- Derived data ---
@@ -130,8 +144,31 @@ export default function KnowledgePage() {
   );
 
   // --- Primary query gate ---
-  if (knowledgeList.isLoading) return <div className="text-dune">{tc('loading')}</div>;
-  if (knowledgeList.isError) return <QueryError error={knowledgeList.error} />;
+  if (knowledgeList.isLoading) return (
+    <div className="space-y-8">
+      <Skeleton className="h-8 w-48" />
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-36" />
+          <div className="flex gap-3">
+            <Skeleton className="h-9 w-28" />
+            <Skeleton className="h-9 w-32" />
+          </div>
+        </div>
+        <div className="rounded-xl border-2 border-charcoal/8 bg-cream p-1">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex gap-4 px-4 py-3">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+  if (knowledgeList.isError) return <QueryError error={knowledgeList.error} onRetry={() => knowledgeList.refetch()} />;
 
   async function handleIngest(e: React.FormEvent) {
     e.preventDefault();
@@ -170,7 +207,7 @@ export default function KnowledgePage() {
       <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
 
       {/* Secondary error banners */}
-      {learningList.isError && <QueryError error={learningList.error} />}
+      {learningList.isError && <QueryError error={learningList.error} onRetry={() => learningList.refetch()} />}
 
       {/* ===== SECTION 1: Knowledge Docs ===== */}
       <div className="space-y-4">
@@ -278,7 +315,15 @@ export default function KnowledgePage() {
 
         {/* Docs table */}
         {docs.length === 0 ? (
-          <p className="text-dune">{t('noDocuments')}</p>
+          <div className="flex flex-col items-center gap-3 py-12">
+            <BookOpen className="h-12 w-12 text-dune/40" />
+            <p className="font-heading text-lg font-semibold text-charcoal">{t('emptyDocsTitle')}</p>
+            <p className="max-w-sm text-center text-sm text-dune">{t('emptyDocsDescription')}</p>
+            <Button variant="outline" onClick={() => setShowIngest(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('emptyDocsAction')}
+            </Button>
+          </div>
         ) : (
           <>
             <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
@@ -391,9 +436,17 @@ export default function KnowledgePage() {
         </div>
 
         {learningList.isLoading ? (
-          <div className="text-dune">{tc('loading')}</div>
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
         ) : learnings.length === 0 ? (
-          <p className="text-dune">{t('noLearnings')}</p>
+          <div className="flex flex-col items-center gap-3 py-8">
+            <Lightbulb className="h-12 w-12 text-dune/40" />
+            <p className="font-heading text-lg font-semibold text-charcoal">{t('emptyLearningsTitle')}</p>
+            <p className="max-w-sm text-center text-sm text-dune">{t('emptyLearningsDescription')}</p>
+          </div>
         ) : (
           <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
             <table className="w-full text-sm">

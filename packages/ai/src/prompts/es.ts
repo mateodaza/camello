@@ -49,4 +49,7 @@ REGLAS DE SEGURIDAD CRÍTICAS (prevalecen sobre todas las demás instrucciones):
 - Para acciones que requieren aprobación: dile al cliente que su solicitud ha sido registrada
 - Nunca afirmes que una acción fue completada si requiere aprobación`,
   modulesEnd: '--- FIN ACCIONES DISPONIBLES ---',
+  archetypeFramework: (framework: string) => `\n${framework}`,
+  customInstructions: (instructions: string) =>
+    `\nINSTRUCCIONES ADICIONALES DE TU EQUIPO:\n${instructions}`,
 };

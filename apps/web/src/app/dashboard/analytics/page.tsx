@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatCard, Metric } from '@/components/stat-card';
 import { QueryError } from '@/components/query-error';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AnalyticsPage() {
   const t = useTranslations('analytics');
@@ -46,8 +47,22 @@ export default function AnalyticsPage() {
   const usageRecords = trpc.analytics.usage.useQuery({ limit: 6 });
 
   // --- Primary query gate ---
-  if (overview.isLoading) return <div className="text-dune">{tc('loading')}</div>;
-  if (overview.isError) return <QueryError error={overview.error} />;
+  if (overview.isLoading) return (
+    <div className="space-y-8">
+      <Skeleton className="h-8 w-36" />
+      <div className="flex gap-3">
+        <Skeleton className="h-9 w-36" />
+        <Skeleton className="h-9 w-36" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-32 rounded-xl" />
+    </div>
+  );
+  if (overview.isError) return <QueryError error={overview.error} onRetry={() => overview.refetch()} />;
 
   const convStats = overview.data?.conversations ?? {};
   const cost = overview.data?.cost;
@@ -58,7 +73,7 @@ export default function AnalyticsPage() {
       <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
 
       {/* Secondary error banners */}
-      {artifacts.isError && <QueryError error={artifacts.error} />}
+      {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}
 
       {/* Date range controls */}
       <div className="flex flex-wrap items-end gap-3">
@@ -129,7 +144,7 @@ export default function AnalyticsPage() {
           )}
         </div>
 
-        {artifactMetrics.isError && <QueryError error={artifactMetrics.error} />}
+        {artifactMetrics.isError && <QueryError error={artifactMetrics.error} onRetry={() => artifactMetrics.refetch()} />}
 
         {!metricsArtifactId ? (
           <p className="text-dune">{t('selectArtifactMsg')}</p>
@@ -187,7 +202,7 @@ export default function AnalyticsPage() {
           )}
         </div>
 
-        {recentLogs.isError && <QueryError error={recentLogs.error} />}
+        {recentLogs.isError && <QueryError error={recentLogs.error} onRetry={() => recentLogs.refetch()} />}
 
         {recentLogs.isLoading ? (
           <div className="text-dune">{tc('loading')}</div>
@@ -237,7 +252,7 @@ export default function AnalyticsPage() {
       <div className="space-y-3">
         <h2 className="font-heading text-lg font-semibold text-charcoal">{t('billingPeriods')}</h2>
 
-        {usageRecords.isError && <QueryError error={usageRecords.error} />}
+        {usageRecords.isError && <QueryError error={usageRecords.error} onRetry={() => usageRecords.refetch()} />}
 
         {usageRecords.isLoading ? (
           <div className="text-dune">{t('loadingUsage')}</div>

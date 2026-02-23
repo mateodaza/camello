@@ -14,10 +14,17 @@ export { processRejection, applyConfidenceDecay, isValidRejectionReason } from '
 export type { RejectionInput, LearningRecord, FeedbackDeps } from './feedback-loop.js';
 
 // Module executor system
-export { registerModule, getModule, getAllModules, getRegisteredSlugs, _clearRegistry } from './module-registry.js';
+export { registerModule, getModule, getAllModules, getRegisteredSlugs, getQuickActionsForModules, _clearRegistry } from './module-registry.js';
 export type { ModuleDefinition } from './module-registry.js';
 export { buildToolsFromBindings } from './tool-adapter.js';
 export type { ToolAdapterDeps } from './tool-adapter.js';
+
+// Archetype differentiation
+export {
+  ARCHETYPE_PROMPTS,
+  ARCHETYPE_DEFAULT_TONES,
+  ARCHETYPE_MODULE_SLUGS,
+} from './archetype-prompts.js';
 
 // Side-effect: registers built-in modules (qualify_lead, book_meeting, send_followup)
 import './modules/index.js';

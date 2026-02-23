@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { Hono } from 'hono';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { db, createTenantDb } from '@camello/db';
-import { customers, conversations, messages, artifacts, tenants } from '@camello/db';
+import { customers, conversations, messages, artifacts, tenants, artifactModules, modules } from '@camello/db';
+import { getQuickActionsForModules } from '@camello/ai';
 import { createWidgetToken, verifyWidgetToken } from '../lib/widget-jwt.js';
 import { handleMessage } from '../orchestration/message-handler.js';
 import { extractClientIp } from '../lib/client-ip.js';
@@ -150,9 +151,31 @@ widgetRoutes.get('/info', async (c) => {
   const settings = tenantInfo?.settings as Record<string, unknown> | null;
   const profile = (settings?.profile as Record<string, unknown>) ?? null;
 
-  // Extract quickActions from artifact personality (defense-in-depth: clamp to 4, truncate)
+  // Resolve quick actions from bound modules (runtime, not stored JSONB)
+  const boundModules = await tenantDb.query(async (qdb) =>
+    qdb.select({ moduleId: artifactModules.moduleId })
+      .from(artifactModules)
+      .where(eq(artifactModules.artifactId, defaultArtifactId)),
+  );
+
   let quickActions: Array<{ label: string; message: string }> = [];
-  if (Array.isArray(personality?.quickActions)) {
+
+  // GUARD: skip modules query if no bindings (support/custom = zero modules)
+  if (boundModules.length > 0) {
+    // modules table is global catalog (no RLS) — use global db with Drizzle inArray
+    const moduleRows = await db
+      .select({ slug: modules.slug })
+      .from(modules)
+      .where(inArray(modules.id, boundModules.map((m) => m.moduleId)));
+
+    // Deterministic order: sort slugs alphabetically so button order is stable
+    const slugs = moduleRows.map((r) => r.slug).sort();
+    quickActions = getQuickActionsForModules(slugs, language === 'es' ? 'es' : 'en');
+  }
+
+  // LEGACY FALLBACK: if no module-derived actions, check personality.quickActions.
+  // Covers artifacts created before auto-binding (#64). Remove after backfill.
+  if (quickActions.length === 0 && Array.isArray(personality?.quickActions)) {
     quickActions = (personality.quickActions as Array<unknown>)
       .slice(0, 4)
       .filter((item): item is { label: string; message: string } => {

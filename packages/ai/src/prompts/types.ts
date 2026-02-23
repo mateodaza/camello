@@ -22,4 +22,6 @@ export interface PromptTemplates {
   autonomy: Record<AutonomyLevel, string>;
   modulesRules: string;
   modulesEnd: string;
+  archetypeFramework: (framework: string) => string;
+  customInstructions: (instructions: string) => string;
 }

@@ -2,8 +2,15 @@
 
 import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
-export function QueryError({ error }: { error: { message: string; data?: { code?: string } | null } }) {
+export function QueryError({
+  error,
+  onRetry,
+}: {
+  error: { message: string; data?: { code?: string } | null };
+  onRetry?: () => void;
+}) {
   const t = useTranslations('common');
   const code = error.data?.code;
 
@@ -18,6 +25,11 @@ export function QueryError({ error }: { error: { message: string; data?: { code?
               : t('error.generic')}
         </p>
         <p className="mt-1 text-sm text-charcoal/80">{error.message}</p>
+        {onRetry && (
+          <Button variant="outline" size="sm" onClick={onRetry} className="mt-3">
+            {t('error.retry')}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

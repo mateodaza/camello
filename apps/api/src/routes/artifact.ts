@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { artifacts, artifactModules } from '@camello/db';
+import { artifacts, artifactModules, modules, tenants } from '@camello/db';
+import { enforceUniqueArtifactType } from '../lib/enforce-unique-artifact-type.js';
+import { applyArchetypeDefaults } from '../lib/apply-archetype-defaults.js';
+import { validatePersonality, PERSONALITY_VALIDATION_MESSAGE } from '../lib/personality-validator.js';
+import { ARCHETYPE_DEFAULT_TONES } from '@camello/ai';
+import type { ArtifactType } from '@camello/shared/types';
 
 export const artifactRouter = router({
   list: tenantProcedure
@@ -43,18 +48,40 @@ export const artifactRouter = router({
       z.object({
         name: z.string().min(1).max(100),
         type: z.enum(['sales', 'support', 'marketing', 'custom']),
-        personality: z.record(z.unknown()).default({}),
+        personality: z.record(z.unknown()).default({}).refine(validatePersonality, { message: PERSONALITY_VALIDATION_MESSAGE }),
         constraints: z.record(z.unknown()).default({}),
         config: z.record(z.unknown()).default({}),
         escalation: z.record(z.unknown()).default({}),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.tenantDb.query(async (db) => {
-        const rows = await db
+      return ctx.tenantDb.transaction(async (tx) => {
+        await enforceUniqueArtifactType(tx, ctx.tenantId, input.type);
+
+        // Resolve tenant locale for archetype defaults
+        const [tenantRow] = await tx
+          .select({ settings: tenants.settings })
+          .from(tenants)
+          .where(eq(tenants.id, ctx.tenantId))
+          .limit(1);
+        const locale = ((tenantRow?.settings as Record<string, unknown>)?.preferredLocale === 'es' ? 'es' : 'en') as 'en' | 'es';
+
+        // Apply archetype defaults for empty fields
+        const p = input.personality as Record<string, unknown>;
+        const archetypeType = input.type as ArtifactType;
+        if (!p.tone) {
+          const defaultTone = ARCHETYPE_DEFAULT_TONES[archetypeType][locale];
+          if (defaultTone) p.tone = defaultTone;
+        }
+
+        const rows = await tx
           .insert(artifacts)
-          .values({ ...input, tenantId: ctx.tenantId })
+          .values({ ...input, personality: p, tenantId: ctx.tenantId })
           .returning();
+
+        // Auto-bind archetype-specific modules
+        await applyArchetypeDefaults(tx, rows[0].id, ctx.tenantId, archetypeType);
+
         return rows[0];
       });
     }),
@@ -65,17 +92,10 @@ export const artifactRouter = router({
         id: z.string().uuid(),
         name: z.string().min(1).max(100).optional(),
         type: z.enum(['sales', 'support', 'marketing', 'custom']).optional(),
-        personality: z.record(z.unknown()).optional().refine((val) => {
-          if (!val?.quickActions) return true;
-          const qa = val.quickActions;
-          if (!Array.isArray(qa) || qa.length > 4) return false;
-          return qa.every((item: unknown) => {
-            if (typeof item !== 'object' || item === null) return false;
-            const { label, message } = item as Record<string, unknown>;
-            return typeof label === 'string' && label.length <= 40
-                && typeof message === 'string' && message.length <= 200;
-          });
-        }, { message: 'quickActions: max 4 items, label ≤ 40 chars, message ≤ 200 chars' }),
+        personality: z.record(z.unknown()).optional().refine(
+          (val) => !val || validatePersonality(val),
+          { message: PERSONALITY_VALIDATION_MESSAGE },
+        ),
         constraints: z.record(z.unknown()).optional(),
         config: z.record(z.unknown()).optional(),
         escalation: z.record(z.unknown()).optional(),
@@ -84,8 +104,27 @@ export const artifactRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      return ctx.tenantDb.query(async (db) => {
-        const rows = await db
+      return ctx.tenantDb.transaction(async (tx) => {
+        // If type is being changed, enforce uniqueness
+        if (input.type) {
+          await enforceUniqueArtifactType(tx, ctx.tenantId, input.type, id);
+        }
+
+        // Server-side personality MERGE (not replace)
+        if (data.personality) {
+          const [current] = await tx
+            .select({ personality: artifacts.personality })
+            .from(artifacts)
+            .where(and(eq(artifacts.id, id), eq(artifacts.tenantId, ctx.tenantId)))
+            .limit(1);
+
+          if (current) {
+            const existing = (current.personality as Record<string, unknown>) ?? {};
+            data.personality = { ...existing, ...data.personality };
+          }
+        }
+
+        const rows = await tx
           .update(artifacts)
           .set({ ...data, updatedAt: new Date() })
           .where(and(eq(artifacts.id, id), eq(artifacts.tenantId, ctx.tenantId)))
@@ -113,8 +152,18 @@ export const artifactRouter = router({
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
         return db
-          .select()
+          .select({
+            id: artifactModules.id,
+            artifactId: artifactModules.artifactId,
+            moduleId: artifactModules.moduleId,
+            autonomyLevel: artifactModules.autonomyLevel,
+            configOverrides: artifactModules.configOverrides,
+            moduleName: modules.name,
+            moduleSlug: modules.slug,
+            moduleCategory: modules.category,
+          })
           .from(artifactModules)
+          .innerJoin(modules, eq(artifactModules.moduleId, modules.id))
           .where(
             and(
               eq(artifactModules.artifactId, input.artifactId),

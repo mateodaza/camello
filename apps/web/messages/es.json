@@ -4,7 +4,8 @@
     "error": {
       "generic": "Algo salió mal",
       "unauthorized": "No autenticado. Por favor, inicia sesión de nuevo.",
-      "forbidden": "No hay tenant vinculado. Configura camello_tenant_id en los metadatos de tu organización de Clerk."
+      "forbidden": "No hay tenant vinculado. Configura camello_tenant_id en los metadatos de tu organización de Clerk.",
+      "retry": "Intentar de nuevo"
     },
     "save": "Guardar",
     "cancel": "Cancelar",
@@ -26,7 +27,8 @@
     "billing": "Facturación",
     "profile": "Perfil",
     "collapse": "Colapsar barra lateral",
-    "expand": "Expandir barra lateral"
+    "expand": "Expandir barra lateral",
+    "help": "Ayuda"
   },
   "dashboard": {
     "pageTitle": "Panel",
@@ -83,7 +85,10 @@
     "backToList": "Volver a conversaciones",
     "conversation": "Conversación",
     "messages": "Mensajes",
-    "noMessages": "No hay mensajes aún."
+    "noMessages": "No hay mensajes aún.",
+    "emptyTitle": "Sin conversaciones aún",
+    "emptyDescription": "Comparte tu enlace de chat para empezar a recibir mensajes de clientes.",
+    "copyLink": "Ir al perfil"
   },
   "artifacts": {
     "pageTitle": "Agentes",
@@ -105,12 +110,49 @@
     "thinking": "Pensando...",
     "messagePlaceholder": "Escribe un mensaje...",
     "sendButton": "Enviar",
-    "quickActions": "Acciones Rápidas",
-    "quickActionLabel": "Texto del botón",
-    "quickActionMessage": "Mensaje automático",
-    "addQuickAction": "Agregar acción",
-    "removeQuickAction": "Eliminar",
-    "maxQuickActions": "Máximo 4 acciones rápidas"
+    "skillsLabel": "Habilidades",
+    "skillsDescription": "Capacidades de este agente. Los botones de acción rápida se muestran a los visitantes según estas habilidades.",
+    "skillsEmpty": "Sin habilidades configuradas",
+    "salesName": "Agente de Ventas",
+    "salesDesc": "Califica leads, responde preguntas de precios y agenda reuniones.",
+    "salesDefaultName": "Asistente de Ventas",
+    "supportName": "Agente de Soporte",
+    "supportDesc": "Resuelve problemas, responde preguntas frecuentes y escala cuando es necesario.",
+    "supportDefaultName": "Asistente de Soporte",
+    "marketingName": "Agente de Marketing",
+    "marketingDesc": "Atrae visitantes, captura leads y promueve ofertas.",
+    "marketingDefaultName": "Asistente de Marketing",
+    "customName": "Agente Personalizado",
+    "customDesc": "Crea un agente especializado para tus necesidades únicas.",
+    "customDefaultName": "Asistente Personalizado",
+    "on": "Activo",
+    "off": "Inactivo",
+    "personalitySection": "Personalidad",
+    "agentName": "Nombre",
+    "agentNamePlaceholder": "ej. Sofia, Max, el nombre de tu agente...",
+    "instructions": "Instrucciones",
+    "instructionsPlaceholder": "Instrucciones adicionales para tu agente. ¿Qué debe saber? ¿Qué reglas debe seguir?",
+    "instructionsPlaceholderCustom": "Describe qué hace este agente. ¿Cuál es su rol? ¿Qué temas maneja? ¿Qué reglas debe seguir?",
+    "greeting": "Saludo",
+    "greetingPlaceholder": "Cómo tu agente saluda a los visitantes...",
+    "tone": "Tono",
+    "tonePlaceholder": "ej. amigable, profesional, casual",
+    "customNamePlaceholder": "Nombre del agente...",
+    "activated": "Agente activado",
+    "deactivated": "Agente desactivado",
+    "created": "Agente creado",
+    "duplicateWarning": "Agentes duplicados detectados. Solo se muestra el principal por tipo.",
+    "toneProfessional": "Profesional",
+    "toneFriendly": "Amigable",
+    "toneCasual": "Casual",
+    "toneFormal": "Formal",
+    "toneEnthusiastic": "Entusiasta",
+    "toneEmpathetic": "Empático",
+    "toneOther": "Otro (personalizado)",
+    "testHintSales": "Prueba: \"¿Cuáles son sus precios?\" o \"Me gustaría agendar una demo\"",
+    "testHintSupport": "Prueba: \"Tengo un problema con mi pedido\" o \"¿Cómo restablezco mi contraseña?\"",
+    "testHintMarketing": "Prueba: \"¿Qué hay de nuevo?\" o \"Cuéntame sobre su última promoción\"",
+    "testHintCustom": "Prueba a chatear con tu agente personalizado"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",
@@ -154,7 +196,18 @@
     "columnStatus": "Estado",
     "archived": "archivado",
     "dismiss": "Descartar",
-    "boost": "Reforzar"
+    "boost": "Reforzar",
+    "ingestedToast": "Conocimiento ingresado",
+    "updatedToast": "Conocimiento actualizado",
+    "deletedToast": "Conocimiento eliminado",
+    "dismissedToast": "Aprendizaje descartado",
+    "boostedToast": "Aprendizaje reforzado",
+    "clearedToast": "Aprendizajes eliminados",
+    "emptyDocsTitle": "Sin entradas de conocimiento aún",
+    "emptyDocsDescription": "Agrega documentos, URLs o políticas para que tu agente responda preguntas con precisión.",
+    "emptyDocsAction": "Agregar primera entrada",
+    "emptyLearningsTitle": "Sin aprendizajes aún",
+    "emptyLearningsDescription": "Los aprendizajes se generan automáticamente cuando tu agente tiene conversaciones."
   },
   "analytics": {
     "pageTitle": "Analítica",
@@ -226,7 +279,8 @@
     "language": "Idioma",
     "languageDescription": "Elige el idioma del panel para tu organización.",
     "english": "English",
-    "spanish": "Español"
+    "spanish": "Español",
+    "canceledToast": "Suscripción cancelada"
   },
   "onboarding": {
     "title": "Configura tu equipo de IA",
@@ -386,6 +440,52 @@
     "sessionInits": "Sesiones de chat",
     "save": "Guardar perfil",
     "saved": "¡Guardado!"
+  },
+  "help": {
+    "title": "Centro de Ayuda",
+    "subtitle": "Todo lo que necesitas para sacar el máximo provecho de Camello.",
+    "gettingStarted": {
+      "title": "Primeros Pasos",
+      "step1Title": "Completa tu perfil",
+      "step1Desc": "Agrega el nombre de tu negocio, eslogan y avatar para que los clientes sepan con quién chatean.",
+      "step2Title": "Comparte tu enlace de chat",
+      "step2Desc": "Copia tu enlace de chat público desde la página de Perfil y compártelo con tus clientes.",
+      "step3Title": "Monitorea conversaciones",
+      "step3Desc": "Revisa la página de Resumen para ver qué preguntan tus clientes y cómo se desempeña tu agente."
+    },
+    "shareLink": {
+      "title": "Comparte tu Enlace de Chat",
+      "intro": "Tu página de chat público es una página móvil donde cualquiera puede hablar con tu agente de IA. Algunas formas de compartirlo:",
+      "tip1": "Agrégalo a tu bio de Instagram o TikTok como enlace.",
+      "tip2": "Inclúyelo en tu Linktree o página de enlaces.",
+      "tip3": "Descarga el código QR desde tu página de Perfil e imprímelo en tarjetas de presentación o volantes."
+    },
+    "dashboardGuide": {
+      "title": "Guía del Panel",
+      "intro": "Un resumen rápido de cada sección de tu panel:",
+      "overviewQ": "Resumen",
+      "overviewA": "Tu base de operaciones. Ve estadísticas de conversación, uso del plan, qué preguntan los clientes y tu enlace de chat público de un vistazo.",
+      "conversationsQ": "Conversaciones",
+      "conversationsA": "Navega todas las conversaciones que tu agente de IA ha tenido. Haz clic en cualquiera para leer el historial completo de mensajes.",
+      "agentsQ": "Agentes",
+      "agentsA": "Administra tus agentes de IA. Activa tipos de agente (Ventas, Soporte, Marketing, Personalizado), configura su personalidad, saludo y botones de acción rápida.",
+      "knowledgeQ": "Conocimiento",
+      "knowledgeA": "Alimenta a tu agente con información. Agrega documentos, URLs o pega texto. El agente usa esto para dar respuestas precisas y relevantes.",
+      "analyticsQ": "Analítica",
+      "analyticsA": "Análisis profundo del rendimiento: tendencias de conversación, costos de LLM, métricas por agente y uso del período de facturación.",
+      "billingQ": "Facturación",
+      "billingA": "Ve tu plan actual, sube o baja de plan, cancela tu suscripción y consulta el historial de facturación.",
+      "profileQ": "Perfil",
+      "profileA": "Personaliza tu página de chat público: tarjeta de presentación, avatar, redes sociales y código QR. También configura tu idioma preferido."
+    },
+    "knowledgeTips": {
+      "title": "Consejos para la Base de Conocimiento",
+      "intro": "Mientras mejor sea tu base de conocimiento, más inteligente será tu agente. Algunos consejos:",
+      "tip1": "Mantén las entradas enfocadas — un tema por entrada funciona mejor que documentos largos.",
+      "tip2": "Incluye preguntas frecuentes, información de precios, políticas de devolución y horarios de atención.",
+      "tip3": "Usa la importación de sitio web para extraer contenido automáticamente de tu sitio.",
+      "tip4": "Revisa los aprendizajes regularmente — tu agente detecta patrones de las conversaciones y puedes reforzarlos o descartarlos."
+    }
   },
   "publicChat": {
     "ogDescription": "Chatea con {name} — impulsado por Camello",

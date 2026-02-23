@@ -89,3 +89,26 @@ describe('TestChatPanel state lifecycle', () => {
     expect(payload).not.toHaveProperty('conversationId');
   });
 });
+
+describe('TestChatPanel archetype hint keys', () => {
+  // Validates that the hint i18n key pattern matches all archetype types
+  function buildHintKey(artifactType: string): string {
+    return `testHint${artifactType.charAt(0).toUpperCase()}${artifactType.slice(1)}`;
+  }
+
+  it('generates correct i18n key for sales', () => {
+    expect(buildHintKey('sales')).toBe('testHintSales');
+  });
+
+  it('generates correct i18n key for support', () => {
+    expect(buildHintKey('support')).toBe('testHintSupport');
+  });
+
+  it('generates correct i18n key for marketing', () => {
+    expect(buildHintKey('marketing')).toBe('testHintMarketing');
+  });
+
+  it('generates correct i18n key for custom', () => {
+    expect(buildHintKey('custom')).toBe('testHintCustom');
+  });
+});

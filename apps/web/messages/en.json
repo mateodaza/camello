@@ -4,7 +4,8 @@
     "error": {
       "generic": "Something went wrong",
       "unauthorized": "Not authenticated. Please sign in again.",
-      "forbidden": "No tenant linked. Set camello_tenant_id in your Clerk organization metadata."
+      "forbidden": "No tenant linked. Set camello_tenant_id in your Clerk organization metadata.",
+      "retry": "Try again"
     },
     "save": "Save",
     "cancel": "Cancel",
@@ -26,7 +27,8 @@
     "billing": "Billing",
     "profile": "Profile",
     "collapse": "Collapse sidebar",
-    "expand": "Expand sidebar"
+    "expand": "Expand sidebar",
+    "help": "Help"
   },
   "dashboard": {
     "pageTitle": "Dashboard",
@@ -83,13 +85,16 @@
     "backToList": "Back to conversations",
     "conversation": "Conversation",
     "messages": "Messages",
-    "noMessages": "No messages yet."
+    "noMessages": "No messages yet.",
+    "emptyTitle": "No conversations yet",
+    "emptyDescription": "Share your chat link to start getting messages from customers.",
+    "copyLink": "Go to profile"
   },
   "artifacts": {
-    "pageTitle": "Artifacts",
+    "pageTitle": "Agents",
     "newArtifact": "New Artifact",
-    "loading": "Loading artifacts...",
-    "noArtifacts": "No artifacts yet. Create one to get started.",
+    "loading": "Loading agents...",
+    "noArtifacts": "No agents yet. Create one to get started.",
     "labelName": "Name",
     "placeholderName": "e.g. Sales Assistant",
     "labelType": "Type",
@@ -105,12 +110,49 @@
     "thinking": "Thinking...",
     "messagePlaceholder": "Type a message...",
     "sendButton": "Send",
-    "quickActions": "Quick Actions",
-    "quickActionLabel": "Button text",
-    "quickActionMessage": "Auto-sent message",
-    "addQuickAction": "Add action",
-    "removeQuickAction": "Remove",
-    "maxQuickActions": "Maximum 4 quick actions"
+    "skillsLabel": "Skills",
+    "skillsDescription": "Capabilities this agent has. Quick action buttons are shown to visitors based on these skills.",
+    "skillsEmpty": "No skills configured",
+    "salesName": "Sales Agent",
+    "salesDesc": "Qualifies leads, answers pricing questions, and books meetings.",
+    "salesDefaultName": "Sales Assistant",
+    "supportName": "Support Agent",
+    "supportDesc": "Resolves issues, answers FAQs, and escalates when needed.",
+    "supportDefaultName": "Support Assistant",
+    "marketingName": "Marketing Agent",
+    "marketingDesc": "Engages visitors, captures leads, and promotes offers.",
+    "marketingDefaultName": "Marketing Assistant",
+    "customName": "Custom Agent",
+    "customDesc": "Build a specialized agent for your unique needs.",
+    "customDefaultName": "Custom Assistant",
+    "on": "Active",
+    "off": "Inactive",
+    "personalitySection": "Personality",
+    "agentName": "Display Name",
+    "agentNamePlaceholder": "e.g. Sofia, Max, your agent's name...",
+    "instructions": "Instructions",
+    "instructionsPlaceholder": "Additional instructions for your agent. What should it know? What rules should it follow?",
+    "instructionsPlaceholderCustom": "Describe what this agent does. What's its role? What topics should it handle? What rules should it follow?",
+    "greeting": "Greeting",
+    "greetingPlaceholder": "How your agent greets visitors...",
+    "tone": "Tone",
+    "tonePlaceholder": "e.g. friendly, professional, casual",
+    "customNamePlaceholder": "Agent name...",
+    "activated": "Agent activated",
+    "deactivated": "Agent deactivated",
+    "created": "Agent created",
+    "duplicateWarning": "Duplicate agents detected. Only the primary one per type is shown.",
+    "toneProfessional": "Professional",
+    "toneFriendly": "Friendly",
+    "toneCasual": "Casual",
+    "toneFormal": "Formal",
+    "toneEnthusiastic": "Enthusiastic",
+    "toneEmpathetic": "Empathetic",
+    "toneOther": "Other (custom)",
+    "testHintSales": "Try: \"What are your prices?\" or \"I'd like to schedule a demo\"",
+    "testHintSupport": "Try: \"I have a problem with my order\" or \"How do I reset my password?\"",
+    "testHintMarketing": "Try: \"What's new?\" or \"Tell me about your latest promotion\"",
+    "testHintCustom": "Try chatting with your custom agent"
   },
   "knowledge": {
     "pageTitle": "Knowledge",
@@ -154,7 +196,18 @@
     "columnStatus": "Status",
     "archived": "archived",
     "dismiss": "Dismiss",
-    "boost": "Boost"
+    "boost": "Boost",
+    "ingestedToast": "Knowledge ingested",
+    "updatedToast": "Knowledge updated",
+    "deletedToast": "Knowledge deleted",
+    "dismissedToast": "Learning dismissed",
+    "boostedToast": "Learning boosted",
+    "clearedToast": "Learnings cleared",
+    "emptyDocsTitle": "No knowledge entries yet",
+    "emptyDocsDescription": "Add documents, URLs, or policies so your agent can answer questions accurately.",
+    "emptyDocsAction": "Add your first entry",
+    "emptyLearningsTitle": "No learnings yet",
+    "emptyLearningsDescription": "Learnings are generated automatically as your agent has conversations."
   },
   "analytics": {
     "pageTitle": "Analytics",
@@ -226,7 +279,8 @@
     "language": "Language",
     "languageDescription": "Choose the dashboard language for your organization.",
     "english": "English",
-    "spanish": "Español"
+    "spanish": "Español",
+    "canceledToast": "Subscription canceled"
   },
   "onboarding": {
     "title": "Set up your AI workforce",
@@ -386,6 +440,52 @@
     "sessionInits": "Chat sessions",
     "save": "Save profile",
     "saved": "Saved!"
+  },
+  "help": {
+    "title": "Help Center",
+    "subtitle": "Everything you need to get the most out of Camello.",
+    "gettingStarted": {
+      "title": "Getting Started",
+      "step1Title": "Fill out your profile",
+      "step1Desc": "Add your business name, tagline, and avatar so customers know who they're chatting with.",
+      "step2Title": "Share your chat link",
+      "step2Desc": "Copy your public chat link from the Profile page and share it with customers.",
+      "step3Title": "Monitor conversations",
+      "step3Desc": "Check the Overview page to see what customers are asking and how your agent is performing."
+    },
+    "shareLink": {
+      "title": "Share Your Chat Link",
+      "intro": "Your public chat page is a mobile-friendly page where anyone can talk to your AI agent. Here are some ways to share it:",
+      "tip1": "Add it to your Instagram or TikTok bio as a link.",
+      "tip2": "Include it in your Linktree or link-in-bio page.",
+      "tip3": "Download the QR code from your Profile page and print it on business cards or flyers."
+    },
+    "dashboardGuide": {
+      "title": "Understanding Your Dashboard",
+      "intro": "Here's a quick overview of each section in your dashboard:",
+      "overviewQ": "Overview",
+      "overviewA": "Your home base. See conversation stats, plan usage, what customers are asking, and your public chat link at a glance.",
+      "conversationsQ": "Conversations",
+      "conversationsA": "Browse all conversations your AI agent has had. Click into any conversation to read the full message history.",
+      "agentsQ": "Agents",
+      "agentsA": "Manage your AI agents. Activate agent types (Sales, Support, Marketing, Custom), configure their personality, greeting, and quick action buttons.",
+      "knowledgeQ": "Knowledge",
+      "knowledgeA": "Feed your agent information. Add documents, URLs, or paste text. The agent uses this to give accurate, relevant answers.",
+      "analyticsQ": "Analytics",
+      "analyticsA": "Deep dive into performance: conversation trends, LLM costs, per-agent metrics, and billing period usage.",
+      "billingQ": "Billing",
+      "billingA": "View your current plan, upgrade or downgrade, cancel your subscription, and see billing history.",
+      "profileQ": "Profile",
+      "profileA": "Customize your public chat page: business card, avatar, social links, and QR code. Also set your preferred language."
+    },
+    "knowledgeTips": {
+      "title": "Knowledge Base Tips",
+      "intro": "The better your knowledge base, the smarter your agent. Here are some tips:",
+      "tip1": "Keep entries focused — one topic per entry works better than long documents.",
+      "tip2": "Include FAQs, pricing info, return policies, and business hours.",
+      "tip3": "Use the website import to automatically scrape content from your site.",
+      "tip4": "Review learnings regularly — your agent picks up patterns from conversations and you can boost or dismiss them."
+    }
   },
   "publicChat": {
     "ogDescription": "Chat with {name} — powered by Camello",

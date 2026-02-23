@@ -2,6 +2,7 @@ import type { AutonomyLevel, Channel } from '@camello/shared/types';
 import type { PromptTemplates } from './prompts/types.js';
 import { en } from './prompts/en.js';
 import { es } from './prompts/es.js';
+import { ARCHETYPE_PROMPTS } from './archetype-prompts.js';
 
 const templates: Record<string, PromptTemplates> = { en, es };
 
@@ -13,6 +14,7 @@ interface PromptContext {
   artifact: {
     name: string;
     role: string;
+    type?: string;
     personality: Record<string, unknown>;
     constraints: Record<string, unknown>;
     config: Record<string, unknown>;
@@ -54,6 +56,16 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   // Safety
   parts.push(t.safety);
 
+  // Archetype-specific behavioral framework
+  const artifactType = artifact.type;
+  if (artifactType && artifactType !== 'custom') {
+    const archetypePrompt = ARCHETYPE_PROMPTS[artifactType as keyof typeof ARCHETYPE_PROMPTS];
+    if (archetypePrompt) {
+      const framework = ctx.locale === 'es' ? archetypePrompt.es : archetypePrompt.en;
+      parts.push(t.archetypeFramework(framework));
+    }
+  }
+
   // Personality (channel override tone takes priority)
   if (artifact.personality) {
     const p = artifact.personality as Record<string, unknown>;
@@ -68,6 +80,10 @@ export function buildSystemPrompt(ctx: PromptContext): string {
       for (const note of p.style_notes as string[]) {
         parts.push(`- ${note}`);
       }
+    }
+    // Custom instructions from the tenant's team
+    if (p.instructions && typeof p.instructions === 'string' && p.instructions.trim()) {
+      parts.push(t.customInstructions(p.instructions.trim()));
     }
   }
 

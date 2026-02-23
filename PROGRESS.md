@@ -88,12 +88,12 @@
 | ~~57~~ | ~~Public chat page~~ | ~~P0~~ | ~~DONE — `camello.xyz/chat/[slug]`, SSR metadata, mobile-first chat UI, error differentiation, typing indicator, greeting from /info, i18n (en+es)~~ |
 | ~~58~~ | ~~Intent dashboard~~ | ~~P1~~ | ~~DONE — `analytics.intentBreakdown` procedure, CSS-only bar chart on overview, recent questions list, empty-state placeholder, i18n (en+es)~~ |
 | ~~60~~ | ~~Chat page → business card ("Linktree for AI")~~ | ~~P1~~ | ~~DONE — Collapsible business card (avatar+name+tagline header, expandable bio/location/hours/social), QR share modal, quick actions, profile dashboard page, tenant.updateProfile tRPC, session counter, message rate limit (20/min), conversation cap (50 msgs), daily customer cap (100 msgs/day), synthetic intent filtering, artifact quickActions validation, SSR metadata from profile, language prompt fix. Limits: tagline 50, bio 150, location/hours 50.~~ |
+| ~~45~~ | ~~Help center~~ | ~~P3~~ | ~~DONE — `/dashboard/docs` with getting started steps, share chat link tips, collapsible dashboard guide (7 sections), knowledge base tips, i18n (en+es)~~ |
+| ~~46~~ | ~~Paddle smoke test~~ | ~~P2~~ | ~~DONE — checkout + webhooks confirmed end-to-end~~ |
 | 41 | Clerk production instance | P2 | Deferred — closed beta uses dev keys. Swap when ready for public launch. |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
-| 44 | Error handling polish | P2 | Loading skeletons, toast notifications, mobile responsiveness, empty states |
-| 45 | Docs / help center | P3 | Setup guide, API reference, widget embed instructions |
-| ~~46~~ | ~~Paddle smoke test~~ | ~~P2~~ | ~~DONE — checkout + webhooks confirmed end-to-end~~ |
-| 47 | WhatsApp Business setup | P3 | Meta Business verification + phone number for production WhatsApp channel |
+| ~~44~~ | ~~Error handling polish~~ | ~~P2~~ | ~~DONE — Loading skeletons on all dashboard pages, toast system (`use-toast` hook + `toast.tsx`), empty states (conversations, knowledge, intents, artifacts), `QueryError` component. Tests: `skeleton.test.tsx`, `use-toast.test.ts`.~~ |
+| 66 | Mobile-responsive dashboard | P1 | ~8hrs. Responsive sidebar (hamburger on mobile), touch-friendly tables/cards, viewport meta. "Manage from pocket" — simplest admin-on-the-go solution, no new infrastructure. |
 
 ### Post-Launch — Innovation Roadmap (Spec Section 20)
 
@@ -109,7 +109,13 @@
 | 59 | Intent prioritization + categorization | P2 | Tenants tag/prioritize intent types (e.g., "pricing inquiry" = high priority, "hours" = low). Dashboard alerts on high-priority intents. Growth/Scale tier feature. |
 | 60b | Business card Phase 2 enhancements | P2 | Dynamic greetings (daily cron + LLM pre-generation, ~$0.001/tenant/day), subdomain routing (`acme.camello.xyz` via wildcard CNAME + middleware, ~2hrs), custom domains (post-MVP), avatar file upload (replace paste-URL), chat session analytics (chart/graph from sessionInits counter), conversation summarization for long threads, per-customer daily cap pre-aggregation via cron (if count query perf degrades). |
 | 61 | Dynamic intent labels | P3 | Currently intent types are a hardcoded Zod enum (14 types) with i18n keys in en/es JSON. Adding a new intent = update 3 places (schema + 2 JSON files). Future: classify intent into user-facing label at classification time (stored alongside canonical slug in `interaction_logs`), so dashboard renders DB values directly. Eliminates per-intent i18n maintenance. |
-| 62 | Agent archetype framework | P2 | Parametrize agent creation so new verticals are data-driven, not code changes. Currently: intent enum, module catalog, and personality are all hardcoded. Future: agent archetypes as DB/config records defining: intent taxonomy (custom per vertical), default module set, personality template, suggested knowledge structure, onboarding prompts. Adding a new agent type (e.g. "Restaurant Host", "Real Estate Agent") = insert archetype config, not touch Zod/i18n/code. Ties into #52 (marketplace) and #61 (dynamic labels). |
+| ~~62~~ | ~~Agent archetype framework~~ | ~~P2~~ | ~~Superseded by #64/64b/64c~~ |
+| ~~64~~ | ~~Archetype Tier 1: behavioral differentiation~~ | ~~P1~~ | ~~DONE — Hardcoded archetype prompts (en+es), auto-bind modules on create, preset quick actions + tones, `personality.instructions` wired into AI prompt, tone preset selector, test chat hints, server-side validation. Shared `applyArchetypeDefaults` helper for both dashboard + onboarding paths.~~ |
+| ~~65~~ | ~~Module-derived quick actions~~ | ~~P1~~ | ~~DONE — Quick actions derived from bound modules at runtime (not stored JSONB). `ModuleDefinition.quickAction` (en+es), `getQuickActionsForModules()` helper, widget `/info` resolves from `artifact_modules` join, empty-list guard for module-less agents, legacy `personality.quickActions` fallback (remove after backfill), dashboard skills display (read-only badges from enriched `listModules`). 380 tests.~~ |
+| 65b | Legacy quickActions cleanup | P3 | Backfill existing artifacts with `artifact_modules` bindings, then remove: (1) `/info` legacy `personality.quickActions` fallback, (2) `personality-validator.ts` quickActions validation block. Both coupled — remove together. |
+| 47 | WhatsApp channel via Twilio | P2 | Launch is webapp-only (public chat page + widget). WhatsApp deferred to post-launch. Use Twilio as BSP for tenant self-service: programmatic subaccounts, number provisioning via API, webhook auto-config, template management. Avoids tedious per-tenant Meta Business verification. Adapter rewrite ~8hrs (swap signature verification + message format, keep `handleMessage` pipeline). Existing Meta Cloud API adapter code stays as reference. |
+| 64b | Archetype Tier 2: new capabilities | P2 | New modules: `draft_content` (marketing), `escalate_to_human` (support), `request_review` (marketing). Archetype-specific RAG filtering (support searches troubleshooting docs, sales searches pricing docs). Intent-aware artifact switching within conversation (handoff protocol). |
+| 64c | Archetype Tier 3: platform integrations | P3 | Social media API integrations (Twitter/Instagram posting for marketing agent). Real multi-agent orchestration (agents calling other agents as tools). Per-archetype model routing (simpler model for quick support, powerful for sales qualification). DB-backed vertical templates (restaurant, real estate, SaaS). |
 
 ### Blocked
 
@@ -641,3 +647,29 @@
 - **i18n:** ~30 new keys in en.json + es.json (profile form, quick actions editor, chat limit messages, sidebar)
 - **Tests:** 22 new (5 widget route + 12 abuse controls + 6 tenant profile + 4 artifact quickActions). 269 tests pass (205 API + 64 Web)
 - **Gate:** Lint 0 errors, type-check clean, build clean
+
+### Session 23 — Feb 23 (Archetype Tier 1 #64 + Module-Derived Quick Actions #65)
+- **#64 — Agent Archetype Behavioral Differentiation (Tier 1):**
+  - Hardcoded per-archetype system prompts (en+es) for sales/support/marketing in `ARCHETYPE_PROMPTS`
+  - Auto-bind modules on artifact creation via `applyArchetypeDefaults()` shared helper
+  - Preset tones per archetype (`ARCHETYPE_DEFAULT_TONES`)
+  - `personality.instructions` wired into AI system prompt (custom free-text directives)
+  - Tone preset selector on dashboard artifacts page
+  - Test chat hints per archetype type
+  - Server-side personality validation (`personality-validator.ts`)
+  - Shared `applyArchetypeDefaults` for both dashboard create + onboarding `setupArtifact` paths
+- **#65 — Module-Derived Quick Actions:**
+  - Quick actions now derived from bound modules at runtime (not stored `personality.quickActions` JSONB)
+  - Added `quickAction?: { en, es }` to `ModuleDefinition` interface + localized actions for qualify_lead, book_meeting, send_followup
+  - `getQuickActionsForModules(slugs, locale)` helper resolves actions from in-memory module registry
+  - Widget `GET /info` endpoint resolves QA by: query `artifact_modules` → join `modules` catalog → sort slugs alphabetically → `getQuickActionsForModules()`
+  - Empty-list guard: module-less agents (support/custom) skip modules query entirely → zero buttons (honest UX)
+  - Legacy fallback: if no module-derived actions AND `personality.quickActions` JSONB exists → use stored actions (backward compat for pre-#64 artifacts). Marked for removal after backfill (#65b)
+  - `personality-validator.ts` quickActions validation kept during fallback window (coupled with fallback — remove together)
+  - Removed `ARCHETYPE_QUICK_ACTIONS` export, QA defaulting from `artifact.create` + `onboarding.setupArtifact`
+  - Enriched `artifact.listModules` with `innerJoin(modules)` → returns `moduleName`, `moduleSlug`, `moduleCategory`
+  - Dashboard: replaced QA editor with read-only "Skills" section (Badge pills from `listModules`)
+  - i18n: skills keys (en+es)
+  - Deterministic button order: slugs sorted alphabetically before passing to helper
+- **Tests:** 8 new tests (5 `getQuickActionsForModules`, 3 widget route: module-derived QA, empty guard, deterministic order). Updated archetype-prompts, onboarding-routes, widget-routes tests. 380 tests pass (82 AI + 220 API + 78 Web)
+- **Gate:** Lint 0 errors, type-check clean

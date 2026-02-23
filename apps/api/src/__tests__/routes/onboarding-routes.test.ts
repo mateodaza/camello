@@ -8,10 +8,15 @@ const mocks = vi.hoisted(() => ({
   provisionTenant: vi.fn(),
   generateObject: vi.fn(),
   createLLMClient: vi.fn(),
+  applyArchetypeDefaults: vi.fn(),
 }));
 
 vi.mock('../../services/tenant-provisioning.js', () => ({
   provisionTenant: mocks.provisionTenant,
+}));
+
+vi.mock('../../lib/apply-archetype-defaults.js', () => ({
+  applyArchetypeDefaults: mocks.applyArchetypeDefaults,
 }));
 
 vi.mock('ai', () => ({
@@ -20,6 +25,12 @@ vi.mock('ai', () => ({
 
 vi.mock('@camello/ai', () => ({
   createLLMClient: mocks.createLLMClient,
+  ARCHETYPE_DEFAULT_TONES: {
+    sales: { en: 'Confident, helpful, and solution-oriented', es: 'Seguro, servicial' },
+    support: { en: 'Empathetic, patient, and thorough', es: 'Empático, paciente' },
+    marketing: { en: 'Enthusiastic, casual, and engaging', es: 'Entusiasta, casual' },
+    custom: { en: '', es: '' },
+  },
 }));
 
 vi.mock('@camello/shared/constants', () => ({
@@ -180,9 +191,8 @@ describe('onboarding router', () => {
 
   // ----- setupArtifact -----
   describe('setupArtifact', () => {
-    it('creates artifact + modules + sets defaultArtifactId atomically', async () => {
+    it('creates artifact + calls applyArchetypeDefaults + sets defaultArtifactId', async () => {
       const fakeArtifact = { id: 'artifact-uuid', name: 'Sales Bot', type: 'sales' };
-      const insertedModules: Any[] = [];
       const updatedTenant: Any[] = [];
       let callCount = 0;
 
@@ -191,27 +201,32 @@ describe('onboarding router', () => {
         // First call: idempotency check — no existing default artifact
         if (callCount === 1) {
           const db = {
-            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null, settings: {} }] }) }) }),
           };
           return fn(db);
         }
-        // Second call: transaction — create artifact + modules + update tenant
+        // Second call: transaction — advisory lock + re-checks + create + update
+        let selectCallCount = 0;
         const tx = {
-          insert: vi.fn((table: Any) => {
-            if (table?._table === 'artifactModules') {
-              return {
-                values: (vals: Any) => {
-                  insertedModules.push(...(Array.isArray(vals) ? vals : [vals]));
-                },
-              };
-            }
-            // Default: artifacts table
-            return {
-              values: () => ({
-                returning: () => [fakeArtifact],
-              }),
-            };
-          }),
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: vi.fn(() => ({
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(() => {
+                  selectCallCount++;
+                  // 1st select: re-check defaultArtifactId + settings (null = proceed)
+                  if (selectCallCount === 1) return [{ defaultArtifactId: null, settings: {} }];
+                  // 2nd select: check existing by type (empty = no duplicate)
+                  return [];
+                }),
+              })),
+            })),
+          })),
+          insert: vi.fn(() => ({
+            values: () => ({
+              returning: () => [fakeArtifact],
+            }),
+          })),
           update: vi.fn(() => ({
             set: (data: Any) => {
               updatedTenant.push(data);
@@ -227,43 +242,50 @@ describe('onboarding router', () => {
       const result = await caller.setupArtifact({
         name: 'Sales Bot',
         type: 'sales',
-        moduleIds: ['00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000012'],
       });
 
       expect(result).toEqual(fakeArtifact);
-      expect(insertedModules).toHaveLength(2);
-      expect(insertedModules[0]).toMatchObject({
-        artifactId: 'artifact-uuid',
-        moduleId: '00000000-0000-0000-0000-000000000011',
-        tenantId: TENANT_ID,
-        autonomyLevel: 'draft_and_approve',
-      });
+      // Module binding delegated to applyArchetypeDefaults
+      expect(mocks.applyArchetypeDefaults).toHaveBeenCalledWith(
+        expect.anything(), // tx
+        'artifact-uuid',
+        TENANT_ID,
+        'sales',
+      );
       expect(updatedTenant[0]).toHaveProperty('defaultArtifactId', 'artifact-uuid');
     });
 
-    it('skips module insertion when moduleIds is empty', async () => {
-      const fakeArtifact = { id: 'art-no-mods', name: 'Support Bot', type: 'support' };
-      let insertCallCount = 0;
+    it('delegates to applyArchetypeDefaults for support type too', async () => {
+      const fakeArtifact = { id: 'art-support', name: 'Support Bot', type: 'support' };
       let callCount = 0;
 
       const queryImpl = async (fn: Any) => {
         callCount++;
-        // First call: idempotency check — no existing default artifact
         if (callCount === 1) {
           const db = {
-            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null, settings: {} }] }) }) }),
           };
           return fn(db);
         }
+        let selectCallCount = 0;
         const tx = {
-          insert: vi.fn(() => {
-            insertCallCount++;
-            return {
-              values: () => ({
-                returning: () => [fakeArtifact],
-              }),
-            };
-          }),
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: vi.fn(() => ({
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(() => {
+                  selectCallCount++;
+                  if (selectCallCount === 1) return [{ defaultArtifactId: null, settings: {} }];
+                  return [];
+                }),
+              })),
+            })),
+          })),
+          insert: vi.fn(() => ({
+            values: () => ({
+              returning: () => [fakeArtifact],
+            }),
+          })),
           update: vi.fn(() => ({
             set: () => ({ where: () => {} }),
           })),
@@ -276,11 +298,15 @@ describe('onboarding router', () => {
       await caller.setupArtifact({
         name: 'Support Bot',
         type: 'support',
-        moduleIds: [],
       });
 
-      // Only 1 insert call (artifact), not 2 (artifact + modules)
-      expect(insertCallCount).toBe(1);
+      // applyArchetypeDefaults still called (it handles empty slugs internally)
+      expect(mocks.applyArchetypeDefaults).toHaveBeenCalledWith(
+        expect.anything(),
+        'art-support',
+        TENANT_ID,
+        'support',
+      );
     });
   });
 

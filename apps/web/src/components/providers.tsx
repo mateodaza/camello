@@ -7,6 +7,8 @@ import { esES } from '@clerk/localizations';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useLocale } from 'next-intl';
 import { trpc, makeTrpcClient } from '@/lib/trpc';
+import { ToastProvider } from '@/hooks/use-toast';
+import { ToastContainer } from '@/components/toast';
 
 function TrpcQueryProvider({ children }: { children: React.ReactNode }) {
   const { getToken } = useAuth();
@@ -57,7 +59,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const locale = useLocale();
   return (
     <ClerkProvider localization={locale === 'es' ? esES : undefined}>
-      <TrpcQueryProvider>{children}</TrpcQueryProvider>
+      <ToastProvider>
+        <TrpcQueryProvider>{children}</TrpcQueryProvider>
+        <ToastContainer />
+      </ToastProvider>
     </ClerkProvider>
   );
 }
