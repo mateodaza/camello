@@ -41,7 +41,7 @@ export default function ConversationsPage() {
   if (items.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
+        <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
         <div className="flex flex-col items-center gap-3 py-12">
           <MessageSquare className="h-12 w-12 text-dune/40" />
           <p className="font-heading text-lg font-semibold text-charcoal">{t('emptyTitle')}</p>
@@ -56,10 +56,10 @@ export default function ConversationsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
 
-      <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
+        <table className="min-w-[500px] w-full text-sm">
           <thead>
             <tr className="border-b border-charcoal/8 text-left text-dune">
               <th className="px-4 py-3 font-medium">{t('columnCustomer')}</th>

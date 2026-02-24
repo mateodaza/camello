@@ -116,7 +116,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('title')}</h1>
+      <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('title')}</h1>
       <p className="font-body text-sm text-dune">{t('description')}</p>
 
       {/* Language selector */}
@@ -184,7 +184,7 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-charcoal">{t('location')}</label>
               <input
@@ -214,11 +214,11 @@ export default function ProfilePage() {
             <label className="mb-1 block text-sm font-medium text-charcoal">{t('socialLinks')}</label>
             <div className="space-y-2">
               {socialLinks.map((link, idx) => (
-                <div key={idx} className="flex gap-2">
+                <div key={idx} className="flex flex-wrap gap-2">
                   <select
                     value={link.platform}
                     onChange={(e) => updateSocialLink(idx, 'platform', e.target.value)}
-                    className="w-32 rounded-md border border-charcoal/15 bg-cream px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+                    className="w-full rounded-md border border-charcoal/15 bg-cream px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal sm:w-32"
                   >
                     {PLATFORM_OPTIONS.map((p) => (
                       <option key={p} value={p}>{p}</option>
@@ -272,8 +272,8 @@ export default function ProfilePage() {
               </Button>
             </div>
 
-            <div className="flex items-start gap-6">
-              {/* QR SVG — our own deterministic encoder (only <rect> elements) */}
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:gap-6">
+              {/* QR SVG — our own deterministic encoder (only <rect> elements, no user HTML) */}
               <div dangerouslySetInnerHTML={{ __html: qrSvgHtml }} />
               <div className="space-y-1">
                 <p className="text-sm text-dune">{t('sessionInits')}: <strong>{sessionInits}</strong></p>

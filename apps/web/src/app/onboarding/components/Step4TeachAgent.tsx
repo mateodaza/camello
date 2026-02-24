@@ -25,70 +25,103 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
   const [urlQueued, setUrlQueued] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const seeded = useRef(alreadySeeded);
-  const settled = useRef(alreadySeeded); // tracks whether mutation resolved
+  const settled = useRef(alreadySeeded);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryCount = useRef(0);
 
   const ingest = trpc.knowledge.ingest.useMutation();
   const queueUrl = trpc.knowledge.queueUrl.useMutation();
 
-  // Auto-seed business description on mount (skip if already seeded)
-  useEffect(() => {
-    if (seeded.current || !businessDescription || businessDescription.length < 10) return;
-    seeded.current = true;
-    setSeedStatus('seeding');
+  const MAX_RETRIES = 2;
+  const WATCHDOG_MS = 15_000;
 
-    // Timeout: if embedding hangs, fail gracefully after 15s
-    const timeout = setTimeout(() => {
+  const armWatchdog = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
       if (!settled.current) {
         settled.current = true;
         setSeedStatus('error');
       }
-    }, 15_000);
+    }, WATCHDOG_MS);
+  };
 
+  const fireIngest = () => {
     ingest.mutate(
       { content: businessDescription, title: 'Business Description', sourceType: 'upload' },
       {
         onSuccess: (data) => {
-          clearTimeout(timeout);
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
           settled.current = true;
           setSeedStatus('done');
           setSeedChunks(data.chunkCount);
           onSeeded();
         },
         onError: () => {
-          clearTimeout(timeout);
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          if (retryCount.current < MAX_RETRIES) {
+            retryCount.current += 1;
+            armWatchdog();
+            fireIngest();
+            return;
+          }
           settled.current = true;
           setSeedStatus('error');
         },
       },
     );
+  };
 
-    return () => clearTimeout(timeout);
+  // Auto-seed business description when available (skip if already seeded).
+  // Watches `businessDescription` so that on wizard resume the seed fires once
+  // the parent hydrates the prop (it starts empty, then gets restored from DB).
+  // The `seeded` ref guard prevents double-fire on subsequent prop changes.
+  useEffect(() => {
+    if (settled.current) return;
+
+    if (seeded.current) {
+      // Strict Mode remount: mutation in-flight but cleanup killed the watchdog. Re-arm.
+      armWatchdog();
+      return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+    }
+
+    if (!businessDescription || businessDescription.length < 10) return;
+
+    seeded.current = true;
+    setSeedStatus('seeding');
+    armWatchdog();
+    fireIngest();
+
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [businessDescription]);
 
   const handleContinue = async () => {
     setSubmitting(true);
-    try {
-      // Ingest quick facts if provided
-      if (quickFacts.trim().length >= 10) {
+
+    // Ingest quick facts if provided (optional — don't block wizard)
+    if (quickFacts.trim().length >= 10) {
+      try {
         await ingest.mutateAsync({
           content: quickFacts.trim(),
           title: 'Quick Facts',
           sourceType: 'upload',
         });
+      } catch {
+        // Error shown inline; continue anyway
       }
+    }
 
-      // Queue URL for async scraping if provided
-      if (websiteUrl.trim()) {
+    // Queue URL for async scraping if provided (optional)
+    if (websiteUrl.trim()) {
+      try {
         await queueUrl.mutateAsync({ url: websiteUrl.trim() });
         setUrlQueued(true);
+      } catch {
+        // Error shown inline; continue anyway
       }
-
-      onComplete();
-    } catch {
-      // Errors are shown inline via mutation state
-      setSubmitting(false);
     }
+
+    onComplete();
   };
 
   return (
@@ -182,7 +215,7 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
           >
             {submitting ? t('saving') : t('continue')}
           </Button>
-          <Button variant="ghost" onClick={onComplete} disabled={submitting || seedStatus === 'seeding'}>
+          <Button variant="ghost" onClick={onComplete} disabled={submitting}>
             {t('skipForNow')}
           </Button>
         </div>

@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
 
       {/* Secondary error banners */}
       {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}
@@ -126,7 +126,7 @@ export default function AnalyticsPage() {
 
       {/* ===== SECTION B: Per-Artifact Metrics ===== */}
       <div className="space-y-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <h2 className="font-heading text-lg font-semibold text-charcoal">{t('artifactMetrics')}</h2>
           {artifacts.isLoading ? (
             <span className="text-sm text-dune">{t('loadingArtifacts')}</span>
@@ -153,8 +153,8 @@ export default function AnalyticsPage() {
         ) : (artifactMetrics.data?.length ?? 0) === 0 ? (
           <p className="text-dune">{t('noMetrics')}</p>
         ) : (
-          <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
+            <table className="min-w-[650px] w-full text-sm">
               <thead>
                 <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnDate')}</th>
@@ -184,7 +184,7 @@ export default function AnalyticsPage() {
 
       {/* ===== SECTION C: Recent Interaction Logs ===== */}
       <div className="space-y-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <h2 className="font-heading text-lg font-semibold text-charcoal">{t('recentInteractions')}</h2>
           {artifacts.isLoading ? (
             <span className="text-sm text-dune">{tc('loading')}</span>
@@ -210,7 +210,7 @@ export default function AnalyticsPage() {
           <p className="text-dune">{t('noInteractions')}</p>
         ) : (
           <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="w-full text-sm">
+            <table className="min-w-[800px] w-full text-sm">
               <thead>
                 <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnIntent')}</th>
@@ -259,8 +259,8 @@ export default function AnalyticsPage() {
         ) : (usageRecords.data?.length ?? 0) === 0 ? (
           <p className="text-dune">{t('noUsageRecords')}</p>
         ) : (
-          <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
+            <table className="min-w-[550px] w-full text-sm">
               <thead>
                 <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnPeriodStart')}</th>

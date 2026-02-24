@@ -22,6 +22,18 @@ export const tenantRouter = router({
     return result[0] ?? null;
   }),
 
+  /** Sync tenant display name (e.g. when Clerk org name changes). */
+  updateName: tenantProcedure
+    .input(z.object({ name: z.string().min(1).max(100) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.tenantDb.query(async (db) => {
+        await db.update(tenants)
+          .set({ name: input.name })
+          .where(eq(tenants.id, ctx.tenantId));
+      });
+      return { name: input.name };
+    }),
+
   /** Update tenant preferred locale. */
   updateLocale: tenantProcedure
     .input(z.object({ locale: z.enum(['en', 'es']) }))

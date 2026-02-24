@@ -17,7 +17,8 @@
     "./feedback": "./src/feedback-loop.ts",
     "./module-registry": "./src/module-registry.ts",
     "./tool-adapter": "./src/tool-adapter.ts",
-    "./modules": "./src/modules/index.ts"
+    "./modules": "./src/modules/index.ts",
+    "./grounding": "./src/grounding-check.ts"
   },
   "scripts": {
     "lint": "eslint .",

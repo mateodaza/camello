@@ -47,6 +47,9 @@ export default function OnboardingPage() {
     retry: false,
   });
   const saveStep = trpc.onboarding.saveStep.useMutation();
+  const skipSetup = trpc.onboarding.complete.useMutation({
+    onSuccess: () => router.push('/dashboard'),
+  });
 
   // Org consistency guard: if the active Clerk org changes mid-wizard,
   // reset to Step 1 so tRPC context matches the wizard state.
@@ -120,13 +123,24 @@ export default function OnboardingPage() {
 
       <WizardProgress currentStep={step} />
 
-      {step > 2 && (
-        <button
-          onClick={() => setStep(step - 1)}
-          className="mb-4 text-sm text-dune hover:text-charcoal"
-        >
-          {t('back')}
-        </button>
+      {step >= 2 && (
+        <div className="mb-4 flex items-center justify-between">
+          {step > 2 ? (
+            <button
+              onClick={() => setStep(step - 1)}
+              className="text-sm text-dune hover:text-charcoal"
+            >
+              {t('back')}
+            </button>
+          ) : <span />}
+          <button
+            onClick={() => skipSetup.mutate()}
+            disabled={skipSetup.isPending}
+            className="text-xs text-dune hover:text-charcoal"
+          >
+            {skipSetup.isPending ? tc('loading') : t('skipSetup')}
+          </button>
+        </div>
       )}
 
       {step === 1 && (

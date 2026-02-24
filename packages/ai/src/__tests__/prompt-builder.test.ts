@@ -154,6 +154,57 @@ describe('buildSystemPrompt', () => {
     expect(prompt).not.toContain('ADDITIONAL INSTRUCTIONS');
   });
 
+  // --- Empty-RAG warning ---
+
+  it('injects empty-RAG warning when search attempted but no results (en)', () => {
+    const prompt = buildSystemPrompt({
+      ...baseCtx,
+      ragContext: [],
+      ragSearchAttempted: true,
+    });
+    expect(prompt).toContain('NO KNOWLEDGE AVAILABLE');
+    expect(prompt).toContain('Do NOT describe, list, or claim');
+  });
+
+  it('injects empty-RAG warning in Spanish when locale is "es"', () => {
+    const prompt = buildSystemPrompt({
+      ...baseCtx,
+      locale: 'es',
+      ragContext: [],
+      ragSearchAttempted: true,
+    });
+    expect(prompt).toContain('SIN INFORMACIÓN DISPONIBLE');
+    expect(prompt).toContain('NO describas, listes ni afirmes');
+  });
+
+  it('does NOT inject empty-RAG warning when search was skipped', () => {
+    const prompt = buildSystemPrompt({
+      ...baseCtx,
+      ragContext: [],
+      ragSearchAttempted: false,
+    });
+    expect(prompt).not.toContain('NO KNOWLEDGE AVAILABLE');
+  });
+
+  it('does NOT inject empty-RAG warning when ragSearchAttempted is undefined', () => {
+    const prompt = buildSystemPrompt({
+      ...baseCtx,
+      ragContext: [],
+    });
+    expect(prompt).not.toContain('NO KNOWLEDGE AVAILABLE');
+  });
+
+  it('does NOT inject empty-RAG warning when proactive context has docs', () => {
+    const prompt = buildSystemPrompt({
+      ...baseCtx,
+      ragContext: [],
+      proactiveContext: ['Some tangentially relevant info'],
+      ragSearchAttempted: true,
+    });
+    expect(prompt).not.toContain('NO KNOWLEDGE AVAILABLE');
+    expect(prompt).toContain('PROACTIVE CONTEXT');
+  });
+
   // --- Section ordering ---
 
   it('places archetype framework before personality (tone)', () => {

@@ -57,7 +57,7 @@ export default function DocsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-heading text-2xl font-bold text-charcoal">{t('title')}</h1>
+        <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('title')}</h1>
         <p className="mt-1 font-body text-sm text-dune">{t('subtitle')}</p>
       </div>
 

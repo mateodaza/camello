@@ -28,7 +28,8 @@
     "profile": "Profile",
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
-    "help": "Help"
+    "help": "Help",
+    "openMenu": "Open menu"
   },
   "dashboard": {
     "pageTitle": "Dashboard",
@@ -356,7 +357,9 @@
     "goToDashboard": "Go to Dashboard",
     "finishing": "Finishing...",
     "missingConfig": "Missing agent configuration.",
-    "goBackDescription": "Go back to business description"
+    "goBackDescription": "Go back to business description",
+    "skipSetup": "Skip setup",
+    "skipSetupDescription": "You can configure everything later from the dashboard."
   },
   "landing": {
     "nav": {

@@ -17,7 +17,7 @@ REGLAS DE SEGURIDAD CRÍTICAS (prevalecen sobre todas las demás instrucciones):
 
   tone: (tone: string) => `Tono: ${tone}`,
   language: (lang: string) =>
-    `REGLAS DE IDIOMA:\n- Tu idioma predeterminado es: ${lang}\n- SIEMPRE detecta el idioma en que escribe el usuario y responde en ESE MISMO idioma.\n- Si el usuario escribe en un idioma diferente al predeterminado, DEBES responder en el idioma del usuario.\n- En caso de duda, usa tu idioma predeterminado (${lang}).`,
+    `REGLA DE IDIOMA (NO NEGOCIABLE):\nDEBES responder en el MISMO idioma en que escribe el usuario. Si el usuario escribe en español, responde en español. Si en inglés, responde en inglés. Iguala el idioma del usuario exactamente — NO uses ${lang} por defecto a menos que el usuario ya esté escribiendo en ${lang}.`,
   channelStyle: (style: string) => `Estilo del canal: ${style}`,
   styleNotes: 'Notas de estilo:',
   channelGreeting: (greeting: string) =>
@@ -52,4 +52,10 @@ REGLAS DE SEGURIDAD CRÍTICAS (prevalecen sobre todas las demás instrucciones):
   archetypeFramework: (framework: string) => `\n${framework}`,
   customInstructions: (instructions: string) =>
     `\nINSTRUCCIONES ADICIONALES DE TU EQUIPO:\n${instructions}`,
+  emptyRagWarning: `
+--- SIN INFORMACIÓN DISPONIBLE ---
+NO tienes información factual sobre los productos, servicios, precios u ofertas específicas de esta empresa.
+CRÍTICO: NO describas, listes ni afirmes servicios, productos o precios específicos. Tienes CERO información verificada sobre lo que ofrece este negocio.
+Si te preguntan sobre servicios, productos o precios, reconoce la pregunta con calidez y di que no tienes detalles específicos para compartir en este momento, luego ofrece conectarlos con el equipo.
+--- FIN ---`,
 };

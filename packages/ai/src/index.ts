@@ -19,6 +19,10 @@ export type { ModuleDefinition } from './module-registry.js';
 export { buildToolsFromBindings } from './tool-adapter.js';
 export type { ToolAdapterDeps } from './tool-adapter.js';
 
+// Grounding check (post-generation hallucination prevention)
+export { checkGrounding, shouldCheckGrounding } from './grounding-check.js';
+export type { GroundingInput, GroundingResult } from './grounding-check.js';
+
 // Archetype differentiation
 export {
   ARCHETYPE_PROMPTS,

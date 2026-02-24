@@ -122,7 +122,7 @@ export default function BillingPage() {
         src="https://cdn.paddle.com/paddle/v2/paddle.js"
         onLoad={initPaddle}
       />
-      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
 
       {/* Current plan summary */}
       <Card>
@@ -202,7 +202,7 @@ export default function BillingPage() {
       {/* Cancel */}
       {isActive && (
         <Card>
-          <CardContent className="flex items-center justify-between pt-6">
+          <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium text-charcoal">{t('cancelSubscription')}</p>
               <p className="text-sm text-dune">{t('cancelMessage')}</p>
@@ -245,8 +245,8 @@ export default function BillingPage() {
         ) : !history.data?.length ? (
           <p className="text-dune">{t('noBillingEvents')}</p>
         ) : (
-          <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
+            <table className="min-w-[400px] w-full text-sm">
               <thead>
                 <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnDate')}</th>

@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   searchKnowledge: vi.fn(),
   generateEmbedding: vi.fn(),
   buildToolsFromBindings: vi.fn(),
+  shouldCheckGrounding: vi.fn(),
+  checkGrounding: vi.fn(),
   generateText: vi.fn(),
   createTrace: vi.fn(),
   createClient: vi.fn(),
@@ -34,6 +36,8 @@ vi.mock('@camello/ai', () => ({
   searchKnowledge: mocks.searchKnowledge,
   generateEmbedding: mocks.generateEmbedding,
   buildToolsFromBindings: mocks.buildToolsFromBindings,
+  shouldCheckGrounding: mocks.shouldCheckGrounding,
+  checkGrounding: mocks.checkGrounding,
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));
@@ -306,6 +310,7 @@ describe('handleMessage — module tool-calling integration', () => {
     vi.clearAllMocks();
     vi.stubEnv('SUPABASE_URL', 'http://localhost:54321');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test_key');
+    mocks.shouldCheckGrounding.mockReturnValue(false);
   });
 
   it('passes tools to generateText with maxSteps: 5 when modules bound', async () => {

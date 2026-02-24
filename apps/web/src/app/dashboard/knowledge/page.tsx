@@ -204,14 +204,14 @@ export default function KnowledgePage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
 
       {/* Secondary error banners */}
       {learningList.isError && <QueryError error={learningList.error} onRetry={() => learningList.refetch()} />}
 
       {/* ===== SECTION 1: Knowledge Docs ===== */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionDocuments')}</h2>
           <div className="flex items-center gap-3">
             <select
@@ -252,7 +252,7 @@ export default function KnowledgePage() {
                     required
                   />
                 </div>
-                <div className="flex items-end gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                   <div className="flex-1">
                     <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelTitle')}</label>
                     <input
@@ -326,8 +326,8 @@ export default function KnowledgePage() {
           </div>
         ) : (
           <>
-            <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
+              <table className="min-w-[600px] w-full text-sm">
                 <thead>
                   <tr className="border-b border-charcoal/8 text-left text-dune">
                     <th className="px-4 py-3 font-medium">{t('columnTitle')}</th>
@@ -448,8 +448,8 @@ export default function KnowledgePage() {
             <p className="max-w-sm text-center text-sm text-dune">{t('emptyLearningsDescription')}</p>
           </div>
         ) : (
-          <div className="rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
+            <table className="min-w-[700px] w-full text-sm">
               <thead>
                 <tr className="border-b border-charcoal/8 text-left text-dune">
                   <th className="px-4 py-3 font-medium">{t('columnType')}</th>

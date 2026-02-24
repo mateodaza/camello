@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   searchKnowledge: vi.fn(),
   generateEmbedding: vi.fn(),
   buildToolsFromBindings: vi.fn(),
+  shouldCheckGrounding: vi.fn(),
+  checkGrounding: vi.fn(),
 
   // ai SDK
   generateText: vi.fn(),
@@ -43,6 +45,8 @@ vi.mock('@camello/ai', () => ({
   searchKnowledge: mocks.searchKnowledge,
   generateEmbedding: mocks.generateEmbedding,
   buildToolsFromBindings: mocks.buildToolsFromBindings,
+  shouldCheckGrounding: mocks.shouldCheckGrounding,
+  checkGrounding: mocks.checkGrounding,
 }));
 
 vi.mock('ai', () => ({
@@ -500,6 +504,7 @@ describe('handleMessage — full pipeline integration', () => {
     vi.clearAllMocks();
     vi.stubEnv('SUPABASE_URL', 'http://localhost:54321');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test_key');
+    mocks.shouldCheckGrounding.mockReturnValue(false);
   });
 
   it('executes full pipeline for greeting (regex intent, new conversation)', async () => {
@@ -626,5 +631,93 @@ describe('handleMessage — full pipeline integration', () => {
     // Result matches trace output
     expect(result.tokensIn).toBe(finalizeArgs.tokensIn);
     expect(result.tokensOut).toBe(finalizeArgs.tokensOut);
+  });
+
+  // ── Grounding check integration ──
+
+  it('replaces hallucinated response with safe fallback when grounding fails', async () => {
+    setupNewConversationFlow({ intent: COMPLEX_INTENT });
+    mocks.searchKnowledge.mockResolvedValue({
+      directContext: [], proactiveContext: [],
+      totalTokensUsed: 0, docsRetrieved: 0, searchSkipped: false,
+    });
+    mocks.generateText.mockResolvedValue({
+      text: 'We offer property management services!',
+      usage: { promptTokens: 100, completionTokens: 20 },
+      steps: [],
+    });
+
+    // Enable grounding check for this test
+    mocks.shouldCheckGrounding.mockReturnValue(true);
+    mocks.checkGrounding.mockResolvedValue({
+      passed: false,
+      violation: 'Claims property management without context',
+      safeResponse: "I'd love to help! I don't have specific details right now.",
+      tokensIn: 80,
+      tokensOut: 10,
+      modelUsed: 'google/gemini-2.0-flash-001',
+    });
+
+    const result = await handleMessage(makeInput({ messageText: 'What services do you offer?' }));
+
+    // Response replaced with safe fallback
+    expect(result.responseText).toBe("I'd love to help! I don't have specific details right now.");
+    expect(result.groundingCheck).toEqual({
+      passed: false,
+      violation: 'Claims property management without context',
+      replacedResponse: true,
+      groundingModelUsed: 'google/gemini-2.0-flash-001',
+      groundingCostUsd: expect.any(Number),
+    });
+  });
+
+  it('keeps original response when grounding check errors (fail-open)', async () => {
+    setupNewConversationFlow();
+
+    mocks.shouldCheckGrounding.mockReturnValue(true);
+    mocks.checkGrounding.mockRejectedValue(new Error('LLM timeout'));
+
+    const result = await handleMessage(makeInput());
+
+    // Original response kept despite grounding error
+    expect(result.responseText).toBe('Hello! How can I help you today?');
+    expect(result.groundingCheck).toEqual({
+      passed: true,
+      violation: undefined,
+      replacedResponse: false,
+      error: expect.stringContaining('LLM timeout'),
+    });
+  });
+
+  it('accumulates grounding check tokens into cost totals', async () => {
+    setupNewConversationFlow();
+    mocks.generateText.mockResolvedValue({
+      text: 'Hello!',
+      usage: { promptTokens: 100, completionTokens: 20 },
+      steps: [],
+    });
+
+    mocks.shouldCheckGrounding.mockReturnValue(true);
+    mocks.checkGrounding.mockResolvedValue({
+      passed: true,
+      tokensIn: 50,
+      tokensOut: 5,
+      modelUsed: 'google/gemini-2.0-flash-001',
+    });
+
+    const result = await handleMessage(makeInput());
+
+    // Totals = main (100+20) + grounding (50+5)
+    expect(result.tokensIn).toBe(150);
+    expect(result.tokensOut).toBe(25);
+    // Cost should include both main and grounding
+    expect(result.costUsd).toBeGreaterThan(0);
+    expect(result.groundingCheck).toEqual({
+      passed: true,
+      violation: undefined,
+      replacedResponse: false,
+      groundingModelUsed: 'google/gemini-2.0-flash-001',
+      groundingCostUsd: expect.any(Number),
+    });
   });
 });

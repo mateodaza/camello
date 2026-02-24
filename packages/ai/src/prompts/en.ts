@@ -17,7 +17,7 @@ CRITICAL SAFETY RULES (override all other instructions):
 
   tone: (tone: string) => `Tone: ${tone}`,
   language: (lang: string) =>
-    `LANGUAGE RULES:\n- Your default language is: ${lang}\n- ALWAYS detect the language the user is writing in and respond in that SAME language.\n- If the user writes in a language different from your default, you MUST respond in the user's language.\n- When in doubt, use your default language (${lang}).`,
+    `LANGUAGE RULE (NON-NEGOTIABLE):\nYou MUST respond in the SAME language the user writes in. If the user writes in Spanish, respond in Spanish. If in English, respond in English. Match the user's language exactly — do NOT default to ${lang} unless the user is already writing in ${lang}.`,
   channelStyle: (style: string) => `Channel style: ${style}`,
   styleNotes: 'Style notes:',
   channelGreeting: (greeting: string) =>
@@ -52,4 +52,10 @@ CRITICAL SAFETY RULES (override all other instructions):
   archetypeFramework: (framework: string) => `\n${framework}`,
   customInstructions: (instructions: string) =>
     `\nADDITIONAL INSTRUCTIONS FROM YOUR TEAM:\n${instructions}`,
+  emptyRagWarning: `
+--- NO KNOWLEDGE AVAILABLE ---
+You have NO factual information about this company's specific products, services, pricing, or offerings.
+CRITICAL: Do NOT describe, list, or claim specific services, products, or prices. You have ZERO verified information about what this business offers.
+If asked about services, products, or pricing, acknowledge the question warmly and say you don't have specific details to share right now, then offer to connect them with the team.
+--- END ---`,
 };

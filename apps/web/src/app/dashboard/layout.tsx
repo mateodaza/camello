@@ -3,9 +3,15 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
+import Image from 'next/image';
+import { Menu } from 'lucide-react';
+import { UserButton } from '@clerk/nextjs';
 import { Sidebar } from '@/components/sidebar';
 import { QueryError } from '@/components/query-error';
 import { trpc } from '@/lib/trpc';
+import { useMobileSidebar } from '@/hooks/use-mobile-sidebar';
+import { cn } from '@/lib/utils';
 
 function OnboardingGate({ children }: { children: React.ReactNode }) {
   const t = useTranslations('common');
@@ -30,7 +36,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   if (tenant.isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-dvh items-center justify-center">
         <p className="text-dune">{t('loading')}</p>
       </div>
     );
@@ -39,7 +45,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   if (tenant.isError) {
     if (tenant.error.data?.code === 'FORBIDDEN') return null;
     return (
-      <div className="flex h-screen items-center justify-center p-6">
+      <div className="flex h-dvh items-center justify-center p-6">
         <QueryError error={tenant.error} />
       </div>
     );
@@ -53,11 +59,45 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('sidebar');
+  const { open: mobileOpen, openSidebar, closeSidebar } = useMobileSidebar();
+
   return (
     <OnboardingGate>
-      <div className="flex h-screen">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-sand p-6">
+      <div className="flex h-dvh flex-col md:flex-row">
+        {/* Mobile header */}
+        <header className="flex h-14 shrink-0 items-center justify-between bg-midnight px-4 md:hidden">
+          <button
+            onClick={openSidebar}
+            aria-label={t('openMenu')}
+            className="rounded-md p-1.5 text-cream/70 hover:bg-cream/10 hover:text-cream"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/illustrations/camel-logo.jpeg"
+              alt="Camello"
+              width={24}
+              height={24}
+              className="rounded-md"
+              unoptimized
+            />
+            <span className="font-heading text-sm font-semibold uppercase tracking-wide text-cream">
+              Camello
+            </span>
+          </Link>
+          <UserButton afterSignOutUrl="/" />
+        </header>
+
+        <Sidebar mobileOpen={mobileOpen} onMobileClose={closeSidebar} />
+
+        <main
+          className={cn(
+            'flex-1 overflow-y-auto bg-sand p-4 md:p-6',
+            mobileOpen && 'overflow-y-hidden',
+          )}
+        >
           <div className="mx-auto max-w-5xl">
             {children}
           </div>

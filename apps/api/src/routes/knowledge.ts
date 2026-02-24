@@ -117,6 +117,7 @@ export const knowledgeRouter = router({
         if (err instanceof IngestionLimitError) {
           throw new TRPCError({ code: 'PAYLOAD_TOO_LARGE', message: err.message });
         }
+        console.error('[knowledge.ingest] Failed for tenant', ctx.tenantId, err);
         throw err;
       }
     }),

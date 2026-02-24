@@ -360,7 +360,7 @@ export default function ArtifactsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-heading text-2xl font-bold text-charcoal">{t('pageTitle')}</h1>
+      <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
 
       {duplicates.length > 0 && (
         <Card className="border-gold/25 bg-gold/10">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useOrganization } from '@clerk/nextjs';
 import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { localDateStr, fmtCost, fmtInt, fmtDateTime } from '@/lib/format';
@@ -17,11 +18,27 @@ export default function DashboardOverview() {
   const locale = useLocale();
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  const { organization } = useOrganization();
   const tenant = trpc.tenant.me.useQuery();
   const overview = trpc.analytics.overview.useQuery({ from: '2024-01-01', to: localDateStr() });
   const artifacts = trpc.artifact.list.useQuery({});
   const monthlyUsage = trpc.analytics.monthlyUsage.useQuery();
   const intents = trpc.analytics.intentBreakdown.useQuery();
+
+  // Auto-sync tenant name when Clerk org name changes
+  const updateName = trpc.tenant.updateName.useMutation({
+    onSuccess: () => tenant.refetch(),
+  });
+  const nameSynced = useRef(false);
+  useEffect(() => {
+    if (nameSynced.current) return;
+    const clerkName = organization?.name;
+    const dbName = tenant.data?.name;
+    if (clerkName && dbName && clerkName !== dbName) {
+      nameSynced.current = true;
+      updateName.mutate({ name: clerkName });
+    }
+  }, [organization?.name, tenant.data?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Layout's OnboardingGate handles tenant loading/error state
   const convStats = overview.data?.conversations ?? {};
@@ -38,7 +55,7 @@ export default function DashboardOverview() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <h1 className="font-heading text-2xl font-bold text-charcoal">{tenant.data?.name ?? t('pageTitle')}</h1>
+        <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{tenant.data?.name ?? t('pageTitle')}</h1>
         {tenant.data?.planTier && (
           <Badge variant={tenant.data.planTier}>{planLabel}</Badge>
         )}
@@ -143,26 +160,28 @@ function ShareLinkCard({
 
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 py-3">
+      <CardContent className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-charcoal">{t('shareLink')}</p>
           <p className="text-xs text-dune truncate">{chatUrl}</p>
         </div>
-        <button
-          type="button"
-          onClick={copy}
-          className="shrink-0 rounded-md bg-teal px-3 py-1.5 text-xs font-heading font-medium text-cream hover:bg-teal/90 transition-colors"
-        >
-          {copied ? t('linkCopied') : t('copyLink')}
-        </button>
-        <a
-          href={chatUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded-md border border-charcoal/15 px-3 py-1.5 text-xs font-heading font-medium text-charcoal hover:bg-sand transition-colors"
-        >
-          {t('openLink')}
-        </a>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={copy}
+            className="w-full shrink-0 rounded-md bg-teal px-3 py-1.5 text-xs font-heading font-medium text-cream hover:bg-teal/90 transition-colors sm:w-auto"
+          >
+            {copied ? t('linkCopied') : t('copyLink')}
+          </button>
+          <a
+            href={chatUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full shrink-0 rounded-md border border-charcoal/15 px-3 py-1.5 text-center text-xs font-heading font-medium text-charcoal hover:bg-sand transition-colors sm:w-auto"
+          >
+            {t('openLink')}
+          </a>
+        </div>
       </CardContent>
     </Card>
   );
@@ -229,7 +248,7 @@ function IntentSection({
             const barWidth = maxCount > 0 ? Math.max((row.count / maxCount) * 100, 4) : 4;
             return (
               <div key={row.intent} className="flex items-center gap-3 text-sm">
-                <span className="w-28 shrink-0 truncate font-medium text-charcoal">
+                <span className="w-20 shrink-0 truncate font-medium text-charcoal sm:w-28">
                   {intentLabel(row.intent, t)}
                 </span>
                 <div className="flex-1">
@@ -238,7 +257,7 @@ function IntentSection({
                     style={{ width: `${barWidth}%` }}
                   />
                 </div>
-                <span className="w-16 shrink-0 text-right text-dune">
+                <span className="w-14 shrink-0 text-right text-dune sm:w-16">
                   {row.count} ({pct}%)
                 </span>
               </div>
@@ -268,7 +287,7 @@ function IntentSection({
             <h3 className="text-sm font-semibold text-charcoal">{t('recentQuestions')}</h3>
             <div className="space-y-1">
               {recentIntents.slice(0, 5).map((r, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
+                <div key={i} className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-charcoal">{intentLabel(r.intent, t)}</span>
                   <div className="flex items-center gap-3">
                     <span className="text-dune">{fmtDateTime(r.createdAt, locale)}</span>

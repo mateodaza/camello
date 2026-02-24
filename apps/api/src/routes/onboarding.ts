@@ -224,6 +224,9 @@ Directrices:
           const defaultTone = ARCHETYPE_DEFAULT_TONES[archetypeType][locale];
           if (defaultTone) p.tone = defaultTone;
         }
+        if (!p.language) {
+          p.language = locale;
+        }
 
         // 1. Create artifact
         const [artifact] = await tx

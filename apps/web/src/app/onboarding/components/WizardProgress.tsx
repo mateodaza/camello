@@ -5,7 +5,7 @@ export const STEP_KEYS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] 
 export function WizardProgress({ currentStep }: { currentStep: number }) {
   const t = useTranslations('onboarding');
   return (
-    <div className="mb-8 flex items-center justify-center gap-2">
+    <div className="mb-8 flex items-start justify-center">
       {STEP_KEYS.map((key, i) => {
         const label = t(key);
         const step = i + 1;
@@ -13,8 +13,8 @@ export function WizardProgress({ currentStep }: { currentStep: number }) {
         const isDone = step < currentStep;
 
         return (
-          <div key={step} className="flex items-center gap-2">
-            <div className="flex flex-col items-center">
+          <div key={step} className="flex items-start">
+            <div className="flex w-16 flex-col items-center">
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium ${
                   isDone
@@ -26,12 +26,12 @@ export function WizardProgress({ currentStep }: { currentStep: number }) {
               >
                 {isDone ? '\u2713' : step}
               </div>
-              <span className={`mt-1 text-xs ${isActive ? 'font-medium text-charcoal' : 'text-dune'}`}>
+              <span className={`mt-1 text-center text-xs leading-tight ${isActive ? 'font-medium text-charcoal' : 'text-dune'}`}>
                 {label}
               </span>
             </div>
             {i < STEP_KEYS.length - 1 && (
-              <div className={`mb-4 h-0.5 w-6 ${isDone ? 'bg-teal' : 'bg-charcoal/10'}`} />
+              <div className={`mt-3.5 h-0.5 w-6 shrink-0 ${isDone ? 'bg-teal' : 'bg-charcoal/10'}`} />
             )}
           </div>
         );

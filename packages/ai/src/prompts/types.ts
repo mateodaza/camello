@@ -24,4 +24,6 @@ export interface PromptTemplates {
   modulesEnd: string;
   archetypeFramework: (framework: string) => string;
   customInstructions: (instructions: string) => string;
+  /** Injected when RAG search ran but returned zero results. */
+  emptyRagWarning: string;
 }

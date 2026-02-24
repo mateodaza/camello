@@ -28,7 +28,8 @@
     "profile": "Perfil",
     "collapse": "Colapsar barra lateral",
     "expand": "Expandir barra lateral",
-    "help": "Ayuda"
+    "help": "Ayuda",
+    "openMenu": "Abrir menú"
   },
   "dashboard": {
     "pageTitle": "Panel",
@@ -356,7 +357,9 @@
     "goToDashboard": "Ir al Panel",
     "finishing": "Finalizando...",
     "missingConfig": "Falta la configuración del agente.",
-    "goBackDescription": "Volver a la descripción del negocio"
+    "goBackDescription": "Volver a la descripción del negocio",
+    "skipSetup": "Saltar configuración",
+    "skipSetupDescription": "Puedes configurar todo después desde el panel."
   },
   "landing": {
     "nav": {

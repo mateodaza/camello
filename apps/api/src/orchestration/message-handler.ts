@@ -24,6 +24,8 @@ import {
   searchKnowledge,
   generateEmbedding,
   buildToolsFromBindings,
+  checkGrounding,
+  shouldCheckGrounding,
 } from '@camello/ai';
 import type { MatchKnowledgeFn, EmbedFn } from '@camello/ai';
 import type { ArtifactModuleBinding, Channel, Intent, ModuleDbCallbacks, PlanTier } from '@camello/shared/types';
@@ -64,6 +66,16 @@ export interface HandleMessageOutput {
   budgetExceeded?: boolean;
   conversationLimitReached?: boolean;
   dailyLimitReached?: boolean;
+  groundingCheck?: {
+    passed: boolean;
+    violation?: string;
+    replacedResponse?: boolean;
+    error?: string;
+    /** Model used for grounding check (separate from main generation model). */
+    groundingModelUsed?: string;
+    /** Cost attributed to grounding check alone. */
+    groundingCostUsd?: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -432,7 +444,11 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   });
 
   // 9. Build system prompt (includes module instructions when bound)
-  const artifactLocale = (artifact.personality as Record<string, unknown>)?.language as string | undefined;
+  // Artifact-level language takes priority; fall back to tenant's dashboard locale
+  // so existing artifacts without personality.language still get the right templates.
+  const artifactLocale =
+    ((artifact.personality as Record<string, unknown>)?.language as string | undefined)
+    ?? ((tenant?.settings as Record<string, unknown>)?.preferredLocale as string | undefined);
   const systemPrompt = buildSystemPrompt({
     artifact: {
       name: artifact.name,
@@ -454,6 +470,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       autonomyLevel: m.autonomyLevel,
     })),
     locale: artifactLocale,
+    ragSearchAttempted: !ragResult.searchSkipped,
   });
 
   // 10. Select model
@@ -499,7 +516,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       })
     : undefined;
 
-  const { text: responseText, usage, steps } = await generateText({
+  const { text: rawResponseText, usage, steps } = await generateText({
     model: client(modelId),
     system: systemPrompt,
     messages: chatMessages,
@@ -516,11 +533,9 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     }),
   });
 
-  const latencyMs = Date.now() - startTime;
-  const tokensIn = usage?.promptTokens ?? 0;
-  const tokensOut = usage?.completionTokens ?? 0;
-  // Rough cost estimate — actual cost comes from OpenRouter callback
-  const costUsd = estimateCost(modelId, tokensIn, tokensOut);
+  const mainTokensIn = usage?.promptTokens ?? 0;
+  const mainTokensOut = usage?.completionTokens ?? 0;
+  const mainCostUsd = estimateCost(modelId, mainTokensIn, mainTokensOut);
 
   // Extract module execution summaries from tool call steps
   const executedModules: Array<{ moduleSlug: string; status: string }> = [];
@@ -532,7 +547,51 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     }
   }
 
+  // 12b. Post-generation grounding check (fail-open)
+  let responseText = rawResponseText;
+  let groundingResult: HandleMessageOutput['groundingCheck'] | undefined;
+  let groundingCostUsd = 0;
+  let groundingTokensIn = 0;
+  let groundingTokensOut = 0;
+
+  const allRagEvidence = [...ragResult.directContext, ...(ragResult.proactiveContext ?? [])];
+  if (shouldCheckGrounding(intent, allRagEvidence)) {
+    try {
+      const check = await trace.span('grounding-check', () =>
+        checkGrounding({
+          responseText: rawResponseText,
+          ragContext: allRagEvidence,
+          intent,
+          locale: artifactLocale,
+        }),
+      );
+      groundingTokensIn = check.tokensIn;
+      groundingTokensOut = check.tokensOut;
+      groundingCostUsd = estimateCost(check.modelUsed, check.tokensIn, check.tokensOut);
+      groundingResult = {
+        passed: check.passed,
+        violation: check.violation,
+        replacedResponse: !check.passed,
+        groundingModelUsed: check.modelUsed,
+        groundingCostUsd,
+      };
+      if (!check.passed && check.safeResponse) responseText = check.safeResponse;
+    } catch (err) {
+      // Fail-open: keep original response, log error (bounded to 200 chars)
+      const errMsg = String(err).slice(0, 200);
+      groundingResult = { passed: true, violation: undefined, replacedResponse: false, error: errMsg };
+    }
+  }
+
+  // Totals (main + grounding for persisted metrics)
+  const latencyMs = Date.now() - startTime;
+  const tokensIn = mainTokensIn + groundingTokensIn;
+  const tokensOut = mainTokensOut + groundingTokensOut;
+  const costUsd = mainCostUsd + groundingCostUsd;
+
   // 13. Save artifact response
+  // NOTE: modelUsed = main generation model. costUsd includes grounding overhead.
+  // Per-model breakdown available in groundingCheck output + Langfuse span.
   await tenantDb.query(async (db) => {
     await db.insert(messages).values({
       tenantId,
@@ -587,6 +646,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     costUsd,
     latencyMs,
     moduleExecutions: executedModules,
+    groundingCheck: groundingResult,
   };
 }
 

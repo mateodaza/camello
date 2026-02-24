@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard, MessageSquare, Bot, BookOpen,
@@ -24,18 +25,17 @@ const navItems = [
   { href: '/dashboard/docs', labelKey: 'help' as const, icon: HelpCircle },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const t = useTranslations('sidebar');
-  const { collapsed, toggle } = useSidebarCollapsed();
 
   return (
-    <aside
-      className={cn(
-        'flex h-screen flex-col overflow-hidden bg-midnight transition-[width] duration-200 ease-in-out',
-        collapsed ? 'w-16' : 'w-60',
-      )}
-    >
+    <>
       {/* Header: logo + toggle */}
       <div
         className={cn(
@@ -60,7 +60,7 @@ export function Sidebar() {
         </Link>
         {!collapsed && (
           <button
-            onClick={toggle}
+            onClick={onToggle}
             aria-label={t('collapse')}
             className="rounded-md p-1 text-cream/50 transition-colors hover:bg-cream/10 hover:text-cream"
           >
@@ -72,7 +72,7 @@ export function Sidebar() {
       {/* Expand toggle when collapsed */}
       {collapsed && (
         <button
-          onClick={toggle}
+          onClick={onToggle}
           aria-label={t('expand')}
           className="mx-auto mt-2 rounded-md p-1.5 text-cream/50 transition-colors hover:bg-cream/10 hover:text-cream"
         >
@@ -139,6 +139,43 @@ export function Sidebar() {
       >
         <UserButton afterSignOutUrl="/" />
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
+  const pathname = usePathname();
+  const { collapsed, toggle } = useSidebarCollapsed();
+
+  // Auto-close mobile sidebar on navigation
+  useEffect(() => {
+    onMobileClose?.();
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          'hidden h-full flex-col overflow-hidden bg-midnight transition-[width] duration-200 ease-in-out md:flex',
+          collapsed ? 'w-16' : 'w-60',
+        )}
+      >
+        <SidebarContent collapsed={collapsed} onToggle={toggle} />
+      </aside>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-midnight/30 md:hidden"
+            onClick={onMobileClose}
+          />
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-60 flex-col bg-midnight md:hidden">
+            <SidebarContent collapsed={false} onToggle={() => onMobileClose?.()} />
+          </aside>
+        </>
+      )}
+    </>
   );
 }

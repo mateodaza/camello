@@ -31,6 +31,8 @@ interface PromptContext {
     autonomyLevel: AutonomyLevel;
   }>;
   locale?: string;
+  /** True when RAG search was executed (not skipped by intent gate). */
+  ragSearchAttempted?: boolean;
 }
 
 /** Per-channel overrides from artifact config YAML */
@@ -56,6 +58,11 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   // Safety
   parts.push(t.safety);
 
+  // Language — placed right after safety for high priority.
+  // Use artifact personality.language if set, otherwise 'en' default.
+  const langValue = (artifact.personality as Record<string, unknown>)?.language as string | undefined;
+  parts.push(t.language(langValue || 'en'));
+
   // Archetype-specific behavioral framework
   const artifactType = artifact.type;
   if (artifactType && artifactType !== 'custom') {
@@ -71,7 +78,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     const p = artifact.personality as Record<string, unknown>;
     const tone = channelOverride?.tone ?? p.tone;
     if (tone) parts.push(t.tone(tone as string));
-    if (p.language) parts.push(t.language(p.language as string));
+    // Language instruction already injected above (after safety rules).
     if (channelOverride?.style) {
       parts.push(t.channelStyle(channelOverride.style));
     }
@@ -116,6 +123,12 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     parts.push(t.proactiveInstruction);
     parts.push(proactiveContext.join('\n\n'));
     parts.push(t.proactiveEnd);
+  }
+
+  // Empty-RAG warning: search ran but returned nothing (both direct + proactive empty)
+  const hasNoKnowledge = ragContext.length === 0 && (!proactiveContext || proactiveContext.length === 0);
+  if (hasNoKnowledge && ctx.ragSearchAttempted) {
+    parts.push(t.emptyRagWarning);
   }
 
   // Learnings

@@ -20,7 +20,7 @@ export function Step5TestIt({ previewCustomerId }: Props) {
   const t = useTranslations('onboarding');
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('Hi! What can you help me with?');
+  const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const ensureCustomer = trpc.onboarding.ensurePreviewCustomer.useMutation();

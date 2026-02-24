@@ -65,12 +65,12 @@ export const MODULE_TIMEOUT_MS = 10_000;
 // === Intent Classification ===
 
 export const REGEX_INTENTS: Record<string, RegExp[]> = {
-  greeting: [/^(hi|hello|hey|hola)\b/i],
+  greeting: [/^(hi|hello|hey|hola)\s*[!?.,]*\s*$/i],
   pricing: [/pric(e|ing)|cost|how much|rate/i],
   availability: [/available|schedule|when can|book/i],
   complaint: [/complaint|unhappy|terrible|worst|refund/i],
   simple_question: [/^(what|where|who|when) (is|are|was)\b/i],
-  farewell: [/^(bye|goodbye|see you|thanks|thank you)\b/i],
+  farewell: [/^(bye|goodbye|see you|thanks|thank you)\s*[!?.,]*\s*$/i],
 };
 
 // === RAG ===
