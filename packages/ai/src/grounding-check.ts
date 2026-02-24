@@ -42,8 +42,8 @@ const groundingSchema = z.object({
 // ---------------------------------------------------------------------------
 
 const SAFE_FALLBACKS: Record<string, string> = {
-  en: "I'd love to help you with that! I don't have specific details about our services right now. Let me connect you with our team so they can give you accurate information.",
-  es: '¡Me encantaría ayudarte con eso! No tengo detalles específicos sobre nuestros servicios en este momento. Permíteme conectarte con nuestro equipo para que te den información precisa.',
+  en: "I don't have specific details about our offerings loaded yet. Could you tell me more about what you're looking for? That way I can help point you in the right direction!",
+  es: 'Aún no tengo detalles específicos sobre lo que ofrecemos cargados. ¿Podrías contarme más sobre lo que estás buscando? Así puedo orientarte mejor.',
 };
 
 // ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ export async function checkGrounding(input: GroundingInput): Promise<GroundingRe
   const { object, usage } = await generateObject({
     model: client(modelId),
     schema: groundingSchema,
-    prompt: `You are a grounding validator. Check if the following AI response contains any unsupported factual claims.
+    prompt: `You are a grounding validator. Check if the following AI response fabricates specific factual claims.
 
 ${contextDescription}
 
@@ -95,11 +95,14 @@ AI RESPONSE TO CHECK:
 "${responseText}"
 
 RULES:
-- If the response claims specific services, products, pricing, features, or offerings that are NOT in the knowledge context above, mark as NOT grounded.
-- General conversational replies (greetings, offers to help, acknowledgments) are always grounded.
-- Phrases like "I can help you with..." followed by specific service claims that aren't in the context = NOT grounded.
-- Phrases like "I don't have that information" or "let me connect you with the team" = grounded.
-- If the knowledge context is NONE, ANY specific claim about services/products/pricing is NOT grounded.`,
+- ONLY mark as NOT grounded if the response invents specific product names, service descriptions, pricing, or feature lists that are NOT in the knowledge context.
+- These are ALWAYS grounded (even when knowledge context is NONE):
+  * General conversational replies, greetings, offers to help, acknowledgments
+  * Asking the user clarifying or qualifying questions
+  * Saying "I don't have that information" or similar honest disclaimers
+  * Using the agent's personality, role, or tone to engage naturally
+  * Offering to connect with the team or take a next step
+- If the knowledge context is NONE: the response is grounded as long as it does NOT fabricate specific products, services, or prices. Being conversational and helpful without making factual claims IS grounded.`,
   });
 
   if (object.grounded) {

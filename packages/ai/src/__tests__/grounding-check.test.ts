@@ -111,7 +111,7 @@ describe('checkGrounding', () => {
 
     expect(result.passed).toBe(false);
     expect(result.violation).toContain('property management');
-    expect(result.safeResponse).toContain("I don't have specific details");
+    expect(result.safeResponse).toContain("don't have specific details");
     expect(result.tokensIn).toBe(150);
     expect(result.tokensOut).toBe(30);
   });
@@ -129,7 +129,7 @@ describe('checkGrounding', () => {
       locale: 'es',
     });
 
-    expect(result.safeResponse).toContain('No tengo detalles específicos');
+    expect(result.safeResponse).toContain('no tengo detalles específicos');
   });
 
   it('falls back to English safe response for unknown locale', async () => {
@@ -145,7 +145,7 @@ describe('checkGrounding', () => {
       locale: 'fr',
     });
 
-    expect(result.safeResponse).toContain("I don't have specific details");
+    expect(result.safeResponse).toContain("don't have specific details");
   });
 
   it('includes RAG context in the prompt when available', async () => {

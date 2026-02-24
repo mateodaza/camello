@@ -162,8 +162,8 @@ describe('buildSystemPrompt', () => {
       ragContext: [],
       ragSearchAttempted: true,
     });
-    expect(prompt).toContain('NO KNOWLEDGE AVAILABLE');
-    expect(prompt).toContain('Do NOT describe, list, or claim');
+    expect(prompt).toContain('LIMITED KNOWLEDGE');
+    expect(prompt).toContain('Do NOT invent or guess specific products');
   });
 
   it('injects English empty-RAG warning even when locale is "es"', () => {
@@ -173,8 +173,8 @@ describe('buildSystemPrompt', () => {
       ragContext: [],
       ragSearchAttempted: true,
     });
-    expect(prompt).toContain('NO KNOWLEDGE AVAILABLE');
-    expect(prompt).toContain('Do NOT describe, list, or claim');
+    expect(prompt).toContain('LIMITED KNOWLEDGE');
+    expect(prompt).toContain('Do NOT invent or guess specific products');
   });
 
   it('does NOT inject empty-RAG warning when search was skipped', () => {
@@ -183,7 +183,7 @@ describe('buildSystemPrompt', () => {
       ragContext: [],
       ragSearchAttempted: false,
     });
-    expect(prompt).not.toContain('NO KNOWLEDGE AVAILABLE');
+    expect(prompt).not.toContain('LIMITED KNOWLEDGE');
   });
 
   it('does NOT inject empty-RAG warning when ragSearchAttempted is undefined', () => {
@@ -191,7 +191,7 @@ describe('buildSystemPrompt', () => {
       ...baseCtx,
       ragContext: [],
     });
-    expect(prompt).not.toContain('NO KNOWLEDGE AVAILABLE');
+    expect(prompt).not.toContain('LIMITED KNOWLEDGE');
   });
 
   it('does NOT inject empty-RAG warning when proactive context has docs', () => {
@@ -201,7 +201,7 @@ describe('buildSystemPrompt', () => {
       proactiveContext: ['Some tangentially relevant info'],
       ragSearchAttempted: true,
     });
-    expect(prompt).not.toContain('NO KNOWLEDGE AVAILABLE');
+    expect(prompt).not.toContain('LIMITED KNOWLEDGE');
     expect(prompt).toContain('PROACTIVE CONTEXT');
   });
 
