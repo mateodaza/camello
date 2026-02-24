@@ -44,7 +44,10 @@ interface ChannelOverride {
 
 export function buildSystemPrompt(ctx: PromptContext): string {
   const { artifact, channel, ragContext, proactiveContext, learnings } = ctx;
-  const t = getTemplates(ctx.locale);
+  // Always use English templates for system prompt scaffolding — models
+  // comprehend English instructions most reliably. The LANGUAGE RULE
+  // instruction (injected right after safety) controls response language.
+  const t = getTemplates('en');
 
   // Resolve channel-specific overrides from artifact.config.channel_overrides
   const channelOverride = resolveChannelOverride(artifact.config, channel);
@@ -68,7 +71,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   if (artifactType && artifactType !== 'custom') {
     const archetypePrompt = ARCHETYPE_PROMPTS[artifactType as keyof typeof ARCHETYPE_PROMPTS];
     if (archetypePrompt) {
-      const framework = ctx.locale === 'es' ? archetypePrompt.es : archetypePrompt.en;
+      const framework = archetypePrompt.en;
       parts.push(t.archetypeFramework(framework));
     }
   }

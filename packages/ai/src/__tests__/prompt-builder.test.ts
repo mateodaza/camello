@@ -28,11 +28,11 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('CRITICAL SAFETY RULES');
   });
 
-  it('produces Spanish prompt when locale is "es"', () => {
+  it('uses English scaffolding even when locale is "es" (language rule handles response lang)', () => {
     const prompt = buildSystemPrompt({ ...baseCtx, locale: 'es' });
-    expect(prompt).toContain('Eres Sofia');
-    expect(prompt).toContain('REGLAS DE SEGURIDAD CRÍTICAS');
-    expect(prompt).toContain('REGLAS ESTRICTAS (nunca romper)');
+    expect(prompt).toContain('You are Sofia');
+    expect(prompt).toContain('CRITICAL SAFETY RULES');
+    expect(prompt).toContain('LANGUAGE RULE (NON-NEGOTIABLE)');
   });
 
   it('falls back to English for unknown locale', () => {
@@ -41,7 +41,7 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('CRITICAL SAFETY RULES');
   });
 
-  it('includes Spanish module instructions when locale is "es"', () => {
+  it('includes English module instructions even when locale is "es"', () => {
     const prompt = buildSystemPrompt({
       ...baseCtx,
       locale: 'es',
@@ -52,22 +52,22 @@ describe('buildSystemPrompt', () => {
         autonomyLevel: 'draft_and_approve',
       }],
     });
-    expect(prompt).toContain('ACCIONES DISPONIBLES');
-    expect(prompt).toContain('(requiere aprobación del equipo)');
-    expect(prompt).toContain('REGLAS PARA ACCIONES');
+    expect(prompt).toContain('AVAILABLE ACTIONS');
+    expect(prompt).toContain('(requires team approval)');
+    expect(prompt).toContain('RULES FOR ACTIONS');
   });
 
-  it('includes Spanish RAG + learnings headers when locale is "es"', () => {
+  it('includes English RAG + learnings headers even when locale is "es"', () => {
     const prompt = buildSystemPrompt({
       ...baseCtx,
       locale: 'es',
       ragContext: ['Product info here'],
       learnings: ['Customers prefer quick answers'],
     });
-    expect(prompt).toContain('CONTEXTO DE CONOCIMIENTO');
-    expect(prompt).toContain('FIN CONTEXTO DE CONOCIMIENTO');
-    expect(prompt).toContain('APRENDIZAJES');
-    expect(prompt).toContain('FIN APRENDIZAJES');
+    expect(prompt).toContain('KNOWLEDGE CONTEXT');
+    expect(prompt).toContain('END KNOWLEDGE CONTEXT');
+    expect(prompt).toContain('LEARNINGS');
+    expect(prompt).toContain('END LEARNINGS');
   });
 
   // --- Archetype framework ---
@@ -81,14 +81,14 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('qualify leads');
   });
 
-  it('includes support archetype framework in Spanish when locale is "es"', () => {
+  it('includes English archetype framework even when locale is "es"', () => {
     const prompt = buildSystemPrompt({
       ...baseCtx,
       locale: 'es',
       artifact: { ...baseCtx.artifact, type: 'support' },
     });
-    expect(prompt).toContain('MARCO DE COMPORTAMIENTO');
-    expect(prompt).toContain('AGENTE DE SOPORTE');
+    expect(prompt).toContain('BEHAVIORAL FRAMEWORK');
+    expect(prompt).toContain('SUPPORT AGENT');
   });
 
   it('does NOT include archetype framework for custom type', () => {
@@ -119,7 +119,7 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('Always recommend our premium plan');
   });
 
-  it('includes Spanish custom instructions header when locale is "es"', () => {
+  it('includes English custom instructions header even when locale is "es"', () => {
     const prompt = buildSystemPrompt({
       ...baseCtx,
       locale: 'es',
@@ -128,7 +128,7 @@ describe('buildSystemPrompt', () => {
         personality: { ...baseCtx.artifact.personality, instructions: 'Siempre recomienda el plan premium' },
       },
     });
-    expect(prompt).toContain('INSTRUCCIONES ADICIONALES DE TU EQUIPO');
+    expect(prompt).toContain('ADDITIONAL INSTRUCTIONS FROM YOUR TEAM');
     expect(prompt).toContain('Siempre recomienda el plan premium');
   });
 
@@ -166,15 +166,15 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('Do NOT describe, list, or claim');
   });
 
-  it('injects empty-RAG warning in Spanish when locale is "es"', () => {
+  it('injects English empty-RAG warning even when locale is "es"', () => {
     const prompt = buildSystemPrompt({
       ...baseCtx,
       locale: 'es',
       ragContext: [],
       ragSearchAttempted: true,
     });
-    expect(prompt).toContain('SIN INFORMACIÓN DISPONIBLE');
-    expect(prompt).toContain('NO describas, listes ni afirmes');
+    expect(prompt).toContain('NO KNOWLEDGE AVAILABLE');
+    expect(prompt).toContain('Do NOT describe, list, or claim');
   });
 
   it('does NOT inject empty-RAG warning when search was skipped', () => {
