@@ -88,7 +88,12 @@ function PersonalityDrawer({
   const p = artifact.personality ?? {};
   const [name, setName] = useState(artifact.name ?? '');
   const [instructions, setInstructions] = useState((p.instructions as string) ?? '');
-  const [greeting, setGreeting] = useState((p.greeting as string) ?? '');
+  // Dynamic greetings: stored as string | string[]. UI: one greeting per line.
+  const [greetingText, setGreetingText] = useState(() => {
+    const raw = p.greeting;
+    if (Array.isArray(raw)) return (raw as string[]).join('\n');
+    return (raw as string) ?? '';
+  });
   const initialTone = (p.tone as string) ?? '';
   const [tonePreset, setTonePreset] = useState(initialTone ? matchTonePreset(initialTone) : 'professional');
   const [toneCustom, setToneCustom] = useState(
@@ -106,7 +111,9 @@ function PersonalityDrawer({
     const np = artifact.personality ?? {};
     setName(artifact.name ?? '');
     setInstructions((np.instructions as string) ?? '');
-    setGreeting((np.greeting as string) ?? '');
+    // Dynamic greetings: string | string[] → multiline text
+    const rawG = np.greeting;
+    setGreetingText(Array.isArray(rawG) ? (rawG as string[]).join('\n') : ((rawG as string) ?? ''));
     const existingTone = (np.tone as string) ?? '';
     const preset = existingTone ? matchTonePreset(existingTone) : 'professional';
     setTonePreset(preset);
@@ -118,6 +125,12 @@ function PersonalityDrawer({
     const finalTone = tonePreset === 'other'
       ? toneCustom.trim()
       : (TONE_PRESETS.find((p) => p.key === tonePreset)?.en ?? '');
+    // Dynamic greetings: parse multiline → string | string[]
+    const greetingLines = greetingText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const greetingValue = greetingLines.length <= 1
+      ? (greetingLines[0] ?? '')   // single string (backward compat)
+      : greetingLines;              // array for random selection
+
     updateArtifact.mutate(
       {
         id: artifact.id,
@@ -125,7 +138,7 @@ function PersonalityDrawer({
         personality: {
           ...existing,
           instructions,
-          greeting,
+          greeting: greetingValue,
           tone: finalTone,
         },
       },
@@ -187,16 +200,17 @@ function PersonalityDrawer({
             <p className="mt-0.5 text-right text-xs text-dune">{instructions.length}/2000</p>
           </div>
 
-          {/* Greeting */}
+          {/* Greeting (one per line = random rotation) */}
           <div>
             <label className="mb-1 block text-xs font-medium text-charcoal">{t('greeting')}</label>
             <textarea
-              value={greeting}
-              onChange={(e) => setGreeting(e.target.value)}
+              value={greetingText}
+              onChange={(e) => setGreetingText(e.target.value)}
               placeholder={t('greetingPlaceholder')}
-              rows={2}
+              rows={3}
               className="w-full rounded-md border border-charcoal/15 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-teal"
             />
+            <p className="mt-0.5 text-xs text-dune">{t('greetingHint')}</p>
           </div>
 
           {/* Tone */}

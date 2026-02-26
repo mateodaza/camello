@@ -25,7 +25,7 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { messages, conversationId, isSending, send } = useChat(token, apiUrl);
+  const { messages, conversationId, isSending, error, inputDisabled, send } = useChat(token, apiUrl, language);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -34,7 +34,7 @@ export function ChatWindow({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || isSending) return;
+    if (!text || isSending || inputDisabled) return;
     setInput('');
     send(text, conversationId ?? undefined);
   };
@@ -147,6 +147,11 @@ export function ChatWindow({
             {t('chat.typing', language)}
           </div>
         )}
+        {error && (
+          <div style={{ fontSize: '13px', color: '#e53e3e', marginTop: '4px', textAlign: 'center' }}>
+            {error}
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -165,7 +170,7 @@ export function ChatWindow({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t('chat.placeholder', language)}
-          disabled={isSending}
+          disabled={isSending || inputDisabled}
           style={{
             flex: 1,
             padding: '8px 12px',
@@ -175,11 +180,12 @@ export function ChatWindow({
             color: textColor,
             fontSize: '14px',
             outline: 'none',
+            opacity: inputDisabled ? 0.5 : 1,
           }}
         />
         <button
           type="submit"
-          disabled={isSending || !input.trim()}
+          disabled={isSending || inputDisabled || !input.trim()}
           style={{
             padding: '8px 16px',
             borderRadius: '8px',
@@ -189,7 +195,7 @@ export function ChatWindow({
             cursor: isSending ? 'wait' : 'pointer',
             fontSize: '14px',
             fontWeight: 500,
-            opacity: isSending || !input.trim() ? 0.5 : 1,
+            opacity: isSending || inputDisabled || !input.trim() ? 0.5 : 1,
           }}
         >
           {t('chat.send', language)}

@@ -112,91 +112,112 @@ widgetRoutes.get('/info', async (c) => {
     return c.json({ error: 'Too many requests' }, 429);
   }
 
-  const tenant = await resolveTenantBySlug(slug);
-  if (!tenant) {
-    return c.json({ error: 'Unable to load chat' }, 400);
+  try {
+    const tenant = await resolveTenantBySlug(slug);
+    if (!tenant) {
+      return c.json({ error: 'Unable to load chat' }, 400);
+    }
+
+    const { name: tenantName, default_artifact_id: defaultArtifactId } = tenant;
+    const tenantDb = createTenantDb(tenant.id);
+
+    const artifact = await tenantDb.query(async (qdb) => {
+      const rows = await qdb
+        .select({ name: artifacts.name, personality: artifacts.personality })
+        .from(artifacts)
+        .where(eq(artifacts.id, defaultArtifactId))
+        .limit(1);
+      return rows[0];
+    });
+
+    if (!artifact) {
+      return c.json({ error: 'Unable to load chat' }, 400);
+    }
+
+    // Fetch tenant settings for profile data
+    const tenantInfo = await tenantDb.query(async (qdb) => {
+      const rows = await qdb
+        .select({ settings: tenants.settings })
+        .from(tenants)
+        .where(eq(tenants.id, tenant.id))
+        .limit(1);
+      return rows[0];
+    });
+
+    const personality = artifact.personality as Record<string, unknown> | null;
+
+    // Extract profile from tenant settings
+    const settings = tenantInfo?.settings as Record<string, unknown> | null;
+    const profile = (settings?.profile as Record<string, unknown>) ?? null;
+
+    // Resolve language: artifact personality > tenant preferredLocale > 'en'
+    const preferredLocale = typeof settings?.preferredLocale === 'string'
+      ? settings.preferredLocale as string
+      : 'en';
+    const language = typeof personality?.language === 'string' ? personality.language : preferredLocale;
+
+    // Dynamic greetings: support both string and string[] (random pick)
+    const rawGreeting = personality?.greeting;
+    let greeting = '';
+    if (typeof rawGreeting === 'string') {
+      greeting = rawGreeting;
+    } else if (Array.isArray(rawGreeting) && rawGreeting.length > 0) {
+      const validGreetings = rawGreeting.filter((g): g is string => typeof g === 'string' && g.length > 0);
+      greeting = validGreetings.length > 0
+        ? validGreetings[Math.floor(Math.random() * validGreetings.length)]
+        : '';
+    }
+
+    // Resolve quick actions from bound modules (runtime, not stored JSONB)
+    const boundModules = await tenantDb.query(async (qdb) =>
+      qdb.select({ moduleId: artifactModules.moduleId })
+        .from(artifactModules)
+        .where(eq(artifactModules.artifactId, defaultArtifactId)),
+    );
+
+    let quickActions: Array<{ label: string; message: string }> = [];
+
+    // GUARD: skip modules query if no bindings (support/custom = zero modules)
+    if (boundModules.length > 0) {
+      // modules table is global catalog (no RLS) — use global db with Drizzle inArray
+      const moduleRows = await db
+        .select({ slug: modules.slug })
+        .from(modules)
+        .where(inArray(modules.id, boundModules.map((m) => m.moduleId)));
+
+      // Deterministic order: sort slugs alphabetically so button order is stable
+      const slugs = moduleRows.map((r) => r.slug).sort();
+      quickActions = getQuickActionsForModules(slugs, language === 'es' ? 'es' : 'en');
+    }
+
+    // LEGACY FALLBACK: if no module-derived actions, check personality.quickActions.
+    // Covers artifacts created before auto-binding (#64). Remove after backfill.
+    if (quickActions.length === 0 && Array.isArray(personality?.quickActions)) {
+      quickActions = (personality.quickActions as Array<unknown>)
+        .slice(0, 4)
+        .filter((item): item is { label: string; message: string } => {
+          if (typeof item !== 'object' || item === null) return false;
+          const { label, message } = item as Record<string, unknown>;
+          return typeof label === 'string' && typeof message === 'string';
+        })
+        .map((item) => ({
+          label: item.label.slice(0, 40),
+          message: item.message.slice(0, 200),
+        }));
+    }
+
+    return c.json({
+      tenant_name: tenantName,
+      artifact_name: artifact.name,
+      greeting,
+      language,
+      profile,
+      quick_actions: quickActions,
+    });
+  } catch (err) {
+    console.error('[widget/info] Unexpected error:', err);
+    return c.json({ error: 'Internal server error' }, 500);
   }
-
-  const { name: tenantName, default_artifact_id: defaultArtifactId } = tenant;
-  const tenantDb = createTenantDb(tenant.id);
-
-  const artifact = await tenantDb.query(async (qdb) => {
-    const rows = await qdb
-      .select({ name: artifacts.name, personality: artifacts.personality })
-      .from(artifacts)
-      .where(eq(artifacts.id, defaultArtifactId))
-      .limit(1);
-    return rows[0];
-  });
-
-  if (!artifact) {
-    return c.json({ error: 'Unable to load chat' }, 400);
-  }
-
-  // Fetch tenant settings for profile data
-  const tenantInfo = await tenantDb.query(async (qdb) => {
-    const rows = await qdb
-      .select({ settings: tenants.settings })
-      .from(tenants)
-      .where(eq(tenants.id, tenant.id))
-      .limit(1);
-    return rows[0];
-  });
-
-  const personality = artifact.personality as Record<string, unknown> | null;
-  const language = typeof personality?.language === 'string' ? personality.language : 'en';
-  const greeting = typeof personality?.greeting === 'string' ? personality.greeting : '';
-
-  // Extract profile from tenant settings
-  const settings = tenantInfo?.settings as Record<string, unknown> | null;
-  const profile = (settings?.profile as Record<string, unknown>) ?? null;
-
-  // Resolve quick actions from bound modules (runtime, not stored JSONB)
-  const boundModules = await tenantDb.query(async (qdb) =>
-    qdb.select({ moduleId: artifactModules.moduleId })
-      .from(artifactModules)
-      .where(eq(artifactModules.artifactId, defaultArtifactId)),
-  );
-
-  let quickActions: Array<{ label: string; message: string }> = [];
-
-  // GUARD: skip modules query if no bindings (support/custom = zero modules)
-  if (boundModules.length > 0) {
-    // modules table is global catalog (no RLS) — use global db with Drizzle inArray
-    const moduleRows = await db
-      .select({ slug: modules.slug })
-      .from(modules)
-      .where(inArray(modules.id, boundModules.map((m) => m.moduleId)));
-
-    // Deterministic order: sort slugs alphabetically so button order is stable
-    const slugs = moduleRows.map((r) => r.slug).sort();
-    quickActions = getQuickActionsForModules(slugs, language === 'es' ? 'es' : 'en');
-  }
-
-  // LEGACY FALLBACK: if no module-derived actions, check personality.quickActions.
-  // Covers artifacts created before auto-binding (#64). Remove after backfill.
-  if (quickActions.length === 0 && Array.isArray(personality?.quickActions)) {
-    quickActions = (personality.quickActions as Array<unknown>)
-      .slice(0, 4)
-      .filter((item): item is { label: string; message: string } => {
-        if (typeof item !== 'object' || item === null) return false;
-        const { label, message } = item as Record<string, unknown>;
-        return typeof label === 'string' && typeof message === 'string';
-      })
-      .map((item) => ({
-        label: item.label.slice(0, 40),
-        message: item.message.slice(0, 200),
-      }));
-  }
-
-  return c.json({
-    tenant_name: tenantName,
-    artifact_name: artifact.name,
-    greeting,
-    language,
-    profile,
-    quick_actions: quickActions,
-  });
 });
 
 /**
@@ -211,7 +232,13 @@ widgetRoutes.get('/info', async (c) => {
  * - Generic error message for invalid slug / missing artifact (no enumeration)
  */
 widgetRoutes.post('/session', async (c) => {
-  const body = await c.req.json<{ tenant_slug?: string; visitor_fingerprint?: string }>();
+  let body: { tenant_slug?: string; visitor_fingerprint?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid request body' }, 400);
+  }
+
   const slug = body.tenant_slug?.trim();
   const fingerprint = body.visitor_fingerprint?.trim();
 
@@ -225,79 +252,102 @@ widgetRoutes.post('/session', async (c) => {
     return c.json({ error: 'Too many requests' }, 429);
   }
 
-  // Look up tenant by slug — SECURITY DEFINER RPC (bypasses RLS)
-  const tenant = await resolveTenantBySlug(slug);
+  try {
+    // Look up tenant by slug — SECURITY DEFINER RPC (bypasses RLS)
+    const tenant = await resolveTenantBySlug(slug);
 
-  // Generic error — don't reveal whether slug exists
-  if (!tenant) {
-    return c.json({ error: 'Unable to create session' }, 400);
+    // Generic error — don't reveal whether slug exists
+    if (!tenant) {
+      return c.json({ error: 'Unable to create session' }, 400);
+    }
+
+    const { id: tenantId, name: tenantName, default_artifact_id: defaultArtifactId } = tenant;
+    const tenantDb = createTenantDb(tenantId);
+
+    // Fetch artifact name + personality (within tenant context — RLS-safe)
+    const artifact = await tenantDb.query(async (qdb) => {
+      const rows = await qdb
+        .select({ name: artifacts.name, personality: artifacts.personality })
+        .from(artifacts)
+        .where(eq(artifacts.id, defaultArtifactId))
+        .limit(1);
+      return rows[0];
+    });
+
+    if (!artifact) {
+      return c.json({ error: 'Unable to create session' }, 400);
+    }
+
+    // Create deterministic visitor ID
+    const visitorId = makeVisitorId(slug, fingerprint);
+
+    // Find-or-create customer (upsert on tenant + channel + external_id)
+    const customerId = await tenantDb.query(async (qdb) => {
+      const rows = await qdb
+        .insert(customers)
+        .values({
+          tenantId,
+          channel: 'webchat',
+          externalId: visitorId,
+          name: visitorId,
+        })
+        .onConflictDoUpdate({
+          target: [customers.tenantId, customers.channel, customers.externalId],
+          set: { lastSeenAt: new Date() },
+        })
+        .returning({ id: customers.id });
+      return rows[0].id;
+    });
+
+    // Create signed JWT with all server-resolved IDs
+    const token = await createWidgetToken({
+      visitorId,
+      tenantId,
+      artifactId: defaultArtifactId,
+      customerId,
+    });
+
+    // Increment sessionInits counter (fire-and-forget, best-effort)
+    tenantDb.query(async (qdb) => {
+      await qdb.execute(sql`UPDATE tenants SET settings = jsonb_set(
+        COALESCE(settings, '{}'), '{sessionInits}',
+        to_jsonb(COALESCE(
+          CASE WHEN jsonb_typeof(settings->'sessionInits') = 'number'
+               THEN (settings->>'sessionInits')::int ELSE 0 END, 0
+        ) + 1)
+      ) WHERE id = ${tenantId}`);
+    }).catch((err) => {
+      console.error('[widget/session] sessionInits increment failed:', err);
+    });
+
+    // Resolve language: artifact personality > tenant preferredLocale > 'en'
+    const personalityLang = (artifact.personality as Record<string, unknown>)?.language;
+    let language: string;
+    if (typeof personalityLang === 'string') {
+      language = personalityLang;
+    } else {
+      const tenantInfo = await tenantDb.query(async (qdb) => {
+        const rows = await qdb
+          .select({ settings: tenants.settings })
+          .from(tenants)
+          .where(eq(tenants.id, tenantId))
+          .limit(1);
+        return rows[0];
+      });
+      const tenantSettings = tenantInfo?.settings as Record<string, unknown> | null;
+      language = typeof tenantSettings?.preferredLocale === 'string' ? tenantSettings.preferredLocale : 'en';
+    }
+
+    return c.json({
+      token,
+      tenant_name: tenantName,
+      artifact_name: artifact.name,
+      language,
+    });
+  } catch (err) {
+    console.error('[widget/session] Unexpected error:', err);
+    return c.json({ error: 'Internal server error' }, 500);
   }
-
-  const { id: tenantId, name: tenantName, default_artifact_id: defaultArtifactId } = tenant;
-  const tenantDb = createTenantDb(tenantId);
-
-  // Fetch artifact name + personality (within tenant context — RLS-safe)
-  const artifact = await tenantDb.query(async (qdb) => {
-    const rows = await qdb
-      .select({ name: artifacts.name, personality: artifacts.personality })
-      .from(artifacts)
-      .where(eq(artifacts.id, defaultArtifactId))
-      .limit(1);
-    return rows[0];
-  });
-
-  if (!artifact) {
-    return c.json({ error: 'Unable to create session' }, 400);
-  }
-
-  // Create deterministic visitor ID
-  const visitorId = makeVisitorId(slug, fingerprint);
-
-  // Find-or-create customer (upsert on tenant + channel + external_id)
-  const customerId = await tenantDb.query(async (qdb) => {
-    const rows = await qdb
-      .insert(customers)
-      .values({
-        tenantId,
-        channel: 'webchat',
-        externalId: visitorId,
-        name: visitorId,
-      })
-      .onConflictDoUpdate({
-        target: [customers.tenantId, customers.channel, customers.externalId],
-        set: { lastSeenAt: new Date() },
-      })
-      .returning({ id: customers.id });
-    return rows[0].id;
-  });
-
-  // Create signed JWT with all server-resolved IDs
-  const token = await createWidgetToken({
-    visitorId,
-    tenantId,
-    artifactId: defaultArtifactId,
-    customerId,
-  });
-
-  // Increment sessionInits counter (fire-and-forget, best-effort)
-  tenantDb.query(async (qdb) => {
-    await qdb.execute(sql`UPDATE tenants SET settings = jsonb_set(
-      COALESCE(settings, '{}'), '{sessionInits}',
-      to_jsonb(COALESCE(
-        CASE WHEN jsonb_typeof(settings->'sessionInits') = 'number'
-             THEN (settings->>'sessionInits')::int ELSE 0 END, 0
-      ) + 1)
-    ) WHERE id = ${tenantId}`);
-  }).catch(() => {});
-
-  const language = (artifact.personality as Record<string, unknown>)?.language;
-
-  return c.json({
-    token,
-    tenant_name: tenantName,
-    artifact_name: artifact.name,
-    language: typeof language === 'string' ? language : 'en',
-  });
 });
 
 /**
@@ -327,57 +377,68 @@ widgetRoutes.post('/message', async (c) => {
     return c.json({ error: 'Too many requests', error_code: 'RATE_LIMITED' }, 429);
   }
 
-  const body = await c.req.json<{ message?: string; conversation_id?: string }>();
+  let body: { message?: string; conversation_id?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid request body' }, 400);
+  }
+
   const messageText = body.message?.trim();
   if (!messageText || messageText.length > 4000) {
     return c.json({ error: 'Message required (1-4000 chars)' }, 400);
   }
 
-  const tenantDb = createTenantDb(claims.tenant_id);
+  try {
+    const tenantDb = createTenantDb(claims.tenant_id);
 
-  // Verify conversation ownership if client provides one
-  let existingConversationId: string | undefined;
-  if (body.conversation_id) {
-    const owned = await tenantDb.query(async (qdb) => {
-      const rows = await qdb
-        .select({ id: conversations.id })
-        .from(conversations)
-        .where(
-          and(
-            eq(conversations.id, body.conversation_id!),
-            eq(conversations.tenantId, claims.tenant_id),
-            eq(conversations.customerId, claims.customer_id),
-          ),
-        )
-        .limit(1);
-      return rows[0];
+    // Verify conversation ownership if client provides one
+    let existingConversationId: string | undefined;
+    if (body.conversation_id) {
+      const owned = await tenantDb.query(async (qdb) => {
+        const rows = await qdb
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.id, body.conversation_id!),
+              eq(conversations.tenantId, claims.tenant_id),
+              eq(conversations.customerId, claims.customer_id),
+            ),
+          )
+          .limit(1);
+        return rows[0];
+      });
+
+      if (!owned) {
+        return c.json({ error: 'Forbidden' }, 403);
+      }
+      existingConversationId = owned.id;
+    }
+
+    const result = await handleMessage({
+      tenantDb,
+      tenantId: claims.tenant_id,
+      channel: 'webchat',
+      customerId: claims.customer_id,
+      messageText,
+      existingConversationId,
     });
 
-    if (!owned) {
-      return c.json({ error: 'Forbidden' }, 403);
-    }
-    existingConversationId = owned.id;
+    return c.json({
+      conversation_id: result.conversationId,
+      response_text: result.responseText,
+      intent: result.intent,
+      model_used: result.modelUsed,
+      latency_ms: result.latencyMs,
+      budget_exceeded: result.budgetExceeded ?? false,
+      conversation_limit_reached: result.conversationLimitReached ?? false,
+      daily_limit_reached: result.dailyLimitReached ?? false,
+    });
+  } catch (err) {
+    console.error('[widget/message] Unexpected error:', err);
+    return c.json({ error: 'Internal server error' }, 500);
   }
-
-  const result = await handleMessage({
-    tenantDb,
-    tenantId: claims.tenant_id,
-    channel: 'webchat',
-    customerId: claims.customer_id,
-    messageText,
-    existingConversationId,
-  });
-
-  return c.json({
-    conversation_id: result.conversationId,
-    response_text: result.responseText,
-    intent: result.intent,
-    model_used: result.modelUsed,
-    latency_ms: result.latencyMs,
-    budget_exceeded: result.budgetExceeded ?? false,
-    conversation_limit_reached: result.conversationLimitReached ?? false,
-    daily_limit_reached: result.dailyLimitReached ?? false,
-  });
 });
 
 /**
@@ -401,53 +462,58 @@ widgetRoutes.get('/history', async (c) => {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
-  const tenantDb = createTenantDb(claims.tenant_id);
+  try {
+    const tenantDb = createTenantDb(claims.tenant_id);
 
-  // Find the visitor's most recent active conversation
-  const conversation = await tenantDb.query(async (qdb) => {
-    const rows = await qdb
-      .select({ id: conversations.id })
-      .from(conversations)
-      .where(
-        and(
-          eq(conversations.tenantId, claims.tenant_id),
-          eq(conversations.customerId, claims.customer_id),
-          eq(conversations.channel, 'webchat'),
-          eq(conversations.status, 'active'),
-        ),
-      )
-      .orderBy(desc(conversations.updatedAt))
-      .limit(1);
-    return rows[0];
-  });
+    // Find the visitor's most recent active conversation
+    const conversation = await tenantDb.query(async (qdb) => {
+      const rows = await qdb
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.tenantId, claims.tenant_id),
+            eq(conversations.customerId, claims.customer_id),
+            eq(conversations.channel, 'webchat'),
+            eq(conversations.status, 'active'),
+          ),
+        )
+        .orderBy(desc(conversations.updatedAt))
+        .limit(1);
+      return rows[0];
+    });
 
-  if (!conversation) {
-    return c.json({ messages: [], conversation_id: null });
+    if (!conversation) {
+      return c.json({ messages: [], conversation_id: null });
+    }
+
+    // Fetch last 50 messages
+    const history = await tenantDb.query(async (qdb) => {
+      return qdb
+        .select({
+          id: messages.id,
+          role: messages.role,
+          content: messages.content,
+          created_at: messages.createdAt,
+        })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conversation.id),
+            eq(messages.tenantId, claims.tenant_id),
+            sql`${messages.role} IN ('customer', 'artifact', 'human')`,
+          ),
+        )
+        .orderBy(desc(messages.createdAt))
+        .limit(50);
+    });
+
+    return c.json({
+      conversation_id: conversation.id,
+      messages: history.reverse(), // chronological order
+    });
+  } catch (err) {
+    console.error('[widget/history] Unexpected error:', err);
+    return c.json({ error: 'Internal server error' }, 500);
   }
-
-  // Fetch last 50 messages
-  const history = await tenantDb.query(async (qdb) => {
-    return qdb
-      .select({
-        id: messages.id,
-        role: messages.role,
-        content: messages.content,
-        created_at: messages.createdAt,
-      })
-      .from(messages)
-      .where(
-        and(
-          eq(messages.conversationId, conversation.id),
-          eq(messages.tenantId, claims.tenant_id),
-          sql`${messages.role} IN ('customer', 'artifact', 'human')`,
-        ),
-      )
-      .orderBy(desc(messages.createdAt))
-      .limit(50);
-  });
-
-  return c.json({
-    conversation_id: conversation.id,
-    messages: history.reverse(), // chronological order
-  });
 });

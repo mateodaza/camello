@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { tenants } from '@camello/db';
 import { eq, sql } from 'drizzle-orm';
@@ -12,6 +13,7 @@ import { analyticsRouter } from './analytics.js';
 import { chatRouter } from './chat.js';
 import { onboardingRouter } from './onboarding.js';
 import { billingRouter } from './billing.js';
+import { uploadAvatar } from '../lib/supabase-storage.js';
 
 export const tenantRouter = router({
   /** Get current tenant info. Requires auth + tenant context. */
@@ -80,6 +82,59 @@ export const tenantRouter = router({
           .where(eq(tenants.id, ctx.tenantId));
       });
       return merged;
+    }),
+
+  /** Upload avatar image to Supabase Storage and update profile. */
+  uploadAvatar: tenantProcedure
+    .input(z.object({
+      /** Base64-encoded file content (no data URI prefix) */
+      base64: z.string().min(1).max(4_000_000), // ~3 MB base64 ≈ 2 MB binary
+      contentType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      let publicUrl: string;
+      try {
+        publicUrl = await uploadAvatar(ctx.tenantId, input.base64, input.contentType);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Avatar upload failed';
+        const isValidation = msg.includes('Unsupported content type') || msg.includes('File too large');
+        throw new TRPCError({
+          code: isValidation ? 'BAD_REQUEST' : 'INTERNAL_SERVER_ERROR',
+          message: isValidation ? msg : 'Avatar upload failed',
+        });
+      }
+
+      // Update profile.avatarUrl in tenant settings
+      const existing = await ctx.tenantDb.query(async (db) => {
+        const rows = await db.select({ settings: tenants.settings }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1);
+        return rows[0]?.settings as Record<string, unknown> | null;
+      });
+      const existingProfile = (existing?.profile as Record<string, unknown>) ?? {};
+      const merged = { ...existingProfile, avatarUrl: publicUrl };
+
+      await ctx.tenantDb.query(async (db) => {
+        await db.update(tenants)
+          .set({ settings: sql`jsonb_set(COALESCE(settings, '{}'), '{profile}', ${JSON.stringify(merged)}::jsonb)` })
+          .where(eq(tenants.id, ctx.tenantId));
+      });
+
+      return { avatarUrl: publicUrl };
+    }),
+
+  /** Session analytics: conversations grouped by day for the last 30 days. */
+  sessionAnalytics: tenantProcedure
+    .query(async ({ ctx }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db.execute(
+          sql`SELECT date_trunc('day', created_at)::date AS day, count(*)::int AS count
+              FROM conversations
+              WHERE tenant_id = ${ctx.tenantId}
+                AND created_at >= now() - interval '30 days'
+              GROUP BY 1
+              ORDER BY 1`,
+        );
+        return (rows.rows as Array<{ day: string; count: number }>);
+      });
     }),
 });
 

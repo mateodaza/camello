@@ -8,6 +8,11 @@ const messages = {
     'chat.open': 'Open chat',
     'chat.error.session': 'Failed to create session',
     'chat.error.unknown': 'Unknown error',
+    'chat.error.send': 'Failed to send. Try again.',
+    'chat.error.rateLimit': 'Slow down — please wait a moment before sending another message.',
+    'chat.error.budgetExceeded': 'This agent has reached its usage limit. Please try again later.',
+    'chat.error.conversationLimit': 'This conversation has reached its message limit. Please start a new conversation.',
+    'chat.error.dailyLimit': 'You have reached your daily message limit. Please try again tomorrow.',
     'chat.poweredBy': 'Powered by Camello',
   },
   es: {
@@ -19,6 +24,11 @@ const messages = {
     'chat.open': 'Abrir chat',
     'chat.error.session': 'No se pudo crear la sesión',
     'chat.error.unknown': 'Error desconocido',
+    'chat.error.send': 'No se pudo enviar. Inténtalo de nuevo.',
+    'chat.error.rateLimit': 'Más despacio — espera un momento antes de enviar otro mensaje.',
+    'chat.error.budgetExceeded': 'Este agente alcanzó su límite de uso. Inténtalo más tarde.',
+    'chat.error.conversationLimit': 'Esta conversación alcanzó su límite de mensajes. Inicia una nueva conversación.',
+    'chat.error.dailyLimit': 'Alcanzaste tu límite diario de mensajes. Inténtalo mañana.',
     'chat.poweredBy': 'Impulsado por Camello',
   },
 } as const;

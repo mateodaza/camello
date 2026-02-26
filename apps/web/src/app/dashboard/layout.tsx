@@ -26,8 +26,16 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
     : false;
 
   useEffect(() => {
-    if (tenant.isError && tenant.error.data?.code === 'FORBIDDEN') {
-      router.replace('/onboarding');
+    if (tenant.isError) {
+      const errorCode = tenant.error.data?.code;
+      if (errorCode === 'UNAUTHORIZED') {
+        router.replace('/sign-in');
+        return;
+      }
+      if (errorCode === 'FORBIDDEN') {
+        router.replace('/onboarding');
+        return;
+      }
     }
     if (tenant.data && !isOnboarded) {
       router.replace('/onboarding');
@@ -43,10 +51,12 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   }
 
   if (tenant.isError) {
-    if (tenant.error.data?.code === 'FORBIDDEN') return null;
+    const errorCode = tenant.error.data?.code;
+    // Auth errors: show nothing while redirect happens
+    if (errorCode === 'UNAUTHORIZED' || errorCode === 'FORBIDDEN') return null;
     return (
       <div className="flex h-dvh items-center justify-center p-6">
-        <QueryError error={tenant.error} />
+        <QueryError error={tenant.error} onRetry={() => tenant.refetch()} />
       </div>
     );
   }
