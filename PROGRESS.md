@@ -97,7 +97,7 @@
 | 41 | Clerk production instance | P2 | Deferred — closed beta uses dev keys. Swap when ready for public launch. |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
 | ~~44~~ | ~~Error handling polish~~ | ~~P2~~ | ~~DONE — Widget route JSON parse guards + try/catch, bilingual error UX (budget/rate-limit/auth), QueryError 6-code switch, dashboard error boundary, locale fallback to tenant preferredLocale~~ |
-| 66 | Mobile-responsive dashboard | P1 | ~8hrs. Responsive sidebar (hamburger on mobile), touch-friendly tables/cards, viewport meta. "Manage from pocket" — simplest admin-on-the-go solution, no new infrastructure. |
+| ~~66~~ | ~~Mobile-responsive dashboard~~ | ~~P1~~ | ~~DONE — Already implemented: sidebar `hidden md:flex` + mobile header with hamburger + slide-over overlay, all grids `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`, all flex rows `flex-col sm:flex-row`, `h-dvh` layout. Covers all dashboard pages.~~ |
 
 ### Post-Launch — Innovation Roadmap (Spec Section 20)
 
