@@ -376,7 +376,12 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   const moduleDbCallbacks: ModuleDbCallbacks = {
     insertLead: async (data) => {
       return tenantDb.query(async (db) => {
-        const [row] = await db.insert(leads).values(data).returning({ id: leads.id });
+        // Drizzle numeric columns expect string values (precision-safe)
+        const { estimatedValue, ...rest } = data;
+        const [row] = await db.insert(leads).values({
+          ...rest,
+          estimatedValue: estimatedValue != null ? String(estimatedValue) : null,
+        }).returning({ id: leads.id });
         return row.id;
       });
     },
@@ -392,6 +397,14 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           .update(moduleExecutions)
           .set(data)
           .where(eq(moduleExecutions.id, id));
+      });
+    },
+    updateConversationStatus: async (convId, status) => {
+      await tenantDb.query(async (db) => {
+        await db
+          .update(conversations)
+          .set({ status, updatedAt: new Date() })
+          .where(and(eq(conversations.id, convId), eq(conversations.tenantId, tenantId)));
       });
     },
   };
@@ -440,6 +453,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       tenantId,
       embed,
       matchKnowledge,
+      archetypeType: artifact.type as import('@camello/shared/types').ArtifactType,
     }),
   );
 

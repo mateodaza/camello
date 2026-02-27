@@ -4,9 +4,10 @@ import {
   RAG_CONFIG,
   TOKEN_BUDGET,
 } from '@camello/shared/constants';
-import type { Intent, MatchKnowledgeRow, RagChunk, RagResult } from '@camello/shared/types';
+import type { ArtifactType, Intent, MatchKnowledgeRow, RagChunk, RagResult } from '@camello/shared/types';
 import { estimateTokens } from './chunker.js';
 import { classifyChunkRole } from './chunk-roles.js';
+import { getArchetype } from './archetype-registry.js';
 
 // ---------------------------------------------------------------------------
 // Types for dependency injection (no @camello/db import needed)
@@ -35,6 +36,7 @@ export interface RagSearchInput {
   tenantId: string;
   embed: EmbedFn;
   matchKnowledge: MatchKnowledgeFn;
+  archetypeType?: ArtifactType;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +92,15 @@ export async function searchKnowledge(input: RagSearchInput): Promise<RagResult>
   const embeddedPrimary = normalizeResults(primaryResults);
   const embeddedProactive = normalizeResults(uniqueProactive);
 
+  // 5b. Archetype RAG bias: boost scores for doc types matching the archetype
+  if (input.archetypeType) {
+    const archetype = getArchetype(input.archetypeType);
+    if (archetype?.ragBias) {
+      applyArchetypeBias(embeddedPrimary, archetype.ragBias.docTypes, archetype.ragBias.boost);
+      applyArchetypeBias(embeddedProactive, archetype.ragBias.docTypes, archetype.ragBias.boost);
+    }
+  }
+
   // 6. MMR diversification on primary results
   const diversePrimary = applyMMR(embeddedPrimary);
 
@@ -122,6 +133,23 @@ function parseEmbedding(raw: unknown): number[] {
     try { return JSON.parse(raw); } catch { return []; }
   }
   return [];
+}
+
+// ---------------------------------------------------------------------------
+// Archetype bias
+// ---------------------------------------------------------------------------
+
+/** Boost rrf_score for docs whose doc_type matches the archetype's preferred types. */
+function applyArchetypeBias(docs: MatchKnowledgeRow[], biasDocTypes: string[], boost: number): void {
+  const biasSet = new Set(biasDocTypes);
+  for (const doc of docs) {
+    const docType = (doc.metadata?.doc_type as string) ?? '';
+    if (biasSet.has(docType)) {
+      doc.rrf_score += boost;
+    }
+  }
+  // Re-sort by boosted rrf_score (descending) so MMR seeds with the best candidate
+  docs.sort((a, b) => b.rrf_score - a.rrf_score);
 }
 
 // ---------------------------------------------------------------------------

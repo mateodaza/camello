@@ -28,6 +28,7 @@ function mockDbCallbacks(): ModuleDbCallbacks {
     insertLead: vi.fn().mockResolvedValue('lead-001'),
     insertModuleExecution: vi.fn().mockResolvedValue('exec-001'),
     updateModuleExecution: vi.fn().mockResolvedValue(undefined),
+    updateConversationStatus: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -58,6 +59,7 @@ function makeTestModule(slug: string, overrides?: Partial<ModuleDefinition>): Mo
     name: slug.replace(/_/g, ' '),
     description: `Test module: ${slug}`,
     category: 'sales',
+    riskTier: 'low',
     inputSchema: anySchema,
     outputSchema: anySchema,
     execute: vi.fn().mockResolvedValue({ result: 'ok' }),
@@ -93,6 +95,7 @@ function makeCtx(dbOverrides?: Partial<ModuleDbCallbacks>): ModuleExecutionConte
       insertLead: vi.fn().mockResolvedValue('lead-001'),
       insertModuleExecution: vi.fn().mockResolvedValue('exec-001'),
       updateModuleExecution: vi.fn().mockResolvedValue(undefined),
+      updateConversationStatus: vi.fn().mockResolvedValue(undefined),
       ...dbOverrides,
     },
   };
@@ -158,7 +161,7 @@ describe('qualify_lead scoring', () => {
       { budget: '$10k', timeline: 'immediate', needs: ['crm'], conversation_summary: 'test' },
       ctx,
     );
-    expect(result).toEqual({ score: 'hot', tags: ['crm'], next_action: 'offer_meeting' });
+    expect(result).toEqual({ score: 'hot', tags: ['crm'], next_action: 'offer_meeting', stage: 'proposal', estimated_value: null });
   });
 
   it('scores WARM when budget but no immediate timeline', async () => {
@@ -167,7 +170,7 @@ describe('qualify_lead scoring', () => {
       { budget: '$5k', timeline: '1-3months', needs: [], conversation_summary: 'test' },
       ctx,
     );
-    expect(result).toEqual({ score: 'warm', tags: [], next_action: 'continue_qualifying' });
+    expect(result).toEqual({ score: 'warm', tags: [], next_action: 'continue_qualifying', stage: 'qualifying', estimated_value: null });
   });
 
   it('scores WARM when timeline but no budget', async () => {
@@ -176,7 +179,7 @@ describe('qualify_lead scoring', () => {
       { timeline: 'immediate', needs: ['support'], conversation_summary: 'test' },
       ctx,
     );
-    expect(result).toEqual({ score: 'warm', tags: ['support'], next_action: 'continue_qualifying' });
+    expect(result).toEqual({ score: 'warm', tags: ['support'], next_action: 'continue_qualifying', stage: 'qualifying', estimated_value: null });
   });
 
   it('scores COLD when neither budget nor timeline', async () => {
@@ -185,7 +188,7 @@ describe('qualify_lead scoring', () => {
       { needs: [], conversation_summary: 'just browsing' },
       ctx,
     );
-    expect(result).toEqual({ score: 'cold', tags: [], next_action: 'continue_conversation' });
+    expect(result).toEqual({ score: 'cold', tags: [], next_action: 'continue_conversation', stage: 'new', estimated_value: null });
   });
 
   it('calls insertLead callback', async () => {
@@ -206,6 +209,8 @@ describe('qualify_lead scoring', () => {
       budget: '$10k',
       timeline: 'immediate',
       summary: 'hot lead',
+      stage: 'proposal',
+      estimatedValue: null,
     });
   });
 });
@@ -214,8 +219,8 @@ describe('qualify_lead scoring', () => {
 // book_meeting stub tests
 // ---------------------------------------------------------------------------
 
-describe('book_meeting stub', () => {
-  it('returns booked=false (MVP stub)', async () => {
+describe('book_meeting', () => {
+  it('returns booked=false when no calendarUrl configured', async () => {
     const ctx = makeCtx();
     const result = await bookMeetingDef.execute(
       { preferred_date: '2026-03-01', topic: 'demo', duration_minutes: 30 },
@@ -224,21 +229,33 @@ describe('book_meeting stub', () => {
     expect(result.booked).toBe(false);
     expect(result.datetime).toBe('2026-03-01');
   });
+
+  it('returns booked=true with calendar link when calendarUrl configured', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = { calendarUrl: 'https://calendly.com/test' };
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as { booked: boolean; calendar_link: string };
+    expect(result.booked).toBe(true);
+    expect(result.calendar_link).toBe('https://calendly.com/test');
+  });
 });
 
 // ---------------------------------------------------------------------------
 // send_followup stub tests
 // ---------------------------------------------------------------------------
 
-describe('send_followup stub', () => {
-  it('returns sent=false (MVP stub)', async () => {
+describe('send_followup', () => {
+  it('queues follow-up with scheduled_at 24h from now', async () => {
     const ctx = makeCtx();
     const result = await sendFollowupDef.execute(
       { message_template: 'gentle_reminder' },
       ctx,
-    ) as { sent: boolean; followup_number: number };
-    expect(result.sent).toBe(false);
+    ) as { followup_status: string; followup_number: number; scheduled_at: string };
+    expect(result.followup_status).toBe('queued');
     expect(result.followup_number).toBe(1);
+    expect(new Date(result.scheduled_at).getTime()).toBeGreaterThan(Date.now());
   });
 });
 

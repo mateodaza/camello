@@ -39,10 +39,16 @@ export const qualifyLeadInputSchema = z.object({
   conversation_summary: z.string().describe('Brief summary of conversation so far'),
 });
 
+export const leadStageSchema = z.enum([
+  'new', 'qualifying', 'proposal', 'negotiation', 'closed_won', 'closed_lost',
+]);
+
 export const qualifyLeadOutputSchema = z.object({
   score: z.enum(['hot', 'warm', 'cold']),
   tags: z.array(z.string()),
   next_action: z.string(),
+  stage: leadStageSchema,
+  estimated_value: z.number().nullable(),
 });
 
 export const bookMeetingInputSchema = z.object({
@@ -65,7 +71,115 @@ export const sendFollowupInputSchema = z.object({
 });
 
 export const sendFollowupOutputSchema = z.object({
-  sent: z.boolean(),
+  followup_status: z.enum(['queued', 'processed', 'sent', 'failed']),
+  scheduled_at: z.string().describe('ISO date for when to send the follow-up'),
   channel: z.string(),
   followup_number: z.number(),
+});
+
+// === Collect Payment ===
+
+export const collectPaymentInputSchema = z.object({
+  amount: z.string().describe('Payment amount (e.g. "99.99")'),
+  description: z.string().describe('What the payment is for'),
+  currency: z.string().default('USD').describe('ISO 4217 currency code'),
+});
+
+export const collectPaymentOutputSchema = z.object({
+  payment_url: z.string().nullable(),
+  amount: z.string(),
+  description: z.string(),
+  currency: z.string(),
+  status: z.enum(['link_provided', 'manual_required']),
+});
+
+// === Send Quote ===
+
+export const sendQuoteLineItemSchema = z.object({
+  description: z.string(),
+  quantity: z.number().min(1),
+  unit_price: z.number().min(0),
+});
+
+export const sendQuoteInputSchema = z.object({
+  items: z.array(sendQuoteLineItemSchema).min(1).describe('Quote line items'),
+  currency: z.string().default('USD'),
+  valid_days: z.number().default(30).describe('Days until quote expires'),
+});
+
+export const sendQuoteOutputSchema = z.object({
+  quote_id: z.string(),
+  items: z.array(sendQuoteLineItemSchema),
+  total: z.string(),
+  currency: z.string(),
+  valid_until: z.string(),
+  status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'expired']),
+});
+
+// === Create Ticket ===
+
+export const ticketPrioritySchema = z.enum(['low', 'medium', 'high', 'urgent']);
+
+export const createTicketInputSchema = z.object({
+  subject: z.string().describe('Short ticket subject'),
+  description: z.string().describe('Detailed description of the issue'),
+  priority: ticketPrioritySchema.default('medium'),
+  category: z.string().optional().describe('Issue category (e.g. billing, technical, general)'),
+});
+
+export const createTicketOutputSchema = z.object({
+  ticket_id: z.string(),
+  subject: z.string(),
+  priority: ticketPrioritySchema,
+  category: z.string().nullable(),
+  status: z.enum(['open', 'in_progress', 'waiting', 'closed']),
+});
+
+// === Escalate to Human ===
+
+export const escalateToHumanInputSchema = z.object({
+  reason: z.string().describe('Why the conversation needs human attention'),
+  urgency: z.enum(['low', 'medium', 'high']).default('medium'),
+  summary: z.string().describe('Brief summary of the conversation and issue'),
+});
+
+export const escalateToHumanOutputSchema = z.object({
+  escalated: z.boolean(),
+  conversation_status: z.enum(['active', 'resolved', 'escalated']),
+  reason: z.string(),
+  urgency: z.string(),
+});
+
+// === Capture Interest ===
+
+export const interestLevelSchema = z.enum(['browsing', 'considering', 'ready_to_buy']);
+
+export const captureInterestInputSchema = z.object({
+  product_or_topic: z.string().describe('Product or topic the customer is interested in'),
+  interest_level: interestLevelSchema,
+  contact_info: z.string().optional().describe('Email or phone if volunteered'),
+});
+
+export const captureInterestOutputSchema = z.object({
+  logged: z.boolean(),
+  product_or_topic: z.string(),
+  interest_level: interestLevelSchema,
+  follow_up_recommended: z.boolean(),
+});
+
+// === Draft Content ===
+
+export const contentTypeSchema = z.enum(['social_post', 'email', 'announcement']);
+
+export const draftContentInputSchema = z.object({
+  content_type: contentTypeSchema,
+  topic: z.string().describe('Topic or subject of the content'),
+  key_points: z.array(z.string()).optional().describe('Key points to cover'),
+});
+
+export const draftContentOutputSchema = z.object({
+  draft_text: z.string(),
+  content_type: contentTypeSchema,
+  topic: z.string(),
+  status: z.enum(['draft', 'approved', 'published']),
 });

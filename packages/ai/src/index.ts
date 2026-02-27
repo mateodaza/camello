@@ -10,7 +10,7 @@ export { createArtifactResolver } from './artifact-resolver.js';
 export { processRejection, applyConfidenceDecay } from './feedback-loop.js';
 
 // Module executor system
-export { getModule, getQuickActionsForModules } from './module-registry.js';
+export { getModule, getQuickActionsForModules, type RiskTier } from './module-registry.js';
 export { buildToolsFromBindings } from './tool-adapter.js';
 
 // Grounding check (post-generation hallucination prevention)
@@ -32,12 +32,25 @@ export {
   MAX_FACT_VALUE_LENGTH,
 } from './memory-extractor.js';
 
-// Archetype differentiation
+// Archetype registry (single-source-of-truth for per-type definitions)
+export {
+  getArchetype,
+  getAllArchetypes,
+  registerArchetype,
+  type ArchetypeDefinition,
+  type ArchetypeRagBias,
+  type LocalizedText,
+} from './archetype-registry.js';
+
+// Backward-compatible archetype maps (computed from registry)
 export {
   ARCHETYPE_PROMPTS,
   ARCHETYPE_DEFAULT_TONES,
   ARCHETYPE_MODULE_SLUGS,
 } from './archetype-prompts.js';
 
-// Side-effect: registers built-in modules (qualify_lead, book_meeting, send_followup)
+// Side-effect: registers archetypes (sales, support, marketing, custom)
+import './archetypes/index.js';
+
+// Side-effect: registers built-in modules
 import './modules/index.js';

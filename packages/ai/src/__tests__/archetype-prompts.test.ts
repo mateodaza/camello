@@ -52,16 +52,16 @@ describe('ARCHETYPE_DEFAULT_TONES', () => {
 });
 
 describe('ARCHETYPE_MODULE_SLUGS', () => {
-  it('sales binds qualify_lead and book_meeting', () => {
-    expect(ARCHETYPE_MODULE_SLUGS.sales).toEqual(['qualify_lead', 'book_meeting']);
+  it('sales binds qualify_lead, book_meeting, collect_payment, send_quote', () => {
+    expect(ARCHETYPE_MODULE_SLUGS.sales).toEqual(['qualify_lead', 'book_meeting', 'collect_payment', 'send_quote']);
   });
 
-  it('support binds no modules', () => {
-    expect(ARCHETYPE_MODULE_SLUGS.support).toEqual([]);
+  it('support binds create_ticket and escalate_to_human', () => {
+    expect(ARCHETYPE_MODULE_SLUGS.support).toEqual(['create_ticket', 'escalate_to_human']);
   });
 
-  it('marketing binds send_followup', () => {
-    expect(ARCHETYPE_MODULE_SLUGS.marketing).toEqual(['send_followup']);
+  it('marketing binds send_followup, capture_interest, draft_content', () => {
+    expect(ARCHETYPE_MODULE_SLUGS.marketing).toEqual(['send_followup', 'capture_interest', 'draft_content']);
   });
 
   it('custom binds no modules', () => {

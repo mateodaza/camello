@@ -112,9 +112,12 @@ export interface ModuleDbCallbacks {
     budget?: string;
     timeline?: string;
     summary?: string;
+    stage?: string;
+    estimatedValue?: number | null;
   }) => Promise<string>;
   insertModuleExecution: (data: {
     moduleId: string;
+    moduleSlug: string;
     artifactId: string;
     tenantId: string;
     conversationId: string;
@@ -129,6 +132,7 @@ export interface ModuleDbCallbacks {
     executedAt?: Date;
     durationMs?: number;
   }) => Promise<void>;
+  updateConversationStatus: (conversationId: string, status: ConversationStatus) => Promise<void>;
 }
 
 /** Artifact module binding: the JOIN row from artifact_modules + modules. */

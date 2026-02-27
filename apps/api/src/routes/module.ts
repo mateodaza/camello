@@ -126,6 +126,7 @@ export const moduleRouter = router({
           insertLead: async () => '',
           insertModuleExecution: async () => '',
           updateModuleExecution: async () => {},
+          updateConversationStatus: async () => {},
         },
       };
 

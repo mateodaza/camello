@@ -189,7 +189,7 @@ export const artifactRouter = router({
           .values({ ...input, tenantId: ctx.tenantId })
           .onConflictDoUpdate({
             target: [artifactModules.artifactId, artifactModules.moduleId],
-            set: { autonomyLevel: input.autonomyLevel, configOverrides: input.configOverrides },
+            set: { autonomyLevel: input.autonomyLevel, configOverrides: input.configOverrides, autonomySource: 'manual' },
           })
           .returning();
         return rows[0];

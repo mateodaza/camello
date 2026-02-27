@@ -41,6 +41,7 @@ export const messages = pgTable('messages', {
 export const moduleExecutions = pgTable('module_executions', {
   id: uuid('id').primaryKey().defaultRandom(),
   moduleId: uuid('module_id').notNull().references(() => modules.id),
+  moduleSlug: text('module_slug').notNull(),
   artifactId: uuid('artifact_id').notNull().references(() => artifacts.id),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   conversationId: uuid('conversation_id').notNull().references(() => conversations.id),
@@ -53,6 +54,7 @@ export const moduleExecutions = pgTable('module_executions', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
   index('idx_module_executions_pending').on(table.tenantId, table.status),
+  index('idx_module_executions_slug').on(table.tenantId, table.moduleSlug, table.status, table.createdAt),
   check('module_executions_status_values', sql`status IN ('pending', 'approved', 'rejected', 'executed', 'failed')`),
 ]);
 
@@ -62,6 +64,8 @@ export const leads = pgTable('leads', {
   customerId: uuid('customer_id').notNull().references(() => customers.id),
   conversationId: uuid('conversation_id').references(() => conversations.id),
   score: text('score').notNull(),
+  stage: text('stage').notNull().default('new'),
+  estimatedValue: numeric('estimated_value', { precision: 12, scale: 2 }),
   tags: text('tags').array().notNull().default([]),
   budget: text('budget'),
   timeline: text('timeline'),
@@ -72,5 +76,7 @@ export const leads = pgTable('leads', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
   index('idx_leads_tenant_score').on(table.tenantId, table.score, table.createdAt),
+  index('idx_leads_tenant_stage').on(table.tenantId, table.stage, table.score, table.createdAt),
   check('leads_score_values', sql`score IN ('hot', 'warm', 'cold')`),
+  check('leads_stage_values', sql`stage IN ('new', 'qualifying', 'proposal', 'negotiation', 'closed_won', 'closed_lost')`),
 ]);

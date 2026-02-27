@@ -28,7 +28,9 @@ export const artifactModules = pgTable('artifact_modules', {
   moduleId: uuid('module_id').notNull().references(() => modules.id, { onDelete: 'restrict' }),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   autonomyLevel: autonomyLevelEnum('autonomy_level').notNull().default('draft_and_approve'),
+  autonomySource: text('autonomy_source').notNull().default('default'),
   configOverrides: jsonb('config_overrides').notNull().default({}),
 }, (table) => [
   uniqueIndex('artifact_modules_artifact_module_idx').on(table.artifactId, table.moduleId),
+  check('artifact_modules_autonomy_source_values', sql`autonomy_source IN ('default', 'manual')`),
 ]);

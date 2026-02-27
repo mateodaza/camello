@@ -6,11 +6,15 @@ import type { ModuleCategory, ModuleExecutionContext } from '@camello/shared/typ
 // Zod runtime schemas. Shared types stay type-only.
 // ---------------------------------------------------------------------------
 
+export type RiskTier = 'low' | 'medium' | 'high';
+
 export interface ModuleDefinition<TInput = unknown, TOutput = unknown> {
   slug: string;
   name: string;
   description: string;
   category: ModuleCategory;
+  /** Determines default autonomy at bind time: low/medium → fully_autonomous, high → draft_and_approve */
+  riskTier: RiskTier;
   inputSchema: z.ZodType<TInput, z.ZodTypeDef, unknown>;
   outputSchema: z.ZodType<TOutput, z.ZodTypeDef, unknown>;
   execute: (input: TInput, ctx: ModuleExecutionContext) => Promise<TOutput>;

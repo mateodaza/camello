@@ -81,6 +81,7 @@ async function executeModuleTool(
   if (binding.autonomyLevel === 'suggest_only') {
     const executionId = await deps.db.insertModuleExecution({
       moduleId: binding.moduleId,
+      moduleSlug: binding.moduleSlug,
       artifactId: deps.artifactId,
       tenantId: deps.tenantId,
       conversationId: deps.conversationId,
@@ -97,6 +98,7 @@ async function executeModuleTool(
   if (binding.autonomyLevel === 'draft_and_approve') {
     const executionId = await deps.db.insertModuleExecution({
       moduleId: binding.moduleId,
+      moduleSlug: binding.moduleSlug,
       artifactId: deps.artifactId,
       tenantId: deps.tenantId,
       conversationId: deps.conversationId,
@@ -130,6 +132,7 @@ async function executeModuleTool(
 
     await deps.db.insertModuleExecution({
       moduleId: binding.moduleId,
+      moduleSlug: binding.moduleSlug,
       artifactId: deps.artifactId,
       tenantId: deps.tenantId,
       conversationId: deps.conversationId,
@@ -146,6 +149,7 @@ async function executeModuleTool(
 
     await deps.db.insertModuleExecution({
       moduleId: binding.moduleId,
+      moduleSlug: binding.moduleSlug,
       artifactId: deps.artifactId,
       tenantId: deps.tenantId,
       conversationId: deps.conversationId,

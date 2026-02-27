@@ -13,6 +13,7 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
     'Score and tag a lead based on conversation signals (budget, timeline, needs). ' +
     'Call this when you identify buying signals or the customer shares qualification info.',
   category: 'sales',
+  riskTier: 'low',
   quickAction: {
     en: { label: 'Tell me what you need', message: 'I need help choosing the right option for me' },
     es: { label: 'Cuéntanos qué necesitas', message: 'Necesito ayuda para elegir la mejor opción' },
@@ -33,6 +34,15 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
         : score === 'warm' ? 'continue_qualifying'
         : 'continue_conversation';
 
+    // Stage derived from score
+    const stage =
+      score === 'hot' ? 'proposal' as const
+        : score === 'warm' ? 'qualifying' as const
+        : 'new' as const;
+
+    // Estimated value: parse budget string as number if possible
+    const estimated_value = input.budget ? parseFloat(input.budget) || null : null;
+
     // Side effect: upsert into leads table via DI callback
     await ctx.db.insertLead({
       tenantId: ctx.tenantId,
@@ -43,13 +53,15 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
       budget: input.budget,
       timeline: input.timeline,
       summary: input.conversation_summary,
+      stage,
+      estimatedValue: estimated_value,
     });
 
-    return { score, tags, next_action };
+    return { score, tags, next_action, stage, estimated_value };
   },
 
   formatForLLM: (output) =>
-    `Lead qualified as "${output.score}". Tags: [${output.tags.join(', ')}]. Recommended: ${output.next_action}.`,
+    `Lead qualified as "${output.score}" (stage: ${output.stage}). Tags: [${output.tags.join(', ')}]. Recommended: ${output.next_action}.`,
 };
 
 registerModule(qualifyLeadModule as ModuleDefinition);

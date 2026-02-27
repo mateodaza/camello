@@ -116,13 +116,19 @@ describe('artifact.create — uniqueness', () => {
       tenantId: TENANT_ID,
     };
 
+    // where() must be both thenable (for applyArchetypeDefaults: await ...where())
+    // and have .limit() (for enforceUniqueArtifactType: ...where().limit())
+    const makeWhereResult = (rows: Any[]) => {
+      const result = Promise.resolve(rows);
+      (result as Any).limit = vi.fn().mockResolvedValue(rows);
+      return result;
+    };
+
     const txMock = {
       execute: vi.fn().mockResolvedValue(undefined),
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
+          where: vi.fn().mockReturnValue(makeWhereResult([])),
         }),
       }),
       insert: vi.fn().mockReturnValue({
@@ -135,9 +141,11 @@ describe('artifact.create — uniqueness', () => {
     const db = mockTenantDb(txMock as Any);
     const caller = createCaller(makeCtx(db));
 
+    // sales type with empty moduleRows → strict slug guard throws.
+    // But `custom` type has no modules, so applyArchetypeDefaults is a no-op.
     const result = await caller.create({
-      name: 'Sales Assistant',
-      type: 'sales',
+      name: 'Custom Assistant',
+      type: 'custom',
     });
 
     expect(result).toEqual(newArtifact);
