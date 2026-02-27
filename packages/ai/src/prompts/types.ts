@@ -12,6 +12,11 @@ export interface PromptTemplates {
   hardRules: string;
   knowledgeStart: string;
   knowledgeEnd: string;
+  primaryKnowledgeStart: string;
+  primaryKnowledgeEnd: string;
+  supportingKnowledgeStart: string;
+  supportingKnowledgeEnd: string;
+  knowledgeExtractionHint: string;
   proactiveStart: string;
   proactiveInstruction: string;
   proactiveEnd: string;
@@ -26,4 +31,8 @@ export interface PromptTemplates {
   customInstructions: (instructions: string) => string;
   /** Injected when RAG search ran but returned zero results. */
   emptyRagWarning: string;
+  /** Customer memory section — untrusted, user-reported facts. */
+  customerMemoryStart: string;
+  customerMemoryInstruction: string;
+  customerMemoryEnd: string;
 }

@@ -154,12 +154,30 @@ export interface MatchKnowledgeRow {
   rrf_score: number;
 }
 
+/** A single RAG chunk annotated with its role relative to the current intent. */
+export interface RagChunk {
+  content: string;
+  role: 'lead' | 'support';
+  docType: string | null;
+}
+
 export interface RagResult {
-  directContext: string[];
-  proactiveContext: string[];
+  directContext: RagChunk[];
+  proactiveContext: RagChunk[];
   totalTokensUsed: number;
   docsRetrieved: number;
   searchSkipped: boolean;
+}
+
+// === Customer Memory ===
+
+export type FactKey = 'name' | 'email' | 'phone' | 'preference' | 'past_topic';
+
+export interface CustomerFact {
+  key: FactKey;
+  value: string;
+  extractedAt: string;
+  conversationId: string;
 }
 
 export type RejectionReason =

@@ -16,6 +16,22 @@ export { buildToolsFromBindings } from './tool-adapter.js';
 // Grounding check (post-generation hallucination prevention)
 export { checkGrounding, shouldCheckGrounding } from './grounding-check.js';
 
+// Chunk role classification (RAG upgrade — intent-aware lead/support roles)
+export { classifyChunkRole, flattenRagChunks } from './chunk-roles.js';
+export type { ChunkRole } from './chunk-roles.js';
+
+// Customer memory (cross-conversation context)
+export {
+  extractFactsRegex,
+  sanitizeFactValue,
+  mergeMemoryFacts,
+  parseMemoryFacts,
+  FACT_KEY_ALLOWLIST,
+  MAX_STORED_FACTS,
+  MAX_INJECTED_FACTS,
+  MAX_FACT_VALUE_LENGTH,
+} from './memory-extractor.js';
+
 // Archetype differentiation
 export {
   ARCHETYPE_PROMPTS,

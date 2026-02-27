@@ -5,7 +5,7 @@
 >
 > **AI memory lives at:** `~/.claude/projects/.../memory/` (MEMORY.md, architecture.md, compliance-gaps.md, differentiation.md). Not in-repo — persists across Claude sessions.
 
-## Current Phase: Week 4 — Onboarding + Hardening (Weeks 1-3 complete)
+## Current Phase: Week 5 — RAG Upgrade + Customer Memory + Launch Prep (Weeks 1-4 complete)
 
 ### Done
 
@@ -81,6 +81,10 @@
 | 44 | Error handling polish (#44) | Feb 26 | **Widget route hardening:** JSON parse guards (400 on malformed body) for `/session` + `/message`, outer try/catch on all 4 widget routes (consistent `{ error }` JSON on 500), sessionInits silent catch → `console.error`. **Widget UX:** bilingual error messages for budget exceeded, conversation limit, daily limit, burst rate limit (5 i18n keys en+es), `inputDisabled` state permanently disables input on limits, HTTP 429 handling with rollback. **Dashboard:** `OnboardingGate` handles `UNAUTHORIZED` → redirect to `/sign-in`, `error.tsx` error boundary (new file), `QueryError` handles 6 tRPC codes (UNAUTHORIZED/FORBIDDEN/NOT_FOUND/PAYLOAD_TOO_LARGE/TOO_MANY_REQUESTS/INTERNAL_SERVER_ERROR) with "Sign in" button for auth errors. **Locale fallback:** widget `/info` + `/session` fall back to `tenants.settings.preferredLocale` instead of hardcoded 'en'. 410 tests (109 AI + 223 API + 78 web). |
 | 65b | Legacy QA cleanup (#65b) | Feb 26 | Removed 20+ dead barrel re-exports from `packages/ai/src/index.ts` (unused externally: `generateEmbeddings`, `chunkText`, `estimateTokens`, registry internals, type-only exports). Removed ~20 orphaned i18n keys from `en.json`/`es.json` (`common.back/next/yes/no`, `sidebar.appName`, `dashboard.resolutionsUsed/costUsed/shareLinkDescription`, `conversations.loading/noConversations`, `artifacts.newArtifact/loading/noArtifacts/labelName/placeholderName/labelType/deactivate/activate/closeTest`, `profile.downloadQr`). No debug `console.log` found (codebase clean). No unused imports found. 410 tests. |
 | 60b | Phase 2 enhancements (#60b) | Feb 26 | **Dynamic greetings:** `personality.greeting` supports string (backward compat) or string[] (random pick per session). Widget `/info` filters + selects randomly. Artifacts page: textarea (one greeting per line), auto-splits on save. **Avatar upload:** Supabase Storage `avatars` bucket (migration 0010, 2MB limit, service-role-only write policies — no cross-tenant risk), `uploadAvatar()` helper (`apps/api/src/lib/supabase-storage.ts`), `tenant.uploadAvatar` tRPC mutation (validation→BAD_REQUEST, infra→INTERNAL_SERVER_ERROR), profile page file picker with preview + remove. **Session analytics:** `tenant.sessionAnalytics` tRPC query (30-day conversations grouped by day), profile page stats grid (total sessions `StatCard` + 30-day SVG sparkline bar chart, zero deps). 410 tests. |
+| 56 | RAG upgrade: chunk roles + prompt builder (#56) | Feb 27 | **Chunk role classification:** `classifyChunkRole(intentType, docType)` maps intent→doc_type to lead/support roles via `INTENT_CHUNK_ROLES` (6 intents mapped: pricing, product_question, technical_support, booking_request, complaint, general_inquiry). Unmapped intents/doc_types default to 'lead'. **`RagChunk` type:** `{content, role: 'lead'\|'support', docType}` replaces `string[]` in `RagResult.directContext` + `proactiveContext`. **Prompt builder upgrade:** Merges direct+proactive chunks, splits by role, renders `--- PRIMARY KNOWLEDGE ---` (lead) and `--- SUPPORTING KNOWLEDGE ---` (support) with extraction hint (primary=authoritative, supporting=supplementary, primary wins conflicts). **Grounding check compat:** `flattenRagChunks()` adapter preserves existing `string[]` interface for `checkGrounding`/`shouldCheckGrounding`. **New files:** `chunk-roles.ts`, `chunk-roles.test.ts` (20 tests), `rag.test.ts` (8 tests). **Modified:** `rag.ts` (assembleContext passes intentType), `prompt-builder.ts` (role-aware rendering), `prompts/en.ts`+`es.ts` (5 new template keys), `shared/types` (RagChunk + updated RagResult), `message-handler.ts` (flattenRagChunks at grounding call site), integration tests (RagChunk mocks). No schema changes. 486 tests. |
+| 41/65b | Clerk prod checklist + quickActions backfill (#41/#65b) | Feb 27 | **Clerk prod checklist:** `CLERK_PROD_CHECKLIST.md` documenting all env vars, deployment locations, webhook re-registration. **Migration 0011:** 3-step backfill — pre-check module slugs exist (RAISE EXCEPTION), per-pair INSERT with NOT EXISTS + ON CONFLICT DO NOTHING (handles partial bindings), post-check RAISE EXCEPTION if gaps remain. **Legacy fallback removal:** Removed ~15-line fallback block from widget `/info` route. **Validator cleanup:** Removed quickActions validation from `personality-validator.ts` + deleted obsolete `artifact-quickactions.test.ts`. Applied to Supabase cloud successfully (post-check passed). 486 tests. |
+| 51 | Customer memory (#51) | Feb 27 | **Schema:** Migration 0012 adds `memory jsonb NOT NULL DEFAULT '{}'` to `customers` table. **Memory extractor:** `extractFactsRegex()` — regex-based extraction (en+es name, email, phone), customer-only messages, max 5/run, zero LLM cost. `sanitizeFactValue()` — strips backtick blocks, injection patterns (SYSTEM:/IGNORE/<\|/---/###), control chars, zero-width chars, 120 char cap. `mergeMemoryFacts()` — dedup by key (newer wins), FIFO eviction at 10. `parseMemoryFacts()` — safe JSONB parser. **Allowlist:** 5 keys only (name, email, phone, preference, past_topic). **Prompt injection:** `[UNVERIFIED — user-reported]` label, re-sanitize at injection, cap at 6 injected facts. **Pipeline integration:** Step 0b fetches customer memory (one lightweight query). `buildSystemPrompt` renders CUSTOMER CONTEXT section between LEARNINGS and MODULES. **Async extraction:** `conversation.updateStatus` triggers regex extraction on resolve via `setImmediate` (fail-open, non-blocking). **Dashboard:** Conversation detail shows collapsible "Customer Info" card (name, channel badge, first seen, memory facts). **Router:** `customer.byId` tRPC procedure. **i18n:** 5 new keys (en+es). **Tests:** 32 memory-extractor + 2 customer-routes + 18 prompt-builder (customer memory) = 52 new tests. 486 tests total (187 AI + 221 API + 78 Web). |
+| — | Week 5 audit fixes | Feb 27 | **3 findings resolved:** (P2) Proactive chunk promotion — forced `role: 'support'` on all proactive chunks in `prompt-builder.ts` to prevent low-confidence results entering PRIMARY KNOWLEDGE. (P2) Defense-in-depth tenant scoping — added explicit `eq(customers.tenantId, ...)` to 4 customer memory queries across `customer.ts`, `message-handler.ts`, `conversation.ts` (read + write). (P3) Customer Info card — added email/phone rendering in conversation detail page (was blank when only email/phone existed). 486 tests green. |
 
 ### Next Up — Launch Readiness
 
@@ -104,12 +108,12 @@
 | # | Task | Priority | Notes |
 |---|------|----------|-------|
 | 50 | Agent handoffs | P2 | Artifact-to-artifact transfers with context preservation |
-| 51 | Customer memory | P2 | Cross-conversation memory, preferences, history summary |
+| ~~51~~ | ~~Customer memory~~ | ~~P2~~ | ~~DONE — Regex extraction (en+es), JSONB storage, prompt injection controls, 5-key allowlist, async extraction on resolve, dashboard display. Audit fixes: proactive chunk demotion, defense-in-depth tenant scoping (4 customer queries), email/phone rendering in card. 486 tests.~~ |
 | 52 | Module marketplace | P3 | Community-contributed modules with trust scoring |
 | 53 | Scheduled automations | P3 | Time-based triggers (follow-up reminders, SLA alerts) |
 | 54 | Advisory council | P3 | Multi-agent deliberation for complex decisions |
 | 55 | Self-evolving system | P3 | Auto-generate learnings from successful interactions |
-| 56 | RAG upgrade: trigger taxonomy + chunk roles + extraction rules | P1 | ~7hrs, no schema changes. Intent profiles → chunk lead/support roles → structured metadata extraction in prompts. Cross-pollinated from Hivemind. Design: `memory/rag-upgrade-design.md` |
+| ~~56~~ | ~~RAG upgrade: chunk roles + intent-aware lead/support~~ | ~~P1~~ | ~~DONE — `classifyChunkRole` (6 intents mapped), `RagChunk` type, prompt builder PRIMARY/SUPPORTING blocks, `flattenRagChunks` adapter for grounding check, proactive chunk forced to `support` (audit fix). No schema changes. 486 tests.~~ |
 | 59 | Intent prioritization + categorization | P2 | Tenants tag/prioritize intent types (e.g., "pricing inquiry" = high priority, "hours" = low). Dashboard alerts on high-priority intents. Growth/Scale tier feature. |
 | ~~60b~~ | ~~Business card Phase 2 enhancements~~ | ~~P2~~ | ~~DONE (partial) — Dynamic greetings (array rotation), avatar upload (Supabase Storage, service-role only), session analytics sparkline. **Remaining:** subdomain routing, custom domains, conversation summarization, daily cap pre-aggregation cron.~~ |
 | 61 | Dynamic intent labels | P3 | Currently intent types are a hardcoded Zod enum (14 types) with i18n keys in en/es JSON. Adding a new intent = update 3 places (schema + 2 JSON files). Future: classify intent into user-facing label at classification time (stored alongside canonical slug in `interaction_logs`), so dashboard renders DB values directly. Eliminates per-intent i18n maintenance. |
@@ -195,6 +199,14 @@
 - [x] Public chat page (#57): `/chat/[slug]` with SSR OG metadata, mobile-first chat UI, widget API reuse, error differentiation (not_found vs connection), typing indicator, greeting from `/info` endpoint, i18n (en+es), 64 web tests
 - [x] Intent dashboard (#58): `analytics.intentBreakdown` tRPC procedure, CSS-only bar chart on overview, recent questions with conversation links, empty-state placeholder, i18n (en+es), 183 API tests
 - [x] Business card (#60): collapsible business card + QR share + quick actions + profile dashboard + abuse prevention (burst/conv/daily caps) + SSR metadata + AI language prompt fix, 269 tests
+
+### Week 5 — RAG Upgrade + Customer Memory + Launch Prep
+- [x] RAG upgrade (#56): chunk role classification, intent-aware lead/support, PRIMARY/SUPPORTING knowledge blocks, flattenRagChunks adapter
+- [x] Clerk prod checklist (#41) + quickActions backfill (#65b): migration 0011 (hard-fail gate), legacy fallback removal, validator cleanup
+- [x] Customer memory (#51): regex extraction, JSONB storage, prompt injection controls, async extraction on resolve, dashboard display
+- [x] Week 5 audit fixes: proactive chunk demotion, tenant scoping (4 queries), email/phone card rendering
+- [ ] Clerk production keys swap (#41 — manual)
+- [ ] Paddle business verification (#42 — manual)
 
 ---
 
@@ -677,3 +689,35 @@
   - Deterministic button order: slugs sorted alphabetically before passing to helper
 - **Tests:** 8 new tests (5 `getQuickActionsForModules`, 3 widget route: module-derived QA, empty guard, deterministic order). Updated archetype-prompts, onboarding-routes, widget-routes tests. 380 tests pass (82 AI + 220 API + 78 Web)
 - **Gate:** Lint 0 errors, type-check clean
+
+### Session 24 — Feb 26 (Error Handling + Legacy Cleanup + Phase 2 Enhancements)
+- See tasks #44, #65b, #60b in Done table above
+- 410 tests (109 AI + 223 API + 78 Web)
+
+### Session 25 — Feb 27 (RAG Upgrade #56 + Clerk/Backfill #41/#65b + Customer Memory #51)
+- **3 parallel workstreams** executed via background agents, then consolidated:
+- **#56 — RAG Upgrade:**
+  - New `chunk-roles.ts` with `INTENT_CHUNK_ROLES` mapping (6 intents: pricing, product_question, technical_support, booking_request, complaint, general_inquiry)
+  - `classifyChunkRole(intentType, docType)` → 'lead' or 'support' (defaults to 'lead')
+  - `flattenRagChunks()` adapter for grounding check backward compat
+  - `RagChunk` type (`{content, role, docType}`) replaces `string[]` in `RagResult`
+  - Prompt builder renders `PRIMARY KNOWLEDGE` (lead) + `SUPPORTING KNOWLEDGE` (support) + extraction hint
+  - `rag.ts`: `assembleContext()` annotates chunks with role via `classifyChunkRole`
+  - New test files: `chunk-roles.test.ts` (20 tests), `rag.test.ts` (8 tests)
+- **#41/#65b — Clerk Prod Keys + quickActions Backfill:**
+  - `CLERK_PROD_CHECKLIST.md` — env vars, deployment steps, webhook re-registration
+  - Migration 0011: pre-check → per-pair backfill → hard-fail post-check (RAISE EXCEPTION)
+  - Removed legacy `personality.quickActions` fallback from widget `/info`
+  - Removed quickActions validation from `personality-validator.ts`
+  - Deleted obsolete `artifact-quickactions.test.ts`
+- **#51 — Customer Memory:**
+  - Migration 0012: `customers.memory jsonb NOT NULL DEFAULT '{}'`
+  - `memory-extractor.ts`: `extractFactsRegex` (en+es name/email/phone), `sanitizeFactValue` (anti-injection), `mergeMemoryFacts` (dedup + FIFO), `parseMemoryFacts` (safe JSONB)
+  - 5-key allowlist (name, email, phone, preference, past_topic), 10 stored / 6 injected / 120 char cap
+  - Prompt builder: CUSTOMER CONTEXT [UNVERIFIED] section between LEARNINGS and MODULES
+  - Pipeline: step 0b fetches memory, step 9 passes to `buildSystemPrompt`
+  - Async extraction: `conversation.updateStatus` triggers regex on resolve (setImmediate, fail-open)
+  - `customer.byId` tRPC router, dashboard Customer Info card, 5 i18n keys
+- **Test fixes:** Updated 4 integration test files (added customer memory mock + AI mock exports), fixed MMR-related rag tests (distinct embeddings), fixed prompt-builder assertions (section headers vs hint text)
+- **Migrations applied to Supabase cloud:** 0011 (backfill passed post-check) + 0012 (customer memory column)
+- **486 tests (187 AI + 221 API + 78 Web)** — all passing

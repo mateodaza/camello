@@ -143,7 +143,7 @@ describe('Widget routes', () => {
       expect(body.language).toBe('es');
     });
 
-    it('returns profile and legacy quick_actions when no modules bound', async () => {
+    it('returns profile data and empty quick_actions when no modules bound (no legacy fallback)', async () => {
       mockDbExecute.mockResolvedValueOnce({
         rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
       });
@@ -152,6 +152,7 @@ describe('Widget routes', () => {
         personality: {
           language: 'en',
           greeting: 'Hi!',
+          // personality.quickActions exists but should be ignored (legacy fallback removed)
           quickActions: [
             { label: 'See menu', message: 'Show me the menu' },
             { label: 'Hours', message: 'What are your hours?' },
@@ -171,13 +172,14 @@ describe('Widget routes', () => {
           },
         },
       });
-      // tenantDb.query for bound modules — empty (legacy artifact)
+      // tenantDb.query for bound modules — empty (no modules bound)
       mockTenantDbQuery.mockResolvedValueOnce([]);
 
       const res = await get('/info?slug=acme');
       expect(res.status).toBe(200);
 
       const body = await json(res);
+      // Profile data still returned
       expect(body.profile).toBeDefined();
       expect(body.profile.tagline).toBe('Best burgers in town');
       expect(body.profile.bio).toBe('Family-owned since 1985');
@@ -185,9 +187,8 @@ describe('Widget routes', () => {
       expect(body.profile.socialLinks).toHaveLength(1);
       expect(body.profile.location).toBe('Bogotá, Colombia');
       expect(body.profile.hours).toBe('Mon-Fri 9am-6pm');
-      // Legacy fallback: personality.quickActions used when no modules bound
-      expect(body.quick_actions).toHaveLength(2);
-      expect(body.quick_actions[0].label).toBe('See menu');
+      // No legacy fallback: personality.quickActions is ignored, result is empty
+      expect(body.quick_actions).toEqual([]);
       // Module helper should NOT have been called (guard: empty bound modules)
       expect(mockGetQuickActions).not.toHaveBeenCalled();
     });

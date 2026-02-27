@@ -38,6 +38,10 @@ vi.mock('@camello/ai', () => ({
   buildToolsFromBindings: mocks.buildToolsFromBindings,
   shouldCheckGrounding: mocks.shouldCheckGrounding,
   checkGrounding: mocks.checkGrounding,
+  flattenRagChunks: (chunks: Array<{ content: string }>) => chunks.map((c) => c.content),
+  parseMemoryFacts: () => [],
+  sanitizeFactValue: (v: string) => v,
+  MAX_INJECTED_FACTS: 6,
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));
@@ -141,7 +145,8 @@ function setupRagFlow(opts?: {
   mocks.buildSystemPrompt.mockReturnValue('You are Support Bot...');
   mocks.createLLMClient.mockReturnValue((m: string) => ({ modelId: m }));
   mocks.searchKnowledge.mockResolvedValue(opts?.ragResult ?? {
-    directContext: [], proactiveContext: [],
+    directContext: [] as Array<{ content: string; role: string; docType: string | null }>,
+    proactiveContext: [] as Array<{ content: string; role: string; docType: string | null }>,
     totalTokensUsed: 0, docsRetrieved: 0, searchSkipped: true,
   });
   mocks.generateText.mockResolvedValue({
@@ -165,6 +170,20 @@ function setupRagFlow(opts?: {
               name: 'Acme Corp', planTier: 'starter',
               monthlyCostBudgetUsd: null, defaultArtifactId: ARTIFACT_ID,
             }],
+          }),
+        }),
+      }),
+    };
+    return fn(mockDb);
+  });
+
+  // #1b query — Step 0b: Fetch customer memory
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => [{ memory: {} }],
           }),
         }),
       }),
@@ -302,8 +321,12 @@ describe('handleMessage — RAG knowledge flow integration', () => {
   });
 
   it('includes RAG context in system prompt', async () => {
-    const directContext = ['Our refund policy allows returns within 30 days.'];
-    const proactiveContext = ['We also offer free exchanges on all items.'];
+    const directContext = [
+      { content: 'Our refund policy allows returns within 30 days.', role: 'lead', docType: 'faq' },
+    ];
+    const proactiveContext = [
+      { content: 'We also offer free exchanges on all items.', role: 'support', docType: 'faq' },
+    ];
 
     setupRagFlow({
       ragResult: {

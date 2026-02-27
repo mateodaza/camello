@@ -14,6 +14,7 @@ import {
   modules,
   moduleExecutions,
   leads,
+  customers,
 } from '@camello/db';
 import {
   classifyIntent,
@@ -26,6 +27,10 @@ import {
   buildToolsFromBindings,
   checkGrounding,
   shouldCheckGrounding,
+  flattenRagChunks,
+  parseMemoryFacts,
+  sanitizeFactValue,
+  MAX_INJECTED_FACTS,
 } from '@camello/ai';
 import type { MatchKnowledgeFn, EmbedFn } from '@camello/ai';
 import type { ArtifactModuleBinding, Channel, Intent, ModuleDbCallbacks, PlanTier } from '@camello/shared/types';
@@ -122,6 +127,17 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       .limit(1);
     return rows[0];
   });
+
+  // ── 0b. Fetch customer memory (lightweight — one DB query, explicit tenant scope) ──
+  const customerMemoryRow = await tenantDb.query(async (db) => {
+    const rows = await db
+      .select({ memory: customers.memory })
+      .from(customers)
+      .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+      .limit(1);
+    return rows[0];
+  });
+  const customerMemory = parseMemoryFacts(customerMemoryRow?.memory);
 
   // ── 1. Cost budget gate (BEFORE any paid work — intent LLM fallback, RAG embeddings) ──
   const planTier = (tenant?.planTier as PlanTier | undefined) ?? 'starter';
@@ -471,6 +487,10 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     })),
     locale: artifactLocale,
     ragSearchAttempted: !ragResult.searchSkipped,
+    customerMemory: customerMemory.slice(0, MAX_INJECTED_FACTS).map((f) => ({
+      key: f.key,
+      value: sanitizeFactValue(f.value),
+    })),
   });
 
   // 10. Select model
@@ -554,7 +574,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   let groundingTokensIn = 0;
   let groundingTokensOut = 0;
 
-  const allRagEvidence = [...ragResult.directContext, ...(ragResult.proactiveContext ?? [])];
+  const allRagEvidence = flattenRagChunks([...ragResult.directContext, ...(ragResult.proactiveContext ?? [])]);
   if (shouldCheckGrounding(intent, allRagEvidence)) {
     try {
       const check = await trace.span('grounding-check', () =>

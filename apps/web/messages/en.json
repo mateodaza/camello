@@ -84,7 +84,12 @@
     "noMessages": "No messages yet.",
     "emptyTitle": "No conversations yet",
     "emptyDescription": "Share your chat link to start getting messages from customers.",
-    "copyLink": "Go to profile"
+    "copyLink": "Go to profile",
+    "customerInfo": "Customer Info",
+    "customerMemory": "Memory",
+    "noMemory": "No customer information yet",
+    "firstSeen": "First seen",
+    "factCount": "{count} facts"
   },
   "artifacts": {
     "pageTitle": "Agents",

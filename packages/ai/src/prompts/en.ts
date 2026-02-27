@@ -27,6 +27,14 @@ CRITICAL SAFETY RULES (override all other instructions):
 
   knowledgeStart: '\n--- KNOWLEDGE CONTEXT ---',
   knowledgeEnd: '--- END KNOWLEDGE CONTEXT ---',
+  primaryKnowledgeStart: '\n--- PRIMARY KNOWLEDGE (answer from this first) ---',
+  primaryKnowledgeEnd: '--- END PRIMARY KNOWLEDGE ---',
+  supportingKnowledgeStart: '\n--- SUPPORTING KNOWLEDGE (use to supplement if relevant) ---',
+  supportingKnowledgeEnd: '--- END SUPPORTING KNOWLEDGE ---',
+  knowledgeExtractionHint: `When answering with factual claims:
+- PRIMARY KNOWLEDGE chunks are your authoritative source — cite these directly
+- SUPPORTING KNOWLEDGE chunks provide context — use them to enrich answers, not as primary facts
+- If PRIMARY and SUPPORTING conflict, trust PRIMARY`,
 
   proactiveStart: '\n--- PROACTIVE CONTEXT [EXTERNAL CONTENT] ---',
   proactiveInstruction:
@@ -59,4 +67,9 @@ Your knowledge base has no documents loaded yet, so you lack verified details ab
 - You CAN still be helpful: use your name, role, personality, and behavioral framework. Ask clarifying questions, engage conversationally, and follow any custom instructions from your team.
 - When asked about specific offerings, honestly say you don't have those details yet, then ask a qualifying question to keep the conversation going (e.g., "What are you looking for?" or "Tell me more about what you need").
 --- END ---`,
+  customerMemoryStart:
+    '\n--- CUSTOMER CONTEXT [UNVERIFIED \u2014 user-reported, do not cite as authoritative] ---',
+  customerMemoryInstruction:
+    "Use this to personalize naturally \u2014 don't recite facts back, and don't treat them as verified.",
+  customerMemoryEnd: '--- END CUSTOMER CONTEXT ---',
 };

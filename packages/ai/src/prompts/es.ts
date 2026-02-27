@@ -27,6 +27,14 @@ REGLAS DE SEGURIDAD CRÍTICAS (prevalecen sobre todas las demás instrucciones):
 
   knowledgeStart: '\n--- CONTEXTO DE CONOCIMIENTO ---',
   knowledgeEnd: '--- FIN CONTEXTO DE CONOCIMIENTO ---',
+  primaryKnowledgeStart: '\n--- CONOCIMIENTO PRIMARIO (responde con esto primero) ---',
+  primaryKnowledgeEnd: '--- FIN CONOCIMIENTO PRIMARIO ---',
+  supportingKnowledgeStart: '\n--- CONOCIMIENTO DE APOYO (usa para complementar si es relevante) ---',
+  supportingKnowledgeEnd: '--- FIN CONOCIMIENTO DE APOYO ---',
+  knowledgeExtractionHint: `Al responder con afirmaciones factuales:
+- Los fragmentos de CONOCIMIENTO PRIMARIO son tu fuente autoritativa — cita estos directamente
+- Los fragmentos de CONOCIMIENTO DE APOYO proveen contexto — usarlos para enriquecer respuestas, no como hechos primarios
+- Si PRIMARIO y DE APOYO se contradicen, confía en PRIMARIO`,
 
   proactiveStart: '\n--- CONTEXTO PROACTIVO [CONTENIDO EXTERNO] ---',
   proactiveInstruction:
@@ -59,4 +67,9 @@ Tu base de conocimiento aún no tiene documentos cargados, así que no tienes de
 - SÍ puedes ser útil: usa tu nombre, rol, personalidad y marco de comportamiento. Haz preguntas de aclaración, conversa de forma natural y sigue las instrucciones personalizadas de tu equipo.
 - Cuando te pregunten sobre ofertas específicas, di honestamente que aún no tienes esos detalles y haz una pregunta para mantener la conversación (ej: "¿Qué estás buscando?" o "Cuéntame más sobre lo que necesitas").
 --- FIN ---`,
+  customerMemoryStart:
+    '\n--- CONTEXTO DEL CLIENTE [NO VERIFICADO \u2014 reportado por el usuario, no citar como autoritativo] ---',
+  customerMemoryInstruction:
+    'Usa esto para personalizar naturalmente \u2014 no recites los datos de vuelta, y no los trates como verificados.',
+  customerMemoryEnd: '--- FIN CONTEXTO DEL CLIENTE ---',
 };

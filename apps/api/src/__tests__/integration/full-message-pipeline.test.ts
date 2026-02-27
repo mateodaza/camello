@@ -47,6 +47,10 @@ vi.mock('@camello/ai', () => ({
   buildToolsFromBindings: mocks.buildToolsFromBindings,
   shouldCheckGrounding: mocks.shouldCheckGrounding,
   checkGrounding: mocks.checkGrounding,
+  flattenRagChunks: (chunks: Array<{ content: string }>) => chunks.map((c) => c.content),
+  parseMemoryFacts: () => [],
+  sanitizeFactValue: (v: string) => v,
+  MAX_INJECTED_FACTS: 6,
 }));
 
 vi.mock('ai', () => ({
@@ -161,8 +165,8 @@ function setupNewConversationFlow(overrides?: {
   mocks.buildSystemPrompt.mockReturnValue('You are Support Bot...');
   mocks.createLLMClient.mockReturnValue((model: string) => ({ modelId: model }));
   mocks.searchKnowledge.mockResolvedValue({
-    directContext: [],
-    proactiveContext: [],
+    directContext: [] as Array<{ content: string; role: string; docType: string | null }>,
+    proactiveContext: [] as Array<{ content: string; role: string; docType: string | null }>,
     totalTokensUsed: 0,
     docsRetrieved: 0,
     searchSkipped: true,
@@ -189,6 +193,20 @@ function setupNewConversationFlow(overrides?: {
               monthlyCostBudgetUsd: null,
               defaultArtifactId: ARTIFACT_ID,
             }],
+          }),
+        }),
+      }),
+    };
+    return fn(mockDb);
+  });
+
+  // #1b query — Step 0b: Fetch customer memory
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => [{ memory: {} }],
           }),
         }),
       }),
@@ -368,7 +386,8 @@ function setupReuseConversationFlow() {
   mocks.buildSystemPrompt.mockReturnValue('You are Support Bot...');
   mocks.createLLMClient.mockReturnValue((model: string) => ({ modelId: model }));
   mocks.searchKnowledge.mockResolvedValue({
-    directContext: [], proactiveContext: [],
+    directContext: [] as Array<{ content: string; role: string; docType: string | null }>,
+    proactiveContext: [] as Array<{ content: string; role: string; docType: string | null }>,
     totalTokensUsed: 0, docsRetrieved: 0, searchSkipped: true,
   });
   mocks.generateText.mockResolvedValue({
@@ -390,6 +409,20 @@ function setupReuseConversationFlow() {
               name: 'Acme Corp', planTier: 'starter',
               monthlyCostBudgetUsd: null, defaultArtifactId: ARTIFACT_ID,
             }],
+          }),
+        }),
+      }),
+    };
+    return fn(mockDb);
+  });
+
+  // #1b query — Step 0b: Fetch customer memory
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => [{ memory: {} }],
           }),
         }),
       }),
@@ -533,13 +566,17 @@ describe('handleMessage — full pipeline integration', () => {
     // Verify new conversation created via transaction
     expect(mocks.transactionFn).toHaveBeenCalledOnce();
 
-    // Verify DB writes: 12 queries + 1 transaction
-    expect(mocks.queryFn).toHaveBeenCalledTimes(12);
+    // Verify DB writes: 13 queries (incl. customer memory) + 1 transaction
+    expect(mocks.queryFn).toHaveBeenCalledTimes(13);
   });
 
   it('routes complex query to balanced model with RAG', async () => {
-    const ragContext = ['Our refund policy allows returns within 30 days.'];
-    const proactiveContext = ['We also offer exchanges for free.'];
+    const ragContext = [
+      { content: 'Our refund policy allows returns within 30 days.', role: 'lead', docType: 'faq' },
+    ];
+    const proactiveContext = [
+      { content: 'We also offer exchanges for free.', role: 'support', docType: 'faq' },
+    ];
 
     mocks.searchKnowledge.mockResolvedValue({
       directContext: ragContext,
@@ -566,7 +603,7 @@ describe('handleMessage — full pipeline integration', () => {
     expect(result.modelUsed).toBe('openai/gpt-4o-mini');
     expect(mocks.classifyIntent).toHaveBeenCalledWith("What's your refund policy?");
 
-    // Verify buildSystemPrompt received RAG context
+    // Verify buildSystemPrompt received RAG context (RagChunk[])
     const promptArgs = mocks.buildSystemPrompt.mock.calls[0][0];
     expect(promptArgs.ragContext).toEqual(ragContext);
     expect(promptArgs.proactiveContext).toEqual(proactiveContext);
@@ -583,8 +620,8 @@ describe('handleMessage — full pipeline integration', () => {
     // No transaction — conversation already exists
     expect(mocks.transactionFn).not.toHaveBeenCalled();
 
-    // 12 queries (no transaction)
-    expect(mocks.queryFn).toHaveBeenCalledTimes(12);
+    // 13 queries incl. customer memory (no transaction)
+    expect(mocks.queryFn).toHaveBeenCalledTimes(13);
   });
 
   it('includes conversation history in LLM messages', async () => {

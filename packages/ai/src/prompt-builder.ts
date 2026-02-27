@@ -1,8 +1,9 @@
-import type { AutonomyLevel, Channel } from '@camello/shared/types';
+import type { AutonomyLevel, Channel, RagChunk } from '@camello/shared/types';
 import type { PromptTemplates } from './prompts/types.js';
 import { en } from './prompts/en.js';
 import { es } from './prompts/es.js';
 import { ARCHETYPE_PROMPTS } from './archetype-prompts.js';
+import { sanitizeFactValue, MAX_INJECTED_FACTS } from './memory-extractor.js';
 
 const templates: Record<string, PromptTemplates> = { en, es };
 
@@ -21,8 +22,8 @@ interface PromptContext {
     companyName: string;
   };
   channel?: Channel;
-  ragContext: string[];
-  proactiveContext?: string[];
+  ragContext: RagChunk[];
+  proactiveContext?: RagChunk[];
   learnings: string[];
   modules?: Array<{
     name: string;
@@ -33,6 +34,8 @@ interface PromptContext {
   locale?: string;
   /** True when RAG search was executed (not skipped by intent gate). */
   ragSearchAttempted?: boolean;
+  /** Customer memory facts — untrusted, user-reported. Capped + re-sanitized at injection. */
+  customerMemory?: Array<{ key: string; value: string }>;
 }
 
 /** Per-channel overrides from artifact config YAML */
@@ -113,19 +116,34 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     }
   }
 
-  // RAG context (direct, trusted knowledge)
-  if (ragContext.length > 0) {
-    parts.push(t.knowledgeStart);
-    parts.push(ragContext.join('\n\n'));
-    parts.push(t.knowledgeEnd);
-  }
+  // RAG context — split into role-aware lead/support blocks.
+  // Proactive chunks are always forced to 'support' regardless of classifyChunkRole
+  // result, because they came from a broader, lower-threshold search and should
+  // never be promoted to PRIMARY KNOWLEDGE.
+  const allChunks = [
+    ...ragContext,
+    ...(proactiveContext ?? []).map(c => ({ ...c, role: 'support' as const })),
+  ];
+  const leadChunks = allChunks.filter((c) => c.role === 'lead');
+  const supportChunks = allChunks.filter((c) => c.role === 'support');
 
-  // Proactive context (tangentially relevant — weave in naturally if useful)
-  if (proactiveContext && proactiveContext.length > 0) {
-    parts.push(t.proactiveStart);
-    parts.push(t.proactiveInstruction);
-    parts.push(proactiveContext.join('\n\n'));
-    parts.push(t.proactiveEnd);
+  if (leadChunks.length > 0 || supportChunks.length > 0) {
+    // Primary (lead) knowledge
+    if (leadChunks.length > 0) {
+      parts.push(t.primaryKnowledgeStart);
+      parts.push(leadChunks.map((c) => c.content).join('\n\n'));
+      parts.push(t.primaryKnowledgeEnd);
+    }
+
+    // Supporting knowledge
+    if (supportChunks.length > 0) {
+      parts.push(t.supportingKnowledgeStart);
+      parts.push(supportChunks.map((c) => c.content).join('\n\n'));
+      parts.push(t.supportingKnowledgeEnd);
+    }
+
+    // Extraction hint — tells the LLM how to weight the two blocks
+    parts.push(t.knowledgeExtractionHint);
   }
 
   // Empty-RAG warning: search ran but returned nothing (both direct + proactive empty)
@@ -139,6 +157,22 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     parts.push(t.learningsStart);
     parts.push(learnings.join('\n'));
     parts.push(t.learningsEnd);
+  }
+
+  // Customer memory — untrusted, user-reported facts
+  if (ctx.customerMemory && ctx.customerMemory.length > 0) {
+    const capped = ctx.customerMemory.slice(0, MAX_INJECTED_FACTS);
+    parts.push(t.customerMemoryStart);
+    parts.push('This is a returning customer. Known facts:');
+    for (const fact of capped) {
+      // Re-sanitize at injection time (defense-in-depth)
+      const safeValue = sanitizeFactValue(fact.value);
+      if (safeValue) {
+        parts.push(`- ${fact.key}: ${safeValue}`);
+      }
+    }
+    parts.push(t.customerMemoryInstruction);
+    parts.push(t.customerMemoryEnd);
   }
 
   // Module instructions

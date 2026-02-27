@@ -84,7 +84,12 @@
     "noMessages": "No hay mensajes aún.",
     "emptyTitle": "Sin conversaciones aún",
     "emptyDescription": "Comparte tu enlace de chat para empezar a recibir mensajes de clientes.",
-    "copyLink": "Ir al perfil"
+    "copyLink": "Ir al perfil",
+    "customerInfo": "Info del Cliente",
+    "customerMemory": "Memoria",
+    "noMemory": "Sin información del cliente aún",
+    "firstSeen": "Primera visita",
+    "factCount": "{count} datos"
   },
   "artifacts": {
     "pageTitle": "Agentes",

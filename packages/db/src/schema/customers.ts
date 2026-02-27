@@ -10,6 +10,7 @@ export const customers = pgTable('customers', {
   email: text('email'),
   phone: text('phone'),
   metadata: jsonb('metadata').notNull().default({}),
+  memory: jsonb('memory').notNull().default({}),
   firstSeenAt: timestamp('first_seen_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [

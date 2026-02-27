@@ -190,22 +190,6 @@ widgetRoutes.get('/info', async (c) => {
       quickActions = getQuickActionsForModules(slugs, language === 'es' ? 'es' : 'en');
     }
 
-    // LEGACY FALLBACK: if no module-derived actions, check personality.quickActions.
-    // Covers artifacts created before auto-binding (#64). Remove after backfill.
-    if (quickActions.length === 0 && Array.isArray(personality?.quickActions)) {
-      quickActions = (personality.quickActions as Array<unknown>)
-        .slice(0, 4)
-        .filter((item): item is { label: string; message: string } => {
-          if (typeof item !== 'object' || item === null) return false;
-          const { label, message } = item as Record<string, unknown>;
-          return typeof label === 'string' && typeof message === 'string';
-        })
-        .map((item) => ({
-          label: item.label.slice(0, 40),
-          message: item.message.slice(0, 200),
-        }));
-    }
-
     return c.json({
       tenant_name: tenantName,
       artifact_name: artifact.name,

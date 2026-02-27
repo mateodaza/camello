@@ -4,8 +4,9 @@ import {
   RAG_CONFIG,
   TOKEN_BUDGET,
 } from '@camello/shared/constants';
-import type { Intent, MatchKnowledgeRow, RagResult } from '@camello/shared/types';
+import type { Intent, MatchKnowledgeRow, RagChunk, RagResult } from '@camello/shared/types';
 import { estimateTokens } from './chunker.js';
+import { classifyChunkRole } from './chunk-roles.js';
 
 // ---------------------------------------------------------------------------
 // Types for dependency injection (no @camello/db import needed)
@@ -92,8 +93,8 @@ export async function searchKnowledge(input: RagSearchInput): Promise<RagResult>
   // 6. MMR diversification on primary results
   const diversePrimary = applyMMR(embeddedPrimary);
 
-  // 7. Context assembly within token budget
-  return assembleContext(diversePrimary, embeddedProactive);
+  // 7. Context assembly within token budget (intent-aware chunk roles)
+  return assembleContext(diversePrimary, embeddedProactive, intent.type);
 }
 
 // ---------------------------------------------------------------------------
@@ -203,31 +204,40 @@ function cosineSimilarity(a: number[], b: number[]): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Assemble RAG context strings that fit within the token budget.
+ * Assemble RAG context chunks that fit within the token budget.
+ * Each chunk is annotated with its role (lead/support) based on the current
+ * intent and the document's doc_type metadata.
+ *
  * Direct context fills the full budget first. Proactive context uses
  * remaining budget (capped at max_tokens). No artificial reservation.
  */
 function assembleContext(
   primary: MatchKnowledgeRow[],
   proactive: MatchKnowledgeRow[],
+  intentType: string,
 ): RagResult {
   const maxTokens = TOKEN_BUDGET.rag_context;
   const maxProactiveTokens = RAG_CONFIG.proactive.max_tokens;
   const maxProactiveDocs = RAG_CONFIG.proactive.max_docs;
 
-  const directContext: string[] = [];
+  const directContext: RagChunk[] = [];
   let directTokensUsed = 0;
 
   // Fill direct context up to full budget
   for (const doc of primary) {
     const docTokens = estimateTokens(doc.content);
     if (directTokensUsed + docTokens > maxTokens) break;
-    directContext.push(doc.content);
+    const docType = (doc.metadata?.doc_type as string) ?? null;
+    directContext.push({
+      content: doc.content,
+      role: classifyChunkRole(intentType, docType),
+      docType,
+    });
     directTokensUsed += docTokens;
   }
 
   // Proactive context uses remaining budget, capped at max_tokens
-  const proactiveContext: string[] = [];
+  const proactiveContext: RagChunk[] = [];
   const remainingBudget = maxTokens - directTokensUsed;
   const proactiveBudget = Math.min(maxProactiveTokens, remainingBudget);
 
@@ -235,7 +245,12 @@ function assembleContext(
   for (const doc of proactive.slice(0, maxProactiveDocs)) {
     const docTokens = estimateTokens(doc.content);
     if (proactiveTokensUsed + docTokens > proactiveBudget) break;
-    proactiveContext.push(doc.content);
+    const docType = (doc.metadata?.doc_type as string) ?? null;
+    proactiveContext.push({
+      content: doc.content,
+      role: classifyChunkRole(intentType, docType),
+      docType,
+    });
     proactiveTokensUsed += docTokens;
   }
 

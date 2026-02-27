@@ -38,6 +38,10 @@ vi.mock('@camello/ai', () => ({
   buildToolsFromBindings: mocks.buildToolsFromBindings,
   shouldCheckGrounding: mocks.shouldCheckGrounding,
   checkGrounding: mocks.checkGrounding,
+  flattenRagChunks: (chunks: Array<{ content: string }>) => chunks.map((c) => c.content),
+  parseMemoryFacts: () => [],
+  sanitizeFactValue: (v: string) => v,
+  MAX_INJECTED_FACTS: 6,
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));
@@ -118,6 +122,20 @@ function setupBudgetExceededFlow(opts: {
               monthlyCostBudgetUsd: opts.monthlyCostBudgetUsd ?? null,
               defaultArtifactId: ARTIFACT_ID,
             }],
+          }),
+        }),
+      }),
+    };
+    return fn(mockDb);
+  });
+
+  // #1b query — Step 0b: Fetch customer memory
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) => {
+    const mockDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => [{ memory: {} }],
           }),
         }),
       }),

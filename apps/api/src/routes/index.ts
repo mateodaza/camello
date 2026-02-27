@@ -13,6 +13,7 @@ import { analyticsRouter } from './analytics.js';
 import { chatRouter } from './chat.js';
 import { onboardingRouter } from './onboarding.js';
 import { billingRouter } from './billing.js';
+import { customerRouter } from './customer.js';
 import { uploadAvatar } from '../lib/supabase-storage.js';
 
 export const tenantRouter = router({
@@ -150,6 +151,7 @@ export const appRouter = router({
   chat: chatRouter,
   onboarding: onboardingRouter,
   billing: billingRouter,
+  customer: customerRouter,
 });
 
 export type AppRouter = typeof appRouter;
