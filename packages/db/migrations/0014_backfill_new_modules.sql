@@ -23,7 +23,7 @@ END $$;
 -- Sales artifacts: bind collect_payment (high→draft_and_approve) and send_quote (high→draft_and_approve)
 INSERT INTO artifact_modules (artifact_id, module_id, tenant_id, autonomy_level, autonomy_source, config_overrides)
 SELECT a.id, m.id, a.tenant_id,
-  CASE WHEN m.slug IN ('collect_payment', 'send_quote') THEN 'draft_and_approve' ELSE 'fully_autonomous' END,
+  CASE WHEN m.slug IN ('collect_payment', 'send_quote') THEN 'draft_and_approve'::autonomy_level ELSE 'fully_autonomous'::autonomy_level END,
   'default',
   '{}'::jsonb
 FROM artifacts a
@@ -34,7 +34,7 @@ ON CONFLICT (artifact_id, module_id) DO NOTHING;
 
 -- Support artifacts: bind create_ticket (low→fully_autonomous) and escalate_to_human (medium→fully_autonomous)
 INSERT INTO artifact_modules (artifact_id, module_id, tenant_id, autonomy_level, autonomy_source, config_overrides)
-SELECT a.id, m.id, a.tenant_id, 'fully_autonomous', 'default', '{}'::jsonb
+SELECT a.id, m.id, a.tenant_id, 'fully_autonomous'::autonomy_level, 'default', '{}'::jsonb
 FROM artifacts a
 CROSS JOIN modules m
 WHERE a.type = 'support'
@@ -44,7 +44,7 @@ ON CONFLICT (artifact_id, module_id) DO NOTHING;
 -- Marketing artifacts: bind capture_interest (low→fully_autonomous) and draft_content (high→draft_and_approve)
 INSERT INTO artifact_modules (artifact_id, module_id, tenant_id, autonomy_level, autonomy_source, config_overrides)
 SELECT a.id, m.id, a.tenant_id,
-  CASE WHEN m.slug = 'draft_content' THEN 'draft_and_approve' ELSE 'fully_autonomous' END,
+  CASE WHEN m.slug = 'draft_content' THEN 'draft_and_approve'::autonomy_level ELSE 'fully_autonomous'::autonomy_level END,
   'default',
   '{}'::jsonb
 FROM artifacts a
@@ -66,11 +66,11 @@ WITH low_medium_risk AS (
   )
 )
 UPDATE artifact_modules am
-SET autonomy_level = 'fully_autonomous'
+SET autonomy_level = 'fully_autonomous'::autonomy_level
 FROM low_medium_risk lmr
 WHERE am.module_id = lmr.id
   AND am.autonomy_source = 'default'
-  AND am.autonomy_level = 'draft_and_approve';
+  AND am.autonomy_level = 'draft_and_approve'::autonomy_level;
 
 -- =====================================================================
 -- Post-checks
@@ -82,7 +82,7 @@ DO $$ BEGIN
     SELECT 1 FROM artifact_modules am
     JOIN modules m ON am.module_id = m.id
     WHERE am.autonomy_source = 'manual'
-      AND am.autonomy_level = 'fully_autonomous'
+      AND am.autonomy_level = 'fully_autonomous'::autonomy_level
       AND m.slug IN ('collect_payment', 'send_quote', 'draft_content')
   ) THEN
     RAISE NOTICE 'Warning: some manual overrides have fully_autonomous for high-risk modules. This is valid if owner-set.';
