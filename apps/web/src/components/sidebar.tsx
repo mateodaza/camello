@@ -17,7 +17,7 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 const navItems = [
   { href: '/dashboard', labelKey: 'overview' as const, icon: LayoutDashboard },
   { href: '/dashboard/conversations', labelKey: 'conversations' as const, icon: MessageSquare },
-  { href: '/dashboard/artifacts', labelKey: 'artifacts' as const, icon: Bot },
+  { href: '/dashboard/artifacts', labelKey: 'agents' as const, icon: Bot },
   { href: '/dashboard/knowledge', labelKey: 'knowledge' as const, icon: BookOpen },
   { href: '/dashboard/analytics', labelKey: 'analytics' as const, icon: BarChart3 },
   { href: '/dashboard/settings/billing', labelKey: 'billing' as const, icon: CreditCard },
@@ -108,7 +108,8 @@ function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         {navItems.map(({ href, labelKey, icon: Icon }) => {
           const isActive = href === '/dashboard'
             ? pathname === '/dashboard'
-            : pathname.startsWith(href);
+            : pathname.startsWith(href) ||
+              (href === '/dashboard/artifacts' && pathname.startsWith('/dashboard/agents'));
 
           return (
             <Tooltip key={href} label={t(labelKey)} show={collapsed}>

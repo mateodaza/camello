@@ -46,6 +46,12 @@ export function truncate(str: string, maxLen: number): string {
   return str.slice(0, maxLen) + '…';
 }
 
+/** Humanize a snake_case identifier: "qualify_lead" → "Qualify lead" */
+export function humanize(str: string): string {
+  const words = str.replace(/_/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /**
  * Group knowledge chunks by title.
  * Returns one entry per unique title with aggregated chunk count.

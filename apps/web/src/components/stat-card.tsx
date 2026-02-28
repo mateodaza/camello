@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
-export function StatCard({ title, value }: { title: string; value: number }) {
+export function StatCard({ title, value }: { title: string; value: string | number }) {
   return (
     <Card>
       <CardHeader>

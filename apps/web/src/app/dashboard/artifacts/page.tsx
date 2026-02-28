@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DollarSign, Headphones, Megaphone, Wrench,
-  MessageSquare, Settings, X, Zap,
+  MessageSquare, Settings, X, Zap, BarChart3,
 } from 'lucide-react';
 import { TestChatPanel } from '@/components/test-chat-panel';
 import { useToast } from '@/hooks/use-toast';
@@ -451,7 +452,7 @@ export default function ArtifactsPage() {
 
                 {/* Action buttons */}
                 {artifact && (
-                  <div className="flex items-center gap-2 border-t border-charcoal/8 pt-2">
+                  <div className="flex flex-wrap items-center gap-2 border-t border-charcoal/8 pt-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -460,6 +461,15 @@ export default function ArtifactsPage() {
                       <Settings className="mr-1 h-3.5 w-3.5" />
                       {t('personalitySection')}
                     </Button>
+                    {isActive && (
+                      <Link
+                        href={`/dashboard/agents/${artifact.id}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-charcoal/15 bg-cream px-3 py-1.5 text-sm font-medium text-charcoal hover:bg-sand"
+                      >
+                        <BarChart3 className="h-3.5 w-3.5" />
+                        {t('openWorkspace')}
+                      </Link>
+                    )}
                     {isActive && (
                       <Button
                         variant="outline"
