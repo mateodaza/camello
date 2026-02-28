@@ -107,7 +107,7 @@ import { getScoreColor } from '@/components/agent-workspace/workspace-header';
 describe('sectionRegistry', () => {
   it('returns sales sections for "sales" type', () => {
     expect(sectionRegistry.sales).toBeDefined();
-    expect(sectionRegistry.sales.length).toBe(3);
+    expect(sectionRegistry.sales.length).toBe(1); // SalesWorkspace owns all sections
   });
 
   it('returns support sections for "support" type (4 sections incl. knowledge gaps)', () => {

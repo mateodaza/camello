@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, integer, numeric, timestamp, index, check } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, integer, numeric, timestamp, index, uniqueIndex, check } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from './tenants.js';
 import { artifacts } from './artifacts.js';
@@ -70,6 +70,7 @@ export const leads = pgTable('leads', {
   budget: text('budget'),
   timeline: text('timeline'),
   summary: text('summary'),
+  closeReason: text('close_reason'),
   qualifiedAt: timestamp('qualified_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   convertedAt: timestamp('converted_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -77,6 +78,36 @@ export const leads = pgTable('leads', {
 }, (table) => [
   index('idx_leads_tenant_score').on(table.tenantId, table.score, table.createdAt),
   index('idx_leads_tenant_stage').on(table.tenantId, table.stage, table.score, table.createdAt),
+  // One-lead-per-conversation invariant: salesQuotes, payment prefill, and after-hours
+  // attribution all assume at most one lead per conversation_id.
+  uniqueIndex('idx_leads_conversation_unique').on(table.conversationId).where(sql`conversation_id IS NOT NULL`),
   check('leads_score_values', sql`score IN ('hot', 'warm', 'cold')`),
   check('leads_stage_values', sql`stage IN ('new', 'qualifying', 'proposal', 'negotiation', 'closed_won', 'closed_lost')`),
+]);
+
+// artifact_id is the immutable ownership key (set once, never re-derived).
+// lead_id and conversation_id are provenance only (mutable via handoffs).
+export const payments = pgTable('payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  artifactId: uuid('artifact_id').notNull().references(() => artifacts.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  quoteExecutionId: uuid('quote_execution_id').references(() => moduleExecutions.id, { onDelete: 'set null' }),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  currency: text('currency').notNull().default('USD'),
+  description: text('description'),
+  paymentUrl: text('payment_url'),
+  status: text('status').notNull().default('pending'),
+  dueDate: timestamp('due_date', { withTimezone: true, mode: 'date' }),
+  paidAt: timestamp('paid_at', { withTimezone: true, mode: 'date' }),
+  reference: text('reference'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_payments_artifact_status').on(table.artifactId, table.status, table.createdAt),
+  index('idx_payments_tenant_status').on(table.tenantId, table.status, table.createdAt),
+  check('payments_status_values', sql`status IN ('pending','sent','viewed','paid','overdue','cancelled')`),
+  check('payments_amount_positive', sql`amount > 0`),
 ]);

@@ -1,9 +1,9 @@
 # Camello Generalist Platform Spec
 
-**Version:** 0.1 (Pre-implementation research)
+**Version:** 0.2 (Updated after Sprint 3 audit)
 **Author:** Mateo Daza
-**Date:** 2026-02-20
-**Status:** Parked. Resume post-Week 4 (after billing #37, E2E, deploy).
+**Date:** 2026-02-28
+**Status:** Parked. Resume after current sprint work is complete.
 
 ---
 
@@ -27,37 +27,44 @@ Sippy (WhatsApp USDC payment bot on Arbitrum) becomes a "finance" vertical on Ca
 
 ## 2. Architecture Assessment
 
-### What's already reusable (~65%)
+### What's already reusable (~70%)
+
+Since the original assessment, Sprint 3 added the archetype system, workspace registry, and risk-based autonomy — all of which are extensibility patterns that further reduce the generalist refactor surface.
 
 | Component | Why it's generic |
 |---|---|
-| Module system (`ModuleDefinition`) | Domain-agnostic: slug, Zod schemas, `execute()`, `formatForLLM()`. A `transfer_funds` module has the same shape as `qualify_lead`. |
+| Module system (`ModuleDefinition`) | Domain-agnostic: slug, Zod schemas, `execute()`, `formatForLLM()`, `riskTier`, `quickAction`. 9 modules exist. A `transfer_funds` module has the same shape as `qualify_lead`. |
+| Risk-based autonomy | `riskTier` (`low`/`medium`/`high`) auto-maps to autonomy levels via `autonomyFromRisk()`. Financial compliance is just `riskTier: 'high'` → `draft_and_approve`. |
+| Archetype system | `ArchetypeDefinition` bundles prompts + module slugs + tone + RAG bias per agent type. **This is a proto-VerticalConfig** — already extensible for new verticals. |
+| Auto-binding (`applyArchetypeDefaults`) | Artifact creation auto-binds modules from archetype, with `autonomy_source` tracking (`'default'` vs `'manual'`) to prevent migration overwrites. |
 | Tool adapter (`buildToolsFromBindings`) | Builds AI SDK tools from modules via schema introspection. No domain assumptions. |
-| Autonomy gating | `suggest_only` / `draft_and_approve` / `fully_autonomous` maps to any approval workflow — sales confirmations, financial compliance, medical consent. |
 | Idempotency | Per-pipeline-run dedup prevents duplicate actions. Critical for financial transactions. |
 | Channel adapters | `ChannelAdapter` interface is domain-agnostic. WhatsApp, webchat work for any vertical. |
 | Orchestration pipeline | 15-step `message-handler.ts` delegates every domain decision. Never touches domain logic. |
 | Multi-tenancy + RLS | `createTenantDb()`, Clerk orgs, tenant isolation — all infrastructure, no business logic. |
 | Cost budgets + Langfuse | Per-tenant metering works for any vertical. |
-| Trigger.dev jobs | Cron jobs (decay, rollup, ingestion) are generic operational tasks. |
-| Knowledge/RAG pipeline | Chunker, embeddings, hybrid search — domain-agnostic information retrieval. |
+| RAG with chunk roles | `classifyChunkRole()` splits context into lead/support roles. Role mapping is intent-driven — generalizes to any vertical's intent vocabulary. |
+| Customer memory | Regex extraction, JSONB storage, injection-safe prompt rendering. Domain-agnostic. |
+| Workspace registry (frontend) | `sectionRegistry` maps artifact type → UI sections. Adding a new vertical = 1 file + 1 registry entry. Uses 5 shared primitives (`MetricsGrid`, `DataTable`, `CardFeed`, `AlertList`, `BarChartCss`). |
+| Quick actions | Module-derived via `getQuickActionsForModules()`. Localized (en/es). Any new module just defines `quickAction` and it surfaces in the widget. |
+| Jobs worker | node-cron standalone (learning decay, metrics rollup, URL ingestion). Generic operational tasks. |
 
-### What's hardcoded to workforce (~35%)
+### What's hardcoded to workforce (~30%)
 
-All hardcoded assumptions are **vocabulary, not architecture**:
+All hardcoded assumptions remain **vocabulary, not architecture**. The surface is smaller than the original assessment because archetype/registry patterns have absorbed some of the rigidity.
 
 | What | Where | Current values |
 |---|---|---|
 | `ArtifactType` | `shared/types`, DB CHECK | `sales \| support \| marketing \| custom` |
 | `ModuleCategory` | `shared/types`, DB CHECK | `sales \| support \| marketing \| operations \| custom` |
 | `IntentType` | `shared/types` | 14 customer-service intents |
-| `REGEX_INTENTS` | `shared/constants` | greeting, pricing, availability, complaint patterns |
-| `INTENT_TO_DOC_TYPES` | `shared/constants` | pricing→plans, product_question→features, etc. |
-| Model selector | `model-selector.ts` | Routes by intent name, not complexity |
-| Prompt builder | `prompt-builder.ts:49` | `"You are {name}, a {type}"` derives role from type enum |
-| Budget exceeded msg | `message-handler.ts:640` | `"Your AI team..."` |
-| `ModuleDbCallbacks` | `shared/types` | Fixed: `insertLead`, `insertModuleExecution`, `updateModuleExecution` |
-| `leads` table | `db/schema` | Sales-domain (score, budget, timeline) |
+| `REGEX_INTENTS` | `shared/constants` | 6 patterns (greeting, pricing, availability, complaint, simple_question, farewell) |
+| `INTENT_TO_DOC_TYPES` | `shared/constants` | 4 mappings (pricing→plans, product_question→features, tech_support→docs, booking→services) |
+| Model selector | `model-selector.ts` | Routes by confidence + complexity + intent type (3-tier, not just intent name) |
+| Prompt builder | `prompt-builder.ts` | Identity role + archetype behavioral framework (dynamic per type, but still workforce vocabulary) |
+| Budget exceeded msg | `message-handler.ts` | `"Your AI team..."` |
+| `ModuleDbCallbacks` | `shared/types` | 4 fixed callbacks: `insertLead` (with stage + estimatedValue), `insertModuleExecution`, `updateModuleExecution`, `updateConversationStatus` |
+| `leads` table | `db/schema` | Sales pipeline: score (hot/warm/cold), stage (6 values: new→closed_won/lost), estimatedValue, budget, timeline |
 | Onboarding templates | `onboarding.ts` | services, ecommerce, saas, restaurant, realestate |
 | `PlanTier` | `shared/types` | `starter \| growth \| scale` |
 
@@ -83,41 +90,72 @@ type ModuleCategory = string; // validated by VerticalConfig
 - tRPC validation reads allowed values from vertical config instead of hardcoded enums
 - Existing `sales`, `support`, `marketing` values remain valid — no data migration
 
-### 3.2 Pluggable intent vocabulary (VerticalConfig)
+### 3.2 Evolve ArchetypeDefinition into VerticalConfig
+
+**Key insight from Sprint 3 audit:** `ArchetypeDefinition` already exists as a partial implementation. The generalist refactor should **extend it**, not create a parallel structure.
 
 ```typescript
-interface VerticalConfig {
-  slug: string;                              // 'workforce' | 'finance' | 'health'
-  agentTypes: string[];                      // ['sales', 'support'] or ['money_agent', 'advisor']
-  intentTypes: string[];                     // the vocabulary for this vertical
+// Current ArchetypeDefinition (packages/ai/src/archetype-registry.ts)
+interface ArchetypeDefinition {
+  type: ArtifactType;
+  prompts: LocalizedText | null;       // behavioral framework injected into system prompt
+  defaultTone: LocalizedText;
+  moduleSlugs: string[];               // auto-bound modules on artifact creation
+  icon: string;
+  color: string;
+  ragBias: ArchetypeRagBias | null;    // doc_type filtering for RAG search
+}
+
+// Evolved into VerticalConfig (extends what exists, adds what's missing)
+interface VerticalConfig extends ArchetypeDefinition {
+  slug: string;                              // 'sales' | 'support' | 'money_agent' | 'advisor'
+  intentTypes: string[];                     // the intent vocabulary for this vertical
   regexIntents: Record<string, RegExp[]>;    // fast-path intent patterns
   intentToDocTypes: Record<string, string[]>; // RAG routing
   modelRouting: Record<string, 'fast' | 'balanced' | 'powerful'>; // complexity mapping
-  defaultPromptRules: string[];              // safety/compliance rules
-  onboardingTemplates: OnboardingTemplate[]; // wizard templates
+  onboardingTemplates: OnboardingTemplate[]; // wizard templates for this vertical
 }
 ```
 
-- Ship two built-in verticals: `workforce` (current behavior, extracted) and `finance`
-- Tenant/agent config references a vertical slug
-- Pipeline reads vertical config at runtime — classifier, model selector, prompt builder, RAG all use it
-- Third-party verticals possible later
+What `ArchetypeDefinition` already covers (no work needed):
+- `prompts` → behavioral framework per type (sales persuasion, support empathy, etc.)
+- `moduleSlugs` → auto-binding at artifact creation
+- `defaultTone` → localized tone presets
+- `ragBias` → doc_type filtering (sales searches pricing docs, support searches troubleshooting)
+
+What must be added to generalize:
+- `intentTypes` → per-vertical intent vocabulary (currently global `IntentType`)
+- `regexIntents` → per-vertical regex patterns (currently global `REGEX_INTENTS`)
+- `intentToDocTypes` → per-vertical RAG routing (currently global `INTENT_TO_DOC_TYPES`)
+- `modelRouting` → per-vertical model tier mapping (currently hardcoded in `model-selector.ts`)
+- `onboardingTemplates` → per-vertical wizard flow
+
+Existing production behavior to preserve:
+- `autonomyFromRisk(riskTier)` drives autonomy at bind time — generalizes to any vertical
+- `autonomy_source` tracking (`'default'` vs `'manual'`) prevents migration overwrites
+- `applyArchetypeDefaults()` auto-binds modules — stays as-is, just reads from extended config
+- Quick actions derived from modules via `getQuickActionsForModules()` — already generic
 
 ### 3.3 Generic module DI callbacks
 
 Replace the fixed `ModuleDbCallbacks` interface with a named callback registry.
 
 ```typescript
-// Before: every module gets insertLead + insertModuleExecution + updateModuleExecution
+// Current: 4 fixed callbacks (expanded since v0.1)
 interface ModuleDbCallbacks {
-  insertLead: (...) => Promise<...>;
-  insertModuleExecution: (...) => Promise<...>;
-  updateModuleExecution: (...) => Promise<...>;
+  insertLead: (data: {
+    tenantId, customerId, conversationId, score: LeadScore,
+    tags, budget?, timeline?, summary?,
+    stage?, estimatedValue?  // ← added in Sprint 3
+  }) => Promise<string>;
+  insertModuleExecution: (...) => Promise<string>;
+  updateModuleExecution: (id, data) => Promise<void>;
+  updateConversationStatus: (conversationId, status) => Promise<void>;  // ← added in Sprint 3
 }
 
 // After: modules declare their required callbacks
 interface ModuleDefinition<TInput, TOutput> {
-  // ... existing fields ...
+  // ... existing fields (slug, name, category, riskTier, quickAction, schemas, execute, formatForLLM) ...
   requiredCallbacks: string[]; // ['insertTransaction', 'getWalletBalance']
 }
 
@@ -125,10 +163,11 @@ interface ModuleDefinition<TInput, TOutput> {
 type CallbackRegistry = Record<string, (...args: any[]) => Promise<any>>;
 ```
 
-- `qualify_lead` still uses `insertLead` — nothing breaks
+- Workforce modules keep using `insertLead`, `updateConversationStatus` — nothing breaks
 - Financial modules declare `insertTransaction`, `getWalletBalance`, etc.
 - The pipeline resolves callbacks from the registry based on module declarations
 - Missing callbacks fail fast at bind time, not at runtime
+- `insertModuleExecution` / `updateModuleExecution` are universal (always provided)
 
 ---
 
@@ -146,7 +185,94 @@ Mechanical rename: `s/artifact/agent/g` + `s/module/tool/g` across codebase. Do 
 
 ---
 
-## 5. Sippy Convergence Path
+## 5. Current Infrastructure (Sprint 3 additions — generalist building blocks)
+
+These systems were built for workforce agents but are already vertical-agnostic in design. The generalist refactor extends them rather than replacing them.
+
+### 5.1 Module system (9 modules, up from 3)
+
+| Module | Category | Risk Tier | Quick Action | Added |
+|---|---|---|---|---|
+| `qualify_lead` | sales | low | Yes | Week 2 |
+| `book_meeting` | sales | medium | Yes | Week 2 |
+| `send_followup` | marketing | medium | Yes | Week 2 |
+| `collect_payment` | sales | high | No | Sprint 3 |
+| `send_quote` | sales | high | No | Sprint 3 |
+| `create_ticket` | support | low | Yes | Sprint 3 |
+| `escalate_to_human` | support | medium | Yes | Sprint 3 |
+| `capture_interest` | marketing | low | Yes | Sprint 3 |
+| `draft_content` | marketing | high | No | Sprint 3 |
+
+`ModuleDefinition` now includes:
+- `riskTier: RiskTier` — `'low' | 'medium' | 'high'`, drives autonomy assignment
+- `quickAction?: { en: { label, message }, es: { label, message } }` — localized widget buttons
+
+### 5.2 Archetype system
+
+`ArchetypeDefinition` at `packages/ai/src/archetype-registry.ts`:
+
+| Archetype | Module Slugs | RAG Bias | Prompt |
+|---|---|---|---|
+| `sales` | qualify_lead, book_meeting, collect_payment, send_quote | pricing, product, case_study | Persuasion framework |
+| `support` | create_ticket, escalate_to_human | troubleshooting, faq, how_to | Empathy + resolution framework |
+| `marketing` | send_followup, capture_interest, draft_content | null (no bias) | Engagement framework |
+| `custom` | [] (empty) | null | null |
+
+**Auto-binding flow:** `applyArchetypeDefaults(type)` → look up archetype → get module slugs → resolve from DB → bind with `autonomyFromRisk(riskTier)` → set `autonomy_source = 'default'`.
+
+**Adding a new vertical (e.g., finance):** Create `packages/ai/src/archetypes/finance.ts` with module slugs, prompts, tone, RAG bias. Register in archetype index. That's it — auto-binding, quick actions, and prompt injection all work automatically.
+
+### 5.3 Risk-based autonomy
+
+```
+autonomyFromRisk('low')    → 'fully_autonomous'
+autonomyFromRisk('medium') → 'fully_autonomous'
+autonomyFromRisk('high')   → 'draft_and_approve'
+```
+
+Source: `apps/api/src/lib/apply-archetype-defaults.ts`. Applied at artifact creation time. `autonomy_source` column tracks provenance (`'default'` vs `'manual'`), so migrations/re-bindings never overwrite manual overrides.
+
+For financial modules: `transfer_funds` would be `riskTier: 'high'` → `draft_and_approve` (requires confirmation). `check_balance` would be `riskTier: 'low'` → `fully_autonomous`.
+
+### 5.4 Workspace registry (frontend)
+
+`apps/web/src/components/agent-workspace/registry/index.ts`:
+
+```typescript
+export const sectionRegistry: Record<string, ComponentType<{ artifactId: string }>[]> = {
+  sales: salesSections,      // SalesOverview, SalesPipeline, SalesQuotes
+  support: supportSections,  // SupportOverview, SupportTickets, SupportEscalations, SupportKnowledgeGaps
+  marketing: marketingSections, // MarketingOverview, MarketingEngagement, MarketingDrafts
+  custom: [],
+};
+```
+
+5 shared primitives: `MetricsGrid`, `DataTable`, `CardFeed`, `AlertList`, `BarChartCss`. Each section is ~40-80 lines wiring one tRPC call to a primitive.
+
+**Adding a finance workspace:** Create `registry/finance.tsx` with `FinanceOverview` (balance, recent transactions), `FinanceTransactions` (DataTable), `FinanceAlerts` (AlertList for spending limit warnings). Add one line to the registry. Done.
+
+### 5.5 DB schema additions (Sprint 3)
+
+Migration 0013 + 0014 added:
+- `leads.stage` — 6-value pipeline: new → qualifying → proposal → negotiation → closed_won/closed_lost
+- `leads.estimated_value` — numeric(12,2) for pipeline value tracking
+- `module_executions.module_slug` — denormalized for fast dashboard queries
+- `artifact_modules.autonomy_source` — `'default' | 'manual'` provenance tracking
+- 6 new module seeds (collect_payment, send_quote, create_ticket, escalate_to_human, capture_interest, draft_content)
+- Archetype module backfill with autonomy correction (70/30 split: low/medium → fully_autonomous)
+
+### 5.6 Model selector (more sophisticated than originally documented)
+
+`packages/ai/src/model-selector.ts` routes by 3 factors, not just intent name:
+1. **Confidence** — uncertain intents (< 0.7) → `balanced`
+2. **Complexity** — `simple` → `fast`, `complex` → `powerful`
+3. **Intent type** — greeting/farewell → `fast`, complaint/negotiation → `powerful`, etc.
+
+For the generalist refactor: move the intent→tier mapping into `VerticalConfig.modelRouting` while keeping the confidence/complexity routing as universal logic.
+
+---
+
+## 6. Sippy Convergence Path
 
 ### What Sippy is today
 
@@ -170,17 +296,28 @@ Mechanical rename: `s/artifact/agent/g` + `s/module/tool/g` across codebase. Do 
 | Spend permissions (embedded wallets) | `fully_autonomous` autonomy level (pre-approved on-chain) |
 | "Send $25 to Maria? Confirm" | `draft_and_approve` autonomy level |
 
+### What's closer than v0.1 estimated
+
+Sprint 3 added infrastructure that directly reduces the Sippy convergence effort:
+
+- **Archetype system** already supports per-type module bundles, prompts, tone, and RAG bias. Adding a `money_agent` archetype is one file + one registry entry.
+- **Workspace registry** already supports per-type dashboard sections. Adding `finance` sections is one file + one registry entry.
+- **Risk-based autonomy** already maps `riskTier: 'high'` → `draft_and_approve`. Financial modules just declare their risk tier.
+- **Quick actions** already derive from modules. Financial modules define `quickAction` and it surfaces in the widget.
+- **9 modules exist** (up from 3). The pattern is proven and well-tested. Adding financial modules follows the same shape.
+
 ### Sequence
 
 1. Ship Sippy M1 independently (grant deliverable)
-2. Complete Camello Week 4 (billing, E2E, deploy)
-3. Implement the 3 generalist changes (open enums, VerticalConfig, generic callbacks)
-4. Port Sippy's CDP logic into Camello financial tools
-5. Deploy a "finance" vertical tenant running on Camello infrastructure
+2. Complete Camello current sprint work
+3. Implement the 3 generalist changes (open enums, evolve ArchetypeDefinition→VerticalConfig, generic callbacks)
+4. Port Sippy's CDP logic into Camello financial modules
+5. Create `money_agent` archetype + finance workspace registry
+6. Deploy a "finance" vertical tenant running on Camello infrastructure
 
 ---
 
-## 6. Tool Module Integration Research
+## 7. Tool Module Integration Research
 
 ### Evaluation criteria
 
@@ -438,36 +575,44 @@ These are NOT part of the phases above. They come from porting Sippy into Camell
 
 ---
 
-## 7. Implementation Sequence
+## 8. Implementation Sequence
 
-### Now (Week 4 — do NOT touch generalist work)
-- Finish billing (#37), E2E tests, production deploy
+### Now — do NOT touch generalist work
+- Finish current sprint work (support/marketing polish, remaining tasks)
 - Ship Sippy M1 grant independently
+- Week 4 deliverables (billing #37, E2E, deploy) are DONE
 
-### Post-Week 4, Phase A: Generalist refactor
-1. Open type enums (1 migration + type changes)
-2. Extract `workforce` VerticalConfig from current hardcoded values
-3. Define `finance` VerticalConfig
-4. Generic module DI callbacks
-5. Rename: artifact -> agent, module -> tool (mechanical `s///g`)
+### Phase A: Generalist refactor (estimated ~1 week)
 
-### Post-Week 4, Phase B: Tool modules
+Sprint 3's archetype system and workspace registry reduced this from a structural refactor to mostly vocabulary changes:
+
+1. Open type enums — 1 migration to drop/widen CHECK constraints on `artifacts.type` + `modules.category`
+2. Evolve `ArchetypeDefinition` → `VerticalConfig` — extend with `intentTypes`, `regexIntents`, `intentToDocTypes`, `modelRouting`
+3. Extract `workforce` vertical config from current hardcoded constants (move `REGEX_INTENTS`, `INTENT_TO_DOC_TYPES`, model selector switch into the workforce config)
+4. Define `finance` vertical config (intent vocabulary, regex patterns, model routing)
+5. Generic module DI callbacks (callback registry replacing 4 fixed callbacks)
+6. Rename: artifact → agent, module → tool (mechanical `s///g` — touch every file once, not incrementally)
+
+### Phase B: Tool modules (can run in parallel with Phase C)
 1. Phase 1 tools (6 trivial integrations, ~3-4 days)
 2. Phase 2 tools (7 low-effort integrations, ~2-3 weeks)
 3. Phase 3 tools (8 medium-effort integrations, ~4-6 weeks)
 
-### Post-Week 4, Phase C: Sippy convergence
-1. Port Sippy's CDP wallet logic into Camello financial tools
-2. Define `finance` intent vocabulary + regex patterns
-3. Deploy a finance-vertical tenant on Camello
-4. Sunset standalone Sippy backend
+### Phase C: Sippy convergence
+1. Port Sippy's CDP wallet logic into Camello financial modules (same `ModuleDefinition` shape)
+2. Create `money_agent` archetype (prompts, module slugs, tone, RAG bias)
+3. Create finance workspace registry file (dashboard sections using shared primitives)
+4. Deploy a finance-vertical tenant on Camello
+5. Sunset standalone Sippy backend
 
 ---
 
-## 8. Open Questions (to resolve when resuming)
+## 9. Open Questions (to resolve when resuming)
 
-1. **Toolkit abstraction:** Should tool bundles (presets) be a first-class entity? Or just a UX convenience (preset = auto-bind these tools to a new agent)?
+1. **Toolkit abstraction:** ~~Should tool bundles (presets) be a first-class entity?~~ **Partially answered:** Archetypes already ARE tool bundles (module slugs + prompts + tone + RAG bias). The remaining question: should tenants create custom toolkits (mix modules from different archetypes), or only use pre-built archetype bundles?
 2. **OAuth2 modules:** How do we handle per-tenant OAuth tokens for Google Calendar, Sheets, DocuSign? Encrypted storage in tenant settings JSONB? Separate `oauth_tokens` table?
 3. **Module marketplace:** When do we allow third-party tool publishing? What's the security model (sandboxed execution, permission scopes)?
 4. **Pricing per tool:** Do we charge per tool activation? Per tool execution? Or just per plan tier (starter = 3 tools, growth = 10, scale = unlimited)?
-5. **Financial compliance:** Does the finance vertical need additional infrastructure (KYC checks, regulatory disclaimers, audit trails) beyond what autonomy gating provides?
+5. **Financial compliance:** Does the finance vertical need additional infrastructure (KYC checks, regulatory disclaimers, audit trails) beyond what autonomy gating + `riskTier: 'high'` provides?
+6. **Intent vocabulary migration:** When we move from global `IntentType` to per-vertical vocabularies, what happens to existing `interaction_logs` rows that store intent types? Do we migrate them, or treat them as historical data with the old vocabulary?
+7. **Cross-vertical agents:** Can one artifact have modules from multiple verticals (e.g., a sales agent that can also create support tickets)? Archetypes currently bind modules from one vertical only. Is cross-binding a feature or an anti-pattern?

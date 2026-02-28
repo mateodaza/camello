@@ -12,6 +12,12 @@ const variants: Record<string, string> = {
   starter: 'bg-charcoal/10 text-charcoal',
   growth: 'bg-indigo-100 text-indigo-800',
   scale: 'bg-teal/15 text-charcoal',
+  paid: 'bg-teal/15 text-charcoal',
+  overdue: 'bg-sunset/15 text-charcoal',
+  sent: 'bg-gold/20 text-charcoal',
+  pending: 'bg-charcoal/10 text-charcoal',
+  viewed: 'bg-indigo-100 text-indigo-800',
+  cancelled: 'bg-charcoal/8 text-dune',
 };
 
 export function Badge({

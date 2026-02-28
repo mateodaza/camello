@@ -1,19 +1,22 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { eq, and, desc, sql, gte, inArray, isNull, asc } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, inArray, isNull, isNotNull, asc, lt, lte } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
 import {
   artifacts,
   artifactModules,
   modules,
   conversations,
+  messages,
   moduleExecutions,
   leads,
   customers,
   interactionLogs,
   conversationArtifactAssignments,
   tenants,
+  payments,
 } from '@camello/db';
+import { paymentStatusSchema } from '@camello/shared/schemas';
 
 // ---------------------------------------------------------------------------
 // Shared input schemas
@@ -153,7 +156,7 @@ export const agentRouter = router({
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
         // Leads grouped by stage with counts and total value
-        return db
+        const stageRows = await db
           .select({
             stage: leads.stage,
             count: sql<number>`count(*)::int`,
@@ -166,6 +169,73 @@ export const agentRouter = router({
             eq(leads.tenantId, ctx.tenantId),
           ))
           .groupBy(leads.stage);
+
+        // Average days to close (closed_won only)
+        const [velocityRow] = await db
+          .select({
+            avgDays: sql<number | null>`
+              round(avg(extract(epoch from (${leads.convertedAt} - ${leads.qualifiedAt})) / 86400))::int
+            `,
+          })
+          .from(leads)
+          .innerJoin(conversations, eq(leads.conversationId, conversations.id))
+          .where(and(
+            eq(conversations.artifactId, input.artifactId),
+            eq(leads.tenantId, ctx.tenantId),
+            eq(leads.stage, 'closed_won'),
+            isNotNull(leads.convertedAt),
+            isNotNull(leads.qualifiedAt),
+          ));
+
+        // Sparklines: last 7 days, zero-filled via generate_series
+        const sparklineRows = await db.execute(sql`
+          WITH days AS (
+            SELECT generate_series(
+              (NOW() - interval '6 days')::date,
+              NOW()::date,
+              '1 day'::interval
+            )::date AS day
+          ),
+          new_leads AS (
+            SELECT DATE(l.created_at) AS day, count(*)::int AS cnt
+            FROM leads l
+            INNER JOIN conversations c ON l.conversation_id = c.id
+            WHERE c.artifact_id = ${input.artifactId}
+              AND l.tenant_id = ${ctx.tenantId}
+              AND l.created_at >= NOW() - interval '6 days'
+            GROUP BY DATE(l.created_at)
+          ),
+          won_value AS (
+            SELECT DATE(l.converted_at) AS day,
+                   coalesce(sum(l.estimated_value), 0)::text AS val
+            FROM leads l
+            INNER JOIN conversations c ON l.conversation_id = c.id
+            WHERE c.artifact_id = ${input.artifactId}
+              AND l.tenant_id = ${ctx.tenantId}
+              AND l.stage = 'closed_won'
+              AND l.converted_at >= NOW() - interval '6 days'
+            GROUP BY DATE(l.converted_at)
+          )
+          SELECT
+            d.day::text,
+            coalesce(nl.cnt, 0) AS new_leads,
+            coalesce(wv.val, '0') AS won_value
+          FROM days d
+          LEFT JOIN new_leads nl ON nl.day = d.day
+          LEFT JOIN won_value wv ON wv.day = d.day
+          ORDER BY d.day
+        `);
+
+        const sparklineArr = sparklineRows.rows as Array<{ day: string; new_leads: number; won_value: string }>;
+
+        return {
+          stages: stageRows,
+          avgDaysToClose: velocityRow?.avgDays ?? null,
+          sparklines: {
+            newLeadsDaily: sparklineArr.map(r => ({ date: r.day, count: Number(r.new_leads) })),
+            wonValueDaily: sparklineArr.map(r => ({ date: r.day, value: r.won_value })),
+          },
+        };
       });
     }),
 
@@ -217,6 +287,9 @@ export const agentRouter = router({
     .input(paginatedInput)
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
+        // LEFT JOIN leads to enrich each quote with leadId + customerId.
+        // Safe because idx_leads_conversation_unique ensures at most one lead
+        // per non-null conversation_id (migration 0015).
         return db
           .select({
             id: moduleExecutions.id,
@@ -224,8 +297,11 @@ export const agentRouter = router({
             status: moduleExecutions.status,
             conversationId: moduleExecutions.conversationId,
             createdAt: moduleExecutions.createdAt,
+            leadId: leads.id,
+            customerId: leads.customerId,
           })
           .from(moduleExecutions)
+          .leftJoin(leads, eq(leads.conversationId, moduleExecutions.conversationId))
           .where(and(
             eq(moduleExecutions.artifactId, input.artifactId),
             eq(moduleExecutions.tenantId, ctx.tenantId),
@@ -271,6 +347,8 @@ export const agentRouter = router({
     .input(z.object({
       leadId: z.string().uuid(),
       stage: z.enum(['new', 'qualifying', 'proposal', 'negotiation', 'closed_won', 'closed_lost']),
+      closeReason: z.string().max(200).optional(),
+      estimatedValue: z.number().nonnegative().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
@@ -281,6 +359,12 @@ export const agentRouter = router({
         };
         if (input.stage === 'closed_won' || input.stage === 'closed_lost') {
           set.convertedAt = now;
+        }
+        if (input.closeReason !== undefined) {
+          set.closeReason = input.closeReason;
+        }
+        if (input.estimatedValue !== undefined) {
+          set.estimatedValue = input.estimatedValue.toFixed(2);
         }
 
         const rows = await db
@@ -293,6 +377,465 @@ export const agentRouter = router({
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Lead not found' });
         }
         return rows[0];
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // salesAlerts — stale leads, pending approvals, high-value early leads
+  // -------------------------------------------------------------------------
+
+  salesAlerts: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        // Stale: active leads with last real activity > 3 days ago
+        // GREATEST(COALESCE(max_interaction, lead.created_at), COALESCE(max_execution, lead.created_at))
+        // ensures true maximum across both sources even when one is empty.
+        const staleRows = await db.execute(sql`
+          SELECT
+            l.id,
+            c.name AS customer_name,
+            l.stage,
+            l.estimated_value::text AS estimated_value,
+            EXTRACT(DAY FROM NOW() - GREATEST(
+              COALESCE(MAX(il.created_at), l.created_at),
+              COALESCE(MAX(me.created_at), l.created_at)
+            ))::int AS days_since_activity
+          FROM leads l
+          INNER JOIN conversations conv ON l.conversation_id = conv.id
+          INNER JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN interaction_logs il ON il.conversation_id = l.conversation_id
+          LEFT JOIN module_executions me ON me.conversation_id = l.conversation_id
+          WHERE conv.artifact_id = ${input.artifactId}
+            AND l.tenant_id = ${ctx.tenantId}
+            AND l.stage NOT IN ('closed_won', 'closed_lost')
+          GROUP BY l.id, c.name, l.stage, l.estimated_value, l.created_at
+          HAVING GREATEST(
+            COALESCE(MAX(il.created_at), l.created_at),
+            COALESCE(MAX(me.created_at), l.created_at)
+          ) < NOW() - INTERVAL '3 days'
+          ORDER BY days_since_activity DESC
+          LIMIT 20
+        `);
+
+        // Pending module approvals for sales modules
+        const salesModuleSlugs = ['send_quote', 'collect_payment', 'qualify_lead', 'book_meeting'];
+        const pendingRows = await db
+          .select({
+            id: moduleExecutions.id,
+            moduleSlug: moduleExecutions.moduleSlug,
+            conversationId: moduleExecutions.conversationId,
+            createdAt: moduleExecutions.createdAt,
+          })
+          .from(moduleExecutions)
+          .where(and(
+            eq(moduleExecutions.artifactId, input.artifactId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+            eq(moduleExecutions.status, 'pending'),
+            inArray(moduleExecutions.moduleSlug, salesModuleSlugs),
+          ))
+          .orderBy(asc(moduleExecutions.createdAt))
+          .limit(10);
+
+        // High-value early leads: estimated_value > median, stage in new/qualifying
+        const highValueRows = await db.execute(sql`
+          SELECT
+            l.id,
+            c.name AS customer_name,
+            l.score,
+            l.estimated_value::text AS estimated_value,
+            l.stage
+          FROM leads l
+          INNER JOIN conversations conv ON l.conversation_id = conv.id
+          INNER JOIN customers c ON l.customer_id = c.id
+          WHERE conv.artifact_id = ${input.artifactId}
+            AND l.tenant_id = ${ctx.tenantId}
+            AND l.stage IN ('new', 'qualifying')
+            AND l.estimated_value IS NOT NULL
+            AND l.estimated_value > (
+              SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)
+              FROM leads
+              WHERE tenant_id = ${ctx.tenantId} AND estimated_value IS NOT NULL
+            )
+          ORDER BY l.estimated_value DESC
+          LIMIT 5
+        `);
+
+        type StaleRow = { id: string; customer_name: string; stage: string; estimated_value: string | null; days_since_activity: number };
+        type HVRow = { id: string; customer_name: string; score: string; estimated_value: string; stage: string };
+
+        return {
+          staleLeads: (staleRows.rows as StaleRow[]).map(r => ({
+            id: r.id,
+            customerName: r.customer_name,
+            stage: r.stage,
+            estimatedValue: r.estimated_value,
+            daysSinceActivity: r.days_since_activity,
+          })),
+          pendingApprovals: pendingRows,
+          highValueEarly: (highValueRows.rows as HVRow[]).map(r => ({
+            id: r.id,
+            customerName: r.customer_name,
+            score: r.score,
+            estimatedValue: r.estimated_value,
+            stage: r.stage,
+          })),
+        };
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // salesLeadDetail — full lead context for the slide-over sheet
+  // -------------------------------------------------------------------------
+
+  salesLeadDetail: tenantProcedure
+    .input(z.object({ leadId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const [leadRow] = await db
+          .select({
+            id: leads.id,
+            score: leads.score,
+            stage: leads.stage,
+            estimatedValue: leads.estimatedValue,
+            budget: leads.budget,
+            timeline: leads.timeline,
+            summary: leads.summary,
+            tags: leads.tags,
+            closeReason: leads.closeReason,
+            qualifiedAt: leads.qualifiedAt,
+            convertedAt: leads.convertedAt,
+            customerId: customers.id,
+            customerName: customers.name,
+            customerEmail: customers.email,
+            customerPhone: customers.phone,
+            conversationId: leads.conversationId,
+          })
+          .from(leads)
+          .innerJoin(customers, eq(leads.customerId, customers.id))
+          .where(and(eq(leads.id, input.leadId), eq(leads.tenantId, ctx.tenantId)))
+          .limit(1);
+
+        if (!leadRow) throw new TRPCError({ code: 'NOT_FOUND', message: 'Lead not found' });
+
+        // Attribution: message count, interaction count, total LLM cost
+        const [attrRow] = await db
+          .select({
+            totalMessages: sql<number>`count(distinct ${messages.id})::int`,
+            totalInteractions: sql<number>`count(distinct ${interactionLogs.id})::int`,
+            totalCost: sql<string>`coalesce(sum(${interactionLogs.costUsd}), 0)::text`,
+          })
+          .from(conversations)
+          .leftJoin(messages, eq(messages.conversationId, conversations.id))
+          .leftJoin(interactionLogs, eq(interactionLogs.conversationId, conversations.id))
+          .where(eq(conversations.id, leadRow.conversationId!));
+
+        // Last 20 interactions
+        const recentInteractions = await db
+          .select({
+            intent: interactionLogs.intent,
+            costUsd: interactionLogs.costUsd,
+            latencyMs: interactionLogs.latencyMs,
+            createdAt: interactionLogs.createdAt,
+          })
+          .from(interactionLogs)
+          .where(eq(interactionLogs.conversationId, leadRow.conversationId!))
+          .orderBy(desc(interactionLogs.createdAt))
+          .limit(20);
+
+        // Last 10 module executions
+        const recentExecutions = await db
+          .select({
+            moduleSlug: moduleExecutions.moduleSlug,
+            status: moduleExecutions.status,
+            createdAt: moduleExecutions.createdAt,
+          })
+          .from(moduleExecutions)
+          .where(eq(moduleExecutions.conversationId, leadRow.conversationId!))
+          .orderBy(desc(moduleExecutions.createdAt))
+          .limit(10);
+
+        return {
+          lead: {
+            id: leadRow.id,
+            score: leadRow.score,
+            stage: leadRow.stage,
+            estimatedValue: leadRow.estimatedValue,
+            budget: leadRow.budget,
+            timeline: leadRow.timeline,
+            summary: leadRow.summary,
+            tags: leadRow.tags,
+            closeReason: leadRow.closeReason,
+            qualifiedAt: leadRow.qualifiedAt,
+            convertedAt: leadRow.convertedAt,
+          },
+          customer: {
+            id: leadRow.customerId,
+            name: leadRow.customerName,
+            email: leadRow.customerEmail,
+            phone: leadRow.customerPhone,
+          },
+          attribution: attrRow ?? { totalMessages: 0, totalInteractions: 0, totalCost: '0' },
+          interactions: recentInteractions,
+          executions: recentExecutions,
+        };
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // salesPayments — payments for an artifact, filtered by status
+  // -------------------------------------------------------------------------
+
+  salesPayments: tenantProcedure
+    .input(z.object({
+      artifactId: z.string().uuid(),
+      status: paymentStatusSchema.optional(),
+      limit: z.number().int().min(1).max(100).default(50),
+      offset: z.number().int().min(0).default(0),
+    }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const conditions = [
+          eq(payments.artifactId, input.artifactId),
+          eq(payments.tenantId, ctx.tenantId),
+        ];
+        if (input.status) conditions.push(eq(payments.status, input.status));
+
+        return db
+          .select({
+            id: payments.id,
+            amount: payments.amount,
+            currency: payments.currency,
+            description: payments.description,
+            status: payments.status,
+            leadId: payments.leadId,
+            quoteExecutionId: payments.quoteExecutionId,
+            dueDate: payments.dueDate,
+            paidAt: payments.paidAt,
+            createdAt: payments.createdAt,
+            customerName: customers.name,
+          })
+          .from(payments)
+          .leftJoin(customers, eq(payments.customerId, customers.id))
+          .where(and(...conditions))
+          .orderBy(desc(payments.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // createPayment — create a payment with full FK ownership validation
+  // -------------------------------------------------------------------------
+
+  createPayment: tenantProcedure
+    .input(z.object({
+      artifactId: z.string().uuid(),
+      leadId: z.string().uuid().optional(),
+      conversationId: z.string().uuid().optional(),
+      customerId: z.string().uuid().optional(),
+      quoteExecutionId: z.string().uuid().optional(),
+      amount: z.number().positive(),
+      currency: z.enum(['USD', 'COP', 'MXN', 'BRL']).default('USD'),
+      description: z.string().min(1),
+      dueDate: z.string().datetime().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        // FK ownership validation — reject with BAD_REQUEST (not NOT_FOUND) to avoid enumeration
+
+        // 1. artifactId must belong to this tenant
+        const [artifact] = await db
+          .select({ id: artifacts.id })
+          .from(artifacts)
+          .where(and(eq(artifacts.id, input.artifactId), eq(artifacts.tenantId, ctx.tenantId)))
+          .limit(1);
+        if (!artifact) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid artifactId' });
+
+        // 2. conversationId (if provided) must belong to this tenant AND this artifact
+        if (input.conversationId) {
+          const [conv] = await db
+            .select({ id: conversations.id })
+            .from(conversations)
+            .where(and(
+              eq(conversations.id, input.conversationId),
+              eq(conversations.tenantId, ctx.tenantId),
+              eq(conversations.artifactId, input.artifactId),
+            ))
+            .limit(1);
+          if (!conv) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid conversationId' });
+        }
+
+        // 3. leadId (if provided) must belong to this tenant and this artifact's conversations
+        if (input.leadId) {
+          const [lead] = await db
+            .select({ id: leads.id })
+            .from(leads)
+            .innerJoin(conversations, eq(leads.conversationId, conversations.id))
+            .where(and(
+              eq(leads.id, input.leadId),
+              eq(leads.tenantId, ctx.tenantId),
+              eq(conversations.artifactId, input.artifactId),
+            ))
+            .limit(1);
+          if (!lead) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid leadId' });
+        }
+
+        // 4. quoteExecutionId (if provided) must belong to this tenant AND this artifact
+        if (input.quoteExecutionId) {
+          const [exec] = await db
+            .select({ id: moduleExecutions.id })
+            .from(moduleExecutions)
+            .where(and(
+              eq(moduleExecutions.id, input.quoteExecutionId),
+              eq(moduleExecutions.tenantId, ctx.tenantId),
+              eq(moduleExecutions.artifactId, input.artifactId),
+            ))
+            .limit(1);
+          if (!exec) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid quoteExecutionId' });
+        }
+
+        // 5. customerId (if provided) must belong to this tenant (customers are tenant-scoped)
+        if (input.customerId) {
+          const [customer] = await db
+            .select({ id: customers.id })
+            .from(customers)
+            .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, ctx.tenantId)))
+            .limit(1);
+          if (!customer) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid customerId' });
+        }
+
+        const [row] = await db
+          .insert(payments)
+          .values({
+            tenantId: ctx.tenantId,
+            artifactId: input.artifactId,
+            leadId: input.leadId,
+            conversationId: input.conversationId,
+            customerId: input.customerId,
+            quoteExecutionId: input.quoteExecutionId,
+            amount: input.amount.toFixed(2),
+            currency: input.currency,
+            description: input.description,
+            dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+          })
+          .returning({ id: payments.id, amount: payments.amount, currency: payments.currency, status: payments.status });
+
+        return row;
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // updatePaymentStatus — tenant + artifact scoped status update
+  // -------------------------------------------------------------------------
+
+  updatePaymentStatus: tenantProcedure
+    .input(z.object({
+      paymentId: z.string().uuid(),
+      status: paymentStatusSchema,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const set: Record<string, unknown> = {
+          status: input.status,
+          updatedAt: new Date(),
+        };
+        if (input.status === 'paid') set.paidAt = new Date();
+
+        const rows = await db
+          .update(payments)
+          .set(set)
+          .where(and(eq(payments.id, input.paymentId), eq(payments.tenantId, ctx.tenantId)))
+          .returning({ id: payments.id, status: payments.status });
+
+        if (rows.length === 0) throw new TRPCError({ code: 'NOT_FOUND', message: 'Payment not found' });
+        return rows[0];
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // salesLeadSummaries — unfiltered active leads for payment form selector
+  // -------------------------------------------------------------------------
+
+  salesLeadSummaries: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        return db
+          .select({
+            id: leads.id,
+            customerId: leads.customerId,
+            conversationId: leads.conversationId,
+            stage: leads.stage,
+            score: leads.score,
+            customerName: customers.name,
+          })
+          .from(leads)
+          .innerJoin(conversations, eq(leads.conversationId, conversations.id))
+          .innerJoin(customers, eq(leads.customerId, customers.id))
+          .where(and(
+            eq(leads.tenantId, ctx.tenantId),
+            eq(conversations.artifactId, input.artifactId),
+            sql`${leads.stage} NOT IN ('closed_won', 'closed_lost')`,
+          ))
+          .orderBy(asc(customers.name));
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // salesAfterHours — after-hours conversation + pipeline ROI card
+  // -------------------------------------------------------------------------
+
+  salesAfterHours: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        // Resolve timezone: explicit tenant setting or default to America/Bogota (LATAM primary)
+        const [tenantRow] = await db
+          .select({ settings: tenants.settings })
+          .from(tenants)
+          .where(eq(tenants.id, ctx.tenantId))
+          .limit(1);
+
+        const tz: string = (tenantRow?.settings as Record<string, unknown> | null)?.timezone as string | undefined ?? 'America/Bogota';
+
+        const result = await db.execute(sql`
+          WITH after_hours_convs AS (
+            SELECT c.id, l.estimated_value
+            FROM conversations c
+            LEFT JOIN leads l ON l.conversation_id = c.id
+            WHERE c.artifact_id = ${input.artifactId}
+              AND c.tenant_id = ${ctx.tenantId}
+              AND c.created_at >= NOW() - INTERVAL '30 days'
+              AND (
+                EXTRACT(HOUR FROM c.created_at AT TIME ZONE ${tz}) < 9
+                OR EXTRACT(HOUR FROM c.created_at AT TIME ZONE ${tz}) >= 18
+              )
+          )
+          SELECT
+            COUNT(DISTINCT id)::int AS after_hours_conversations,
+            COALESCE(SUM(estimated_value), 0)::text AS after_hours_pipeline_value
+          FROM after_hours_convs
+        `);
+
+        const [totalRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(conversations)
+          .where(and(
+            eq(conversations.artifactId, input.artifactId),
+            eq(conversations.tenantId, ctx.tenantId),
+            gte(conversations.createdAt, sql`NOW() - INTERVAL '30 days'`),
+          ));
+
+        type AfterHoursRow = { after_hours_conversations: number; after_hours_pipeline_value: string };
+        const row = result.rows[0] as AfterHoursRow;
+
+        return {
+          afterHoursConversations: row.after_hours_conversations ?? 0,
+          totalConversations: totalRow?.count ?? 0,
+          afterHoursPipelineValue: row.after_hours_pipeline_value ?? '0',
+          timezone: tz,
+        };
       });
     }),
 

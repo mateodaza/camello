@@ -376,12 +376,29 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   const moduleDbCallbacks: ModuleDbCallbacks = {
     insertLead: async (data) => {
       return tenantDb.query(async (db) => {
-        // Drizzle numeric columns expect string values (precision-safe)
         const { estimatedValue, ...rest } = data;
-        const [row] = await db.insert(leads).values({
-          ...rest,
-          estimatedValue: estimatedValue != null ? String(estimatedValue) : null,
-        }).returning({ id: leads.id });
+        const numericValue = estimatedValue != null ? String(estimatedValue) : null;
+        // Upsert: idx_leads_conversation_unique enforces one lead per conversation.
+        // Re-qualification enriches the existing row. qualifiedAt is NOT updated —
+        // it records the original qualification timestamp.
+        const [row] = await db
+          .insert(leads)
+          .values({ ...rest, estimatedValue: numericValue })
+          .onConflictDoUpdate({
+            target: leads.conversationId,
+            targetWhere: sql`conversation_id IS NOT NULL`,
+            set: {
+              score: rest.score,
+              stage: rest.stage ?? 'new',
+              estimatedValue: numericValue,
+              tags: rest.tags,
+              budget: rest.budget ?? null,
+              timeline: rest.timeline ?? null,
+              summary: rest.summary ?? null,
+              updatedAt: new Date(),
+            },
+          })
+          .returning({ id: leads.id });
         return row.id;
       });
     },

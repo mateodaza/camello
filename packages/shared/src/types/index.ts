@@ -133,6 +133,18 @@ export interface ModuleDbCallbacks {
     durationMs?: number;
   }) => Promise<void>;
   updateConversationStatus: (conversationId: string, status: ConversationStatus) => Promise<void>;
+  /** Optional — wired when payment creation needs to be triggered from a module. */
+  insertPayment?: (data: {
+    artifactId: string;
+    tenantId: string;
+    amount: string;
+    currency: string;
+    description: string;
+    leadId?: string;
+    conversationId?: string;
+    customerId?: string;
+    quoteExecutionId?: string;
+  }) => Promise<string>;
 }
 
 /** Artifact module binding: the JOIN row from artifact_modules + modules. */

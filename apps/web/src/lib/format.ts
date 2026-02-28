@@ -61,6 +61,27 @@ export function truncate(str: string, maxLen: number): string {
   return str.slice(0, maxLen) + '…';
 }
 
+/** Relative time: "just now", "5m", "5h", "2d", "3w". */
+export function fmtTimeAgo(value: Date | string | null | undefined): string {
+  if (!value) return '—';
+  const diffMs = Date.now() - new Date(value).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 7) return `${diffD}d`;
+  return `${Math.floor(diffD / 7)}w`;
+}
+
+/** Integer number of days between two dates. Returns null if either is null. */
+export function daysBetween(from: Date | string | null | undefined, to: Date | string | null | undefined): number | null {
+  if (!from || !to) return null;
+  return Math.floor((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000);
+}
+
 /** Humanize a snake_case identifier: "qualify_lead" → "Qualify lead" */
 export function humanize(str: string): string {
   const words = str.replace(/_/g, ' ').trim();

@@ -139,17 +139,19 @@ describe('agent.salesPipeline', () => {
       { stage: 'qualifying', count: 3, totalValue: '5000.00' },
     ];
 
+    let selectCount = 0;
     const db = mockTenantDb(async (fn: Any) => {
       const mockDb = {
-        select: () => ({
-          from: () => ({
-            innerJoin: () => ({
-              where: () => ({
-                groupBy: () => fakeRows,
-              }),
-            }),
-          }),
-        }),
+        select: () => {
+          selectCount++;
+          if (selectCount === 1) {
+            // stageRows: .select().from().innerJoin().where().groupBy()
+            return { from: () => ({ innerJoin: () => ({ where: () => ({ groupBy: () => fakeRows }) }) }) };
+          }
+          // velocityRow: .select().from().innerJoin().where() -> returns array with one row
+          return { from: () => ({ innerJoin: () => ({ where: () => [{ avgDays: null }] }) }) };
+        },
+        execute: () => ({ rows: [] }),
       };
       return fn(mockDb);
     });
@@ -157,9 +159,9 @@ describe('agent.salesPipeline', () => {
     const caller = createCaller(makeCtx(db));
     const result = await caller.salesPipeline({ artifactId: ARTIFACT_ID });
 
-    expect(result).toHaveLength(2);
-    expect(result[0].stage).toBe('new');
-    expect(result[0].count).toBe(5);
+    expect(result.stages).toHaveLength(2);
+    expect(result.stages[0].stage).toBe('new');
+    expect(result.stages[0].count).toBe(5);
   });
 });
 
@@ -737,7 +739,7 @@ describe('agent.updatePriorityIntents', () => {
     const caller = createCaller(makeCtx(db));
     await expect(
       caller.updatePriorityIntents({
-        intents: ['purchase', 'urgent'], // not in intent enum
+        intents: ['purchase', 'urgent'] as any, // not in intent enum — intentional invalid values
       }),
     ).rejects.toThrow(); // Zod validation error
   });

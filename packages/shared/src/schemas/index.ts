@@ -101,9 +101,16 @@ export const sendQuoteLineItemSchema = z.object({
   unit_price: z.number().min(0),
 });
 
+export const SUPPORTED_CURRENCIES = ['USD', 'COP', 'MXN', 'BRL'] as const;
+export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
+
+export const supportedCurrencySchema = z.enum(SUPPORTED_CURRENCIES);
+
+export const paymentStatusSchema = z.enum(['pending', 'sent', 'viewed', 'paid', 'overdue', 'cancelled']);
+
 export const sendQuoteInputSchema = z.object({
   items: z.array(sendQuoteLineItemSchema).min(1).describe('Quote line items'),
-  currency: z.string().default('USD'),
+  currency: supportedCurrencySchema.default('USD'),
   valid_days: z.number().default(30).describe('Days until quote expires'),
 });
 
