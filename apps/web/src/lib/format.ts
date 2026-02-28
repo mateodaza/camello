@@ -23,6 +23,21 @@ export function fmtMicroCost(value: string | number, locale?: string): string {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', minimumFractionDigits: 6, maximumFractionDigits: 6 }).format(Number(value));
 }
 
+/** Format a business-facing dollar value: $2,400 or $12.4K for ≥10k. */
+export function fmtMoney(value: string | number, locale?: string): string {
+  const n = Number(value);
+  if (n >= 10_000) {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency', currency: 'USD',
+      notation: 'compact', maximumFractionDigits: 1,
+    }).format(n);
+  }
+  return new Intl.NumberFormat(locale, {
+    style: 'currency', currency: 'USD',
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(n);
+}
+
 /** Format an integer with locale separators (e.g. 1,234). */
 export function fmtInt(value: number, locale?: string): string {
   return new Intl.NumberFormat(locale).format(value);
