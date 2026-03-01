@@ -4,10 +4,21 @@ import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { fmtMoney, humanize } from '@/lib/format';
+import { stageKey } from './constants';
 
 interface SalesAlertsProps {
   artifactId: string;
   onLeadClick: (leadId: string) => void;
+}
+
+function AlertsSkeleton() {
+  return (
+    <div className="space-y-2">
+      <div className="h-3 w-28 animate-pulse rounded bg-charcoal/10" />
+      <div className="h-14 animate-pulse rounded-lg bg-charcoal/5" />
+      <div className="h-14 animate-pulse rounded-lg bg-charcoal/5" />
+    </div>
+  );
 }
 
 export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
@@ -17,6 +28,7 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
   const query = trpc.agent.salesAlerts.useQuery({ artifactId });
   const data = query.data;
 
+  if (query.isLoading) return <AlertsSkeleton />;
   if (!data) return null;
 
   const { staleLeads, pendingApprovals, highValueEarly } = data;
@@ -37,7 +49,7 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-charcoal">{lead.customerName ?? '—'}</p>
             <p className="text-xs text-dune">
-              {t(`salesStage${lead.stage.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}` as Parameters<typeof t>[0])}
+              {t(`salesStage${stageKey(lead.stage)}` as Parameters<typeof t>[0])}
               {' · '}
               {t('alertStaleDays', { days: lead.daysSinceActivity })}
               {lead.estimatedValue && Number(lead.estimatedValue) > 0
@@ -47,7 +59,8 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
           </div>
           <button
             onClick={() => onLeadClick(lead.id)}
-            className="shrink-0 rounded-md border border-charcoal/15 px-2.5 py-1 text-xs font-medium text-charcoal hover:bg-charcoal/5"
+            aria-label={t('alertViewLead', { name: lead.customerName ?? '—' })}
+            className="shrink-0 rounded-md border border-charcoal/15 px-3 py-2.5 text-xs font-medium text-charcoal hover:bg-charcoal/5"
           >
             {t('alertView')}
           </button>
@@ -83,7 +96,8 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
           </div>
           <button
             onClick={() => onLeadClick(lead.id)}
-            className="shrink-0 rounded-md border border-charcoal/15 px-2.5 py-1 text-xs font-medium text-charcoal hover:bg-charcoal/5"
+            aria-label={t('alertViewLead', { name: lead.customerName ?? '—' })}
+            className="shrink-0 rounded-md border border-charcoal/15 px-3 py-2.5 text-xs font-medium text-charcoal hover:bg-charcoal/5"
           >
             {t('alertView')}
           </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
@@ -14,15 +14,13 @@ import { Sparkline } from '../primitives/sparkline';
 import { KanbanBoard, KanbanLead } from '../sales/kanban-board';
 import { LeadDetailSheet } from '../sales/lead-detail-sheet';
 import { SalesAlerts } from '../sales/sales-alerts';
-import { SalesPayments, LeadSummary, PaymentPrefill } from '../sales/sales-payments';
+// SalesPayments import removed — payments section hidden until gateway (Wompi) integration.
+// Re-add: import { SalesPayments, LeadSummary, PaymentPrefill } from '../sales/sales-payments';
 import { AfterHoursCard } from '../sales/after-hours-card';
 import { fmtMoney, fmtDate, truncate } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
-import { TrendingUp, Users, Target, DollarSign, Timer } from 'lucide-react';
-
-const STAGES = ['new', 'qualifying', 'proposal', 'negotiation', 'closed_won', 'closed_lost'] as const;
-type Stage = typeof STAGES[number];
-const SCORES = ['hot', 'warm', 'cold'] as const;
+import { Trophy, Crosshair, Gauge, DollarSign, TrendingUp, BarChart2 } from 'lucide-react';
+import { STAGES, SCORES, type Stage, scoreDots, stageKey } from '../sales/constants';
 
 const STAGE_PROBABILITIES: Record<string, number> = {
   new: 0.1, qualifying: 0.2, proposal: 0.4, negotiation: 0.6, closed_won: 1, closed_lost: 0,
@@ -30,15 +28,9 @@ const STAGE_PROBABILITIES: Record<string, number> = {
 
 const SUPPORTED_CURRENCIES = ['USD', 'COP', 'MXN', 'BRL'];
 
-function stageKey(s: string): string {
-  return s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
-}
-
-const scoreDots: Record<string, string> = { hot: 'bg-teal', warm: 'bg-gold', cold: 'bg-charcoal/30' };
-
 const funnelColors: Record<string, string> = {
-  new: '#00897B', qualifying: '#00897B', proposal: '#C9A84C',
-  negotiation: '#C9A84C', closed_won: '#00897B', closed_lost: '#7A7268',
+  new: 'var(--color-teal)', qualifying: 'var(--color-teal)', proposal: 'var(--color-gold)',
+  negotiation: 'var(--color-gold)', closed_won: 'var(--color-teal)', closed_lost: 'var(--color-dune)',
 };
 
 // ---------------------------------------------------------------------------
@@ -56,23 +48,35 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
   const avgDaysToClose = pipeline.data?.avgDaysToClose ?? null;
   const sparklines = pipeline.data?.sparklines;
 
-  const totalValue = stages.reduce((sum, s) => sum + Number(s.totalValue), 0);
-  const wonValue = Number(stages.find((s) => s.stage === 'closed_won')?.totalValue ?? 0);
-  const wonDeals = stages.find((s) => s.stage === 'closed_won')?.count ?? 0;
-  const activeLeads = stages
-    .filter((s) => s.stage !== 'closed_won' && s.stage !== 'closed_lost')
-    .reduce((sum, s) => sum + s.count, 0);
-  const totalLeads = stages.reduce((sum, s) => sum + s.count, 0);
-  const winRate = totalLeads > 0 ? Math.round((wonDeals / totalLeads) * 100) : 0;
-  const forecast = stages.reduce((sum, s) => sum + Number(s.totalValue) * (STAGE_PROBABILITIES[s.stage] ?? 0), 0);
+  const { totalValue, wonValue, wonDeals, activeLeads, totalLeads, winRate, forecast } = useMemo(() => {
+    const tv = stages.reduce((sum, s) => sum + Number(s.totalValue), 0);
+    const wv = Number(stages.find((s) => s.stage === 'closed_won')?.totalValue ?? 0);
+    const wd = stages.find((s) => s.stage === 'closed_won')?.count ?? 0;
+    const al = stages.filter((s) => s.stage !== 'closed_won' && s.stage !== 'closed_lost').reduce((sum, s) => sum + s.count, 0);
+    const tl = stages.reduce((sum, s) => sum + s.count, 0);
+    return {
+      totalValue: tv,
+      wonValue: wv,
+      wonDeals: wd,
+      activeLeads: al,
+      totalLeads: tl,
+      winRate: tl > 0 ? Math.round((wd / tl) * 100) : 0,
+      forecast: stages.reduce((sum, s) => sum + Number(s.totalValue) * (STAGE_PROBABILITIES[s.stage] ?? 0), 0),
+    };
+  }, [stages]);
 
-  const newLeadsSpark = sparklines?.newLeadsDaily.map((d) => d.count) ?? [];
-  const wonValueSpark = sparklines?.wonValueDaily.map((d) => Number(d.value)) ?? [];
+  const newLeadsSpark = useMemo(() => sparklines?.newLeadsDaily.map((d) => d.count) ?? [], [sparklines]);
+  const wonValueSpark = useMemo(() => sparklines?.wonValueDaily.map((d) => Number(d.value)) ?? [], [sparklines]);
 
-  const funnelData = (funnel.data ?? []).filter((s) => s.count > 0);
+  const { funnelData, maxCount } = useMemo(() => {
+    const fd = (funnel.data ?? []).filter((s) => s.count > 0);
+    return { funnelData: fd, maxCount: Math.max(...fd.map((f) => f.count), 1) };
+  }, [funnel.data]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <h2 className="font-heading text-lg font-semibold text-charcoal">{t('salesOverviewTitle')}</h2>
+
       {/* Hero row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="border-teal/20 bg-teal/5">
@@ -88,18 +92,18 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <div className="rounded-lg bg-teal/10 p-2">
+                <div className="rounded-lg bg-teal/15 p-2.5">
                   <DollarSign className="h-5 w-5 text-teal" />
                 </div>
                 {wonValueSpark.length > 0 && (
-                  <Sparkline data={wonValueSpark} color="#00897B" className="h-6 w-20 opacity-70" />
+                  <Sparkline data={wonValueSpark} color="var(--color-teal)" className="h-6 w-20 opacity-70" />
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-gold/20 bg-gold/5">
           <CardContent className="pt-5">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -112,11 +116,11 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <div className="rounded-lg bg-charcoal/5 p-2">
-                  <TrendingUp className="h-5 w-5 text-charcoal/50" />
+                <div className="rounded-lg bg-gold/15 p-2.5">
+                  <TrendingUp className="h-5 w-5 text-gold" />
                 </div>
                 {newLeadsSpark.length > 0 && (
-                  <Sparkline data={newLeadsSpark} color="#C9A84C" className="h-6 w-20 opacity-70" />
+                  <Sparkline data={newLeadsSpark} color="var(--color-gold)" className="h-6 w-20 opacity-70" />
                 )}
               </div>
             </div>
@@ -124,46 +128,45 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
         </Card>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-dune" />
-              <span className="text-sm text-dune">{t('salesWinRate')}</span>
+      {/* Stats strip — single card, divided, breaks the 4-card grid pattern */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="grid grid-cols-2 divide-x divide-charcoal/10 sm:grid-cols-4">
+            <div className="px-4 first:pl-0 last:pr-0">
+              <div className="flex items-center gap-1.5">
+                <Trophy className="h-3.5 w-3.5 text-dune" />
+                <span className="text-xs font-medium text-dune">{t('salesWinRate')}</span>
+              </div>
+              <p className={`mt-1 font-heading text-2xl font-bold tabular-nums ${winRate >= 30 ? 'text-teal' : winRate >= 15 ? 'text-gold' : 'text-charcoal'}`}>
+                {winRate}%
+              </p>
             </div>
-            <p className={`mt-1 text-xl font-bold tabular-nums ${winRate >= 30 ? 'text-teal' : winRate >= 15 ? 'text-gold' : 'text-charcoal'}`}>
-              {winRate}%
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-dune" />
-              <span className="text-sm text-dune">{t('salesForecast')}</span>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <div className="flex items-center gap-1.5">
+                <Crosshair className="h-3.5 w-3.5 text-dune" />
+                <span className="text-xs font-medium text-dune">{t('salesForecast')}</span>
+              </div>
+              <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">{fmtMoney(forecast, locale)}</p>
             </div>
-            <p className="mt-1 text-xl font-bold tabular-nums">{fmtMoney(forecast, locale)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2">
-              <Timer className="h-4 w-4 text-dune" />
-              <span className="text-sm text-dune">{t('salesVelocity')}</span>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <div className="flex items-center gap-1.5">
+                <Gauge className="h-3.5 w-3.5 text-dune" />
+                <span className="text-xs font-medium text-dune">{t('salesVelocity')}</span>
+              </div>
+              <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+                {avgDaysToClose != null ? t('salesVelocityDays', { days: avgDaysToClose }) : '—'}
+              </p>
             </div>
-            <p className="mt-1 text-xl font-bold tabular-nums">
-              {avgDaysToClose != null ? t('salesVelocityDays', { days: avgDaysToClose }) : '—'}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <span className="text-sm text-dune">{t('salesTotalLeads')}</span>
-            <p className="mt-1 text-xl font-bold tabular-nums">{totalLeads}</p>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <div className="flex items-center gap-1.5">
+                <BarChart2 className="h-3.5 w-3.5 text-dune" />
+                <span className="text-xs font-medium text-dune">{t('salesTotalLeads')}</span>
+              </div>
+              <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">{totalLeads}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Funnel */}
       {funnelData.length > 0 && (
@@ -172,25 +175,24 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
             <CardTitle className="text-base">{t('salesFunnel')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {funnelData.map((s, i) => {
-                const maxCount = Math.max(...funnelData.map((f) => f.count), 1);
                 const pct = Math.round((s.count / maxCount) * 100);
                 return (
                   <div key={s.stage} className="flex items-center gap-3">
                     <span className="w-24 shrink-0 text-right text-sm text-dune">
                       {t(`salesStage${stageKey(s.stage)}` as Parameters<typeof t>[0])}
                     </span>
-                    <div className="relative h-7 flex-1 rounded bg-charcoal/5">
+                    <div className="relative h-8 flex-1 overflow-hidden rounded-md bg-charcoal/5">
                       <div
-                        className="flex h-7 items-center rounded px-2 text-xs font-medium text-white transition-all"
-                        style={{ width: `${Math.max(pct, 8)}%`, backgroundColor: funnelColors[s.stage] ?? '#00897B' }}
+                        className="flex h-8 items-center rounded-md px-2.5 text-xs font-semibold text-white transition-all"
+                        style={{ width: `${Math.max(pct, 8)}%`, backgroundColor: funnelColors[s.stage] ?? 'var(--color-teal)' }}
                       >
                         {s.count}
                       </div>
                     </div>
                     {i > 0 && funnelData[i - 1].count > 0 ? (
-                      <span className="w-12 text-right text-xs text-dune">
+                      <span className="w-12 text-right text-xs tabular-nums text-dune">
                         {Math.round((s.count / funnelData[i - 1].count) * 100)}%
                       </span>
                     ) : <span className="w-12" />}
@@ -201,6 +203,9 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {/* After-hours ROI */}
+      <AfterHoursCard artifactId={artifactId} />
     </div>
   );
 }
@@ -252,7 +257,7 @@ function SalesPipeline({
   return (
     <Tabs defaultValue="board">
       <div className="flex items-center justify-between">
-        <span className="text-base font-semibold text-charcoal">{t('salesLeads')}</span>
+        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('salesLeads')}</h2>
         <TabsList>
           <TabsTrigger value="board">{t('viewBoard')}</TabsTrigger>
           <TabsTrigger value="table">{t('viewTable')}</TabsTrigger>
@@ -277,16 +282,20 @@ function SalesPipeline({
           columns={[
             { key: 'customer', label: t('columnCustomer'), render: (row) => (
               <div className="flex items-center gap-2">
-                <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${scoreDots[row.score] ?? 'bg-charcoal/30'}`} />
+                <span
+                  className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${scoreDots[row.score] ?? 'bg-charcoal/30'}`}
+                  role="img"
+                  aria-label={t('scoreLabel', { score: row.score })}
+                />
                 <div>
                   {row.conversationId ? (
                     <Link href={`/dashboard/conversations/${row.conversationId}`} className="font-medium text-charcoal hover:text-teal hover:underline">
                       {row.customerName ?? row.customerEmail ?? '—'}
                     </Link>
                   ) : (
-                    <span className="cursor-pointer font-medium text-charcoal hover:text-teal" onClick={() => onLeadClick(row.id)}>
+                    <button type="button" className="font-medium text-charcoal hover:text-teal" onClick={() => onLeadClick(row.id)}>
                       {row.customerName ?? row.customerEmail ?? '—'}
-                    </span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -295,6 +304,7 @@ function SalesPipeline({
               <select
                 value={row.stage}
                 onChange={(e) => updateStage.mutate({ leadId: row.id, stage: e.target.value as Stage })}
+                aria-label={t('changeStageFor', { name: row.customerName ?? row.customerEmail ?? '—' })}
                 className="rounded border border-charcoal/15 bg-white px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-teal"
               >
                 {STAGES.map((s) => <option key={s} value={s}>{t(`salesStage${stageKey(s)}` as Parameters<typeof t>[0])}</option>)}
@@ -340,17 +350,13 @@ function SalesPipeline({
 // SalesQuotes — quote feed with Convert to Payment
 // ---------------------------------------------------------------------------
 
-function SalesQuotes({
-  artifactId,
-  onOpenRecordPayment,
-}: {
-  artifactId: string;
-  onOpenRecordPayment: (prefill: PaymentPrefill | null) => void;
-}) {
+function SalesQuotes({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
   const { addToast } = useToast();
   const utils = trpc.useUtils();
+
+  const [pendingQuoteId, setPendingQuoteId] = useState<string | null>(null);
 
   const query = trpc.agent.salesQuotes.useQuery({ artifactId, limit: 20, offset: 0 });
 
@@ -358,8 +364,12 @@ function SalesQuotes({
     onSuccess: () => {
       utils.agent.salesPayments.invalidate();
       addToast(t('paymentCreated'), 'success');
+      setPendingQuoteId(null);
     },
-    onError: (err) => addToast(err.message, 'error'),
+    onError: (err) => {
+      addToast(err.message, 'error');
+      setPendingQuoteId(null);
+    },
   });
 
   return (
@@ -379,16 +389,13 @@ function SalesQuotes({
         function handleConvert() {
           if (unsupportedCurrency) {
             addToast(t('quoteUnsupportedCurrency', { currency }), 'error');
-            const desc = lineItems.map((i) => truncate(String(i.description ?? ''), 40)).join(', ');
-            onOpenRecordPayment({ description: desc, leadId: null });
             return;
           }
           if (noLead) {
             addToast(t('quoteNoLead'), 'error');
-            const desc = lineItems.map((i) => truncate(String(i.description ?? ''), 40)).join(', ');
-            onOpenRecordPayment({ description: desc, leadId: null });
             return;
           }
+          setPendingQuoteId(item.id);
           const desc = lineItems.map((i) => `${i.description} ×${i.quantity}`).join(', ');
           createPayment.mutate({
             artifactId,
@@ -424,8 +431,8 @@ function SalesQuotes({
               {item.status === 'executed' && total != null && (
                 <button
                   onClick={handleConvert}
-                  disabled={createPayment.isPending}
-                  className="rounded-md border border-teal/40 px-2 py-0.5 text-xs font-medium text-teal hover:bg-teal/5 disabled:opacity-50"
+                  disabled={pendingQuoteId === item.id}
+                  className="rounded-md border border-teal/40 px-3 py-2 text-xs font-medium text-teal hover:bg-teal/5 disabled:opacity-50"
                 >
                   {t('convertToPayment')}
                 </button>
@@ -450,35 +457,27 @@ function SalesQuotes({
 
 export function SalesWorkspace({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
-  const locale = useLocale();
   const utils = trpc.useUtils();
   const { addToast } = useToast();
 
   // Shared state
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
-  const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
-  const [recordPaymentPrefill, setRecordPaymentPrefill] = useState<PaymentPrefill | null>(null);
 
   // Shared queries
   const leadsQuery = trpc.agent.salesLeads.useQuery({ artifactId });
-  const leadSummariesQuery = trpc.agent.salesLeadSummaries.useQuery({ artifactId });
 
-  const kanbanLeads: KanbanLead[] = (leadsQuery.data ?? []).map((l) => ({
-    id: l.id,
-    score: l.score,
-    stage: l.stage,
-    estimatedValue: l.estimatedValue ?? null,
-    qualifiedAt: l.qualifiedAt,
-    customerName: l.customerName ?? null,
-    customerEmail: l.customerEmail ?? null,
-  }));
-
-  const leadSummaries: LeadSummary[] = leadSummariesQuery.data ?? [];
-
-  function openRecordPayment(prefill: PaymentPrefill | null) {
-    setRecordPaymentPrefill(prefill);
-    setRecordPaymentOpen(true);
-  }
+  const kanbanLeads = useMemo<KanbanLead[]>(() =>
+    (leadsQuery.data ?? []).map((l) => ({
+      id: l.id,
+      score: l.score,
+      stage: l.stage,
+      estimatedValue: l.estimatedValue ?? null,
+      qualifiedAt: l.qualifiedAt,
+      customerName: l.customerName ?? null,
+      customerEmail: l.customerEmail ?? null,
+    })),
+    [leadsQuery.data],
+  );
 
   // Shared updateLeadStage mutation
   const updateStage = trpc.agent.updateLeadStage.useMutation({
@@ -486,27 +485,25 @@ export function SalesWorkspace({ artifactId }: { artifactId: string }) {
       utils.agent.salesLeads.invalidate();
       utils.agent.salesPipeline.invalidate();
       utils.agent.salesFunnel.invalidate();
-      utils.agent.salesLeadSummaries.invalidate();
       addToast(t('stageUpdated'), 'success');
     },
   });
 
-  function handleStageChange(leadId: string, stage: Stage, closeReason?: string) {
+  const handleStageChange = useCallback((leadId: string, stage: Stage, closeReason?: string) => {
     updateStage.mutate({ leadId, stage, closeReason });
-  }
+  }, [updateStage]);
+
+  const handleCloseSheet = useCallback(() => setSelectedLeadId(null), []);
 
   return (
     <div className="space-y-6">
-      {/* 1. After-hours ROI */}
-      <AfterHoursCard artifactId={artifactId} />
-
-      {/* 2. Alerts */}
+      {/* 1. Alerts */}
       <SalesAlerts artifactId={artifactId} onLeadClick={setSelectedLeadId} />
 
-      {/* 3. Overview + funnel */}
+      {/* 2. Overview + funnel + after-hours ROI */}
       <SalesOverview artifactId={artifactId} />
 
-      {/* 4. Pipeline (kanban + table) */}
+      {/* 3. Pipeline (kanban + table) */}
       <SalesPipeline
         artifactId={artifactId}
         leads={kanbanLeads}
@@ -516,23 +513,13 @@ export function SalesWorkspace({ artifactId }: { artifactId: string }) {
         onStageChange={handleStageChange}
       />
 
-      {/* 5. Payments */}
-      <SalesPayments
-        artifactId={artifactId}
-        leadSummaries={leadSummaries}
-        recordPaymentOpen={recordPaymentOpen}
-        recordPaymentPrefill={recordPaymentPrefill}
-        onRecordPaymentClose={() => setRecordPaymentOpen(false)}
-        onOpenRecordPayment={openRecordPayment}
-      />
-
-      {/* 6. Quotes */}
-      <SalesQuotes artifactId={artifactId} onOpenRecordPayment={openRecordPayment} />
+      {/* 4. Quotes */}
+      <SalesQuotes artifactId={artifactId} />
 
       {/* Lead detail sheet (global, controlled by selectedLeadId) */}
       <LeadDetailSheet
         leadId={selectedLeadId}
-        onClose={() => setSelectedLeadId(null)}
+        onClose={handleCloseSheet}
         onStageChange={handleStageChange}
       />
     </div>

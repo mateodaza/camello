@@ -18,7 +18,7 @@ export function AfterHoursCard({ artifactId }: AfterHoursCardProps) {
   const query = trpc.agent.salesAfterHours.useQuery({ artifactId });
   const data = query.data;
 
-  if (!data || data.afterHoursConversations === 0) return null;
+  if (!data || data.afterHoursConversations === 0 || parseFloat(data.afterHoursPipelineValue) <= 0) return null;
 
   return (
     <Card className="border-midnight/20 bg-midnight text-cream">

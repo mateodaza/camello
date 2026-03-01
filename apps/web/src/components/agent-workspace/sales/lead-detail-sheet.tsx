@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
 import { X } from 'lucide-react';
@@ -9,27 +9,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge';
 import { fmtMoney, fmtDateTime, fmtCost, humanize } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
-
-const STAGES = ['new', 'qualifying', 'proposal', 'negotiation', 'closed_won', 'closed_lost'] as const;
-type Stage = typeof STAGES[number];
-
-const CLOSED_STAGES: Stage[] = ['closed_won', 'closed_lost'];
-
-const scoreDots: Record<string, string> = {
-  hot: 'bg-teal',
-  warm: 'bg-gold',
-  cold: 'bg-charcoal/30',
-};
-
-function stageKey(s: string): string {
-  return s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
-}
+import { STAGES, CLOSED_STAGES, type Stage, scoreDots, stageKey } from './constants';
 
 interface LeadDetailSheetProps {
   leadId: string | null;
   onClose: () => void;
   onStageChange: (leadId: string, stage: Stage, closeReason?: string) => void;
 }
+
+const ATTRIBUTION_KEYS = ['messages', 'interactions', 'cost'] as const;
 
 export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSheetProps) {
   const t = useTranslations('agentWorkspace');
@@ -67,10 +55,12 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
     | { kind: 'interaction'; intent: string | null; costUsd: string | null; latencyMs: number | null; createdAt: Date | string }
     | { kind: 'execution'; moduleSlug: string; status: string; createdAt: Date | string };
 
-  const timeline: TimelineItem[] = [
-    ...(interactions ?? []).map((i) => ({ kind: 'interaction' as const, ...i })),
-    ...(executions ?? []).map((e) => ({ kind: 'execution' as const, ...e })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const timeline = useMemo<TimelineItem[]>(() => {
+    return [
+      ...(interactions ?? []).map((i) => ({ kind: 'interaction' as const, ...i })),
+      ...(executions ?? []).map((e) => ({ kind: 'execution' as const, ...e })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [interactions, executions]);
 
   return (
     <Sheet open={!!leadId} onClose={onClose}>
@@ -95,7 +85,11 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
             {/* 1. Customer header */}
             <div>
               <div className="flex items-start gap-3">
-                <span className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${scoreDots[lead.score] ?? 'bg-charcoal/30'}`} />
+                <span
+                  className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${scoreDots[lead.score] ?? 'bg-charcoal/30'}`}
+                  role="img"
+                  aria-label={t('scoreLabel', { score: lead.score })}
+                />
                 <div>
                   <h3 className="font-heading text-lg font-semibold text-charcoal">
                     {customer.name ?? customer.email ?? '—'}
@@ -133,7 +127,7 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                     key={s}
                     onClick={() => handleStageClick(s)}
                     disabled={s === lead.stage}
-                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-40 ${
+                    className={`min-h-[36px] rounded-md border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-40 ${
                       s === lead.stage
                         ? 'border-teal bg-teal/10 text-teal'
                         : 'border-charcoal/15 bg-white text-charcoal hover:border-teal hover:bg-teal/5'
@@ -146,10 +140,11 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
 
               {pendingStage && (
                 <div className="mt-3 rounded-lg border border-charcoal/15 p-3">
-                  <p className="mb-2 text-sm font-medium text-charcoal">
+                  <label htmlFor="close-reason" className="mb-2 block text-sm font-medium text-charcoal">
                     {t('leadCloseReason')} <span className="text-dune">({t('optional')})</span>
-                  </p>
+                  </label>
                   <textarea
+                    id="close-reason"
                     value={closeReason}
                     onChange={(e) => setCloseReason(e.target.value)}
                     maxLength={200}
@@ -184,8 +179,8 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                     { value: attribution.totalMessages, label: t('leadMessages') },
                     { value: attribution.totalInteractions, label: t('leadInteractions') },
                     { value: fmtCost(attribution.totalCost, locale), label: t('leadCost') },
-                  ].map(({ value, label }) => (
-                    <div key={label} className="rounded-lg bg-charcoal/4 p-2.5 text-center">
+                  ].map(({ value, label }, index) => (
+                    <div key={ATTRIBUTION_KEYS[index]} className="rounded-lg bg-charcoal/5 p-2.5 text-center">
                       <p className="text-lg font-bold tabular-nums">{value}</p>
                       <p className="text-xs text-dune">{label}</p>
                     </div>
@@ -200,7 +195,7 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dune">{t('leadTimeline')}</p>
                 <div className="space-y-1.5">
                   {timeline.map((item, i) => (
-                    <div key={i} className="flex items-center gap-2.5 rounded-md bg-charcoal/3 px-2.5 py-2">
+                    <div key={i} className="flex items-center gap-2.5 rounded-md bg-charcoal/5 px-2.5 py-2">
                       {item.kind === 'interaction' ? (
                         <>
                           <Badge variant="default" className="shrink-0 text-xs">
