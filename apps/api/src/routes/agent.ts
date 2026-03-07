@@ -677,6 +677,19 @@ export const agentRouter = router({
           .where(and(eq(leadStageChanges.leadId, leadRow.id), eq(leadStageChanges.tenantId, ctx.tenantId)))
           .orderBy(asc(leadStageChanges.createdAt));
 
+        // Conversation summary + resolvedAt (for lead timeline)
+        const conversationMeta = leadRow.conversationId
+          ? await db
+              .select({
+                summary: sql<string | null>`(${conversations.metadata}->>'summary')`,
+                resolvedAt: conversations.resolvedAt,
+              })
+              .from(conversations)
+              .where(eq(conversations.id, leadRow.conversationId!))
+              .limit(1)
+              .then((rows) => rows[0] ?? null)
+          : null;
+
         return {
           lead: {
             id: leadRow.id,
@@ -703,6 +716,8 @@ export const agentRouter = router({
           notes,
           messages: recentMessages,
           stageChanges,
+          conversationSummary: conversationMeta?.summary ?? null,
+          conversationResolvedAt: conversationMeta?.resolvedAt ?? null,
         };
       });
     }),

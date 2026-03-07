@@ -79,8 +79,13 @@ export default function ConversationsPage() {
                 className="cursor-pointer border-b border-charcoal/8 last:border-0 hover:bg-sand"
                 onClick={() => router.push(`/dashboard/conversations/${c.id}`)}
               >
-                <td className="px-4 py-3 font-medium">
-                  {c.customerName ?? c.customerExternalId ?? t('unknown')}
+                <td className="px-4 py-3">
+                  <div className="font-medium">{c.customerName ?? c.customerExternalId ?? t('unknown')}</div>
+                  {c.summary && (
+                    <div className="mt-0.5 max-w-[240px] truncate text-xs text-dune">
+                      {c.summary.length > 80 ? `${c.summary.slice(0, 80)}…` : c.summary}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant="default">{c.channel}</Badge>

@@ -24,7 +24,8 @@ export type TimelineItem =
   | { kind: 'execution';   moduleSlug: string; status: string; createdAt: Date | string }
   | { kind: 'note';        author: string; content: string; createdAt: Date | string }
   | { kind: 'message';     role: string; content: string; createdAt: Date | string }
-  | { kind: 'stageChange'; fromStage: string; toStage: string; createdAt: Date | string };
+  | { kind: 'stageChange'; fromStage: string; toStage: string; createdAt: Date | string }
+  | { kind: 'summary';     text: string; createdAt: Date | string };
 
 export function buildTimeline(data: {
   interactions?: Array<{ intent: string | null; costUsd: string | null; latencyMs: number | null; createdAt: Date | string }>;
@@ -32,6 +33,7 @@ export function buildTimeline(data: {
   notes?:        Array<{ author: string; content: string; createdAt: Date | string }>;
   messages?:     Array<{ role: string; content: string; createdAt: Date | string }>;
   stageChanges?: Array<{ fromStage: string; toStage: string; createdAt: Date | string }>;
+  conversationSummary?: { text: string; createdAt: Date | string } | null;
 }): TimelineItem[] {
   return [
     ...(data.interactions ?? []).map((i) => ({ kind: 'interaction' as const, ...i })),
@@ -39,6 +41,9 @@ export function buildTimeline(data: {
     ...(data.notes        ?? []).map((n) => ({ kind: 'note'        as const, ...n })),
     ...(data.messages     ?? []).map((m) => ({ kind: 'message'     as const, ...m })),
     ...(data.stageChanges ?? []).map((s) => ({ kind: 'stageChange' as const, ...s })),
+    ...(data.conversationSummary
+      ? [{ kind: 'summary' as const, ...data.conversationSummary }]
+      : []),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
@@ -65,7 +70,8 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
     },
   });
 
-  const { lead, customer, attribution, interactions, executions, notes, messages, stageChanges } = query.data ?? {};
+  const { lead, customer, attribution, interactions, executions, notes, messages, stageChanges,
+          conversationSummary, conversationResolvedAt } = query.data ?? {};
 
   const isNotePending = addLeadNoteMut.isPending;
 
@@ -87,8 +93,13 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
   }
 
   const timeline = useMemo<TimelineItem[]>(() => {
-    return buildTimeline({ interactions, executions, notes, messages, stageChanges });
-  }, [interactions, executions, notes, messages, stageChanges]);
+    return buildTimeline({
+      interactions, executions, notes, messages, stageChanges,
+      conversationSummary: conversationSummary && conversationResolvedAt
+        ? { text: conversationSummary, createdAt: conversationResolvedAt }
+        : null,
+    });
+  }, [interactions, executions, notes, messages, stageChanges, conversationSummary, conversationResolvedAt]);
 
   return (
     <Sheet open={!!leadId} onClose={onClose}>
@@ -279,6 +290,14 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                           <span className="flex-1 truncate text-xs text-charcoal/80">
                             {item.content.length > 80 ? `${item.content.slice(0, 80)}…` : item.content}
                           </span>
+                          <span className="text-xs text-dune">{fmtDateTime(item.createdAt, locale)}</span>
+                        </>
+                      ) : item.kind === 'summary' ? (
+                        <>
+                          <Badge variant="default" className="shrink-0 text-xs">
+                            {t('leadConversationSummary')}
+                          </Badge>
+                          <span className="flex-1 text-xs text-charcoal/80">{item.text}</span>
                           <span className="text-xs text-dune">{fmtDateTime(item.createdAt, locale)}</span>
                         </>
                       ) : (

@@ -237,6 +237,7 @@
     "leadTimelineNote": "Nota",
     "leadTimelineMessage": "Mensaje",
     "leadTimelineStageChange": "Cambio de etapa",
+    "leadConversationSummary": "Resumen IA",
     "paymentsTitle": "Pagos",
     "paymentsEmpty": "Sin pagos aún",
     "recordPayment": "Registrar Pago",

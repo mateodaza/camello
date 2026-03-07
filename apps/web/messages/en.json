@@ -237,6 +237,7 @@
     "leadTimelineNote": "Note",
     "leadTimelineMessage": "Message",
     "leadTimelineStageChange": "Stage change",
+    "leadConversationSummary": "AI Summary",
     "paymentsTitle": "Payments",
     "paymentsEmpty": "No payments yet",
     "recordPayment": "Record Payment",

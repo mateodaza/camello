@@ -257,8 +257,10 @@ Warm/hot leads auto-schedule follow-ups processed by the cron (CAM-007). Added `
 
 **Depends on:** CAM-105
 
-#### CAM-116 [ ] Conversation summarization on resolve
+#### CAM-116 [x] Conversation summarization on resolve
 Auto-generate summary when resolved, shown in conversation list and lead timeline.
+
+New `packages/ai/src/summarize-conversation.ts` (`summarizeConversation`); exported from `packages/ai/src/index.ts`; triggered via second `setImmediate` in `conversation.updateStatus` (fetches tenant locale, calls LLM, merges into `conversations.metadata.summary`); `list` query adds JSONB-extracted `summary` field; `salesLeadDetail` returns `conversationSummary`+`conversationResolvedAt`; `lead-detail-sheet.tsx` extended with `summary` timeline kind; conversations page shows truncated summary; 6 i18n keys (en+es); 6 unit tests. Type-check passes.
 
 **Acceptance Criteria:**
 - `summarizeConversation(messages, locale)` in `packages/ai/src/` — cheapest LLM tier, 1-2 sentences

@@ -54,3 +54,5 @@ import './archetypes/index.js';
 
 // Side-effect: registers built-in modules
 import './modules/index.js';
+
+export { summarizeConversation } from './summarize-conversation.js';

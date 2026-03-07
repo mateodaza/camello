@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { conversations, messages, customers } from '@camello/db';
+import { conversations, messages, customers, tenants } from '@camello/db';
 import {
   extractFactsRegex,
   mergeMemoryFacts,
   parseMemoryFacts,
+  summarizeConversation,
 } from '@camello/ai';
 
 export const conversationRouter = router({
@@ -52,6 +53,7 @@ export const conversationRouter = router({
             updatedAt: conversations.updatedAt,
             customerName: customers.name,
             customerExternalId: customers.externalId,
+            summary: sql<string | null>`(${conversations.metadata}->>'summary')`,
           })
           .from(conversations)
           .leftJoin(customers, eq(conversations.customerId, customers.id))
@@ -203,6 +205,53 @@ export const conversationRouter = router({
             });
           } catch (err) {
             console.error('[customer-memory] extraction failed (non-blocking):', err);
+          }
+        });
+      }
+
+      // ── Async summarization on resolution (fire-and-forget, fail-open) ──
+      if (input.status === 'resolved' && result) {
+        const { tenantDb } = ctx;
+        const conversationId = input.id;
+        const tenantId = ctx.tenantId;
+
+        setImmediate(async () => {
+          try {
+            // 1. Resolve tenant locale from settings.preferredLocale (canonical pattern)
+            const tenantRow = await tenantDb.query(async (db) => {
+              const rows = await db
+                .select({ settings: tenants.settings })
+                .from(tenants)
+                .where(eq(tenants.id, tenantId))
+                .limit(1);
+              return rows[0];
+            });
+            const locale = (
+              (tenantRow?.settings as Record<string, unknown>)?.preferredLocale === 'es' ? 'es' : 'en'
+            ) as 'en' | 'es';
+
+            // 2. Fetch conversation messages
+            const convMsgs = await tenantDb.query(async (db) => {
+              return db
+                .select({ role: messages.role, content: messages.content })
+                .from(messages)
+                .where(and(eq(messages.conversationId, conversationId), eq(messages.tenantId, tenantId)))
+                .orderBy(messages.createdAt);
+            });
+            if (convMsgs.length === 0) return;
+
+            // 3. Generate summary using tenant locale
+            const summary = await summarizeConversation(convMsgs, locale);
+
+            // 4. Persist into conversations.metadata.summary (JSONB merge, no migration)
+            await tenantDb.query(async (db) => {
+              await db
+                .update(conversations)
+                .set({ metadata: sql`metadata || jsonb_build_object('summary', ${summary})` })
+                .where(and(eq(conversations.id, conversationId), eq(conversations.tenantId, tenantId)));
+            });
+          } catch (err) {
+            console.error('[conversation-summary] summarization failed (non-blocking):', err);
           }
         });
       }
