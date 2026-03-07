@@ -19,7 +19,12 @@ packages/
 
 ## Canonical Spec
 
-`TECHNICAL_SPEC_v1.md` is the primary architecture reference. Consult it for data models, API contracts, and system design. `PROGRESS.md` tracks what's built vs planned.
+`TECHNICAL_SPEC_v1.md` is the primary architecture reference. Consult it for data models, API contracts, and system design.
+
+## Tracking
+
+- `TASK_QUEUE.md` — rolling work queue. Current sprint goal + prioritized tasks (P0→P1→P2). Read the top to understand what you're working on.
+- `PROGRESS.md` — cumulative build ledger. "Current Phase" Done table at top, roadmap checkboxes below, session log at bottom.
 
 ## Key Conventions
 
@@ -59,8 +64,9 @@ packages/
 
 - **Modules:** Self-registering `ModuleDefinition` in `packages/ai/src/modules/`. Zod schemas for input/output. `registerModule()` side-effect in `modules/index.ts`. 9 modules exist (qualify_lead, book_meeting, send_followup, collect_payment, send_quote, create_ticket, escalate_to_human, capture_interest, draft_content).
 - **Archetypes:** `packages/ai/src/archetypes/{sales,support,marketing,custom}.ts` registered via `archetype-registry.ts`. Each has prompts (en/es), default tone, module slugs, ragBias.
-- **Agent workspace:** Registry + shared primitives in `apps/web/src/components/agent-workspace/`. Sales workspace is the most complete reference. Registry maps type -> section components.
+- **Agent workspace:** Registry + shared primitives in `apps/web/src/components/agent-workspace/`. Sales workspace (`sales/sales-workspace.tsx`) is the most complete reference — read it before building workspace features. Registry in `registry/sales.tsx` maps section components. Shared primitives: `MetricsGrid`, `DataTable`, `CardFeed`, `AlertList`, `BarChartCss`, `Sparkline`.
 - **Cron jobs:** `apps/jobs/src/jobs/` — follow `createWorker()` factory pattern. DB-backed `job_runs` ledger for idempotency.
+- **Sales shared constants:** `sales/constants.ts` — `STAGES`, `Stage`, `CLOSED_STAGES`, `scoreDots`, `stageKey()`. Import from here, don't duplicate.
 
 ## Git Rules
 
@@ -68,8 +74,26 @@ packages/
 - Push ONLY to `nightcrawler/dev` branch. Never push to `main`.
 - Never modify `.env` files or commit secrets.
 
+## After Every Task (mandatory)
+
+1. **Mark the task `[x]` in `TASK_QUEUE.md`** and add a one-line summary of what was done.
+2. **Update `PROGRESS.md`** — add a row to the "Done" table with: task ID, title, date, and a 1-2 sentence summary of files created/modified + test count.
+3. Commit these tracking updates in the same commit as the task code.
+4. Pick the next task with no unmet dependencies. If all remaining tasks are blocked, stop and report.
+
+## Recipes
+
+- **i18n:** Add keys to `apps/web/messages/en.json` + `es.json` under the relevant section. Use `const t = useTranslations('section')` then `t('key')`. Backend errors: `packages/shared/src/messages/{en,es}.ts`.
+- **Migrations:** Files in `packages/db/migrations/`. Name: `NNNN_description.sql`. Write SQL only — never apply to production. Increment from the latest migration number (currently 0015). Include RLS policies for tenant-scoped tables.
+- **Design system colors (CSS vars):** `--color-teal` (primary), `--color-midnight` (dark bg), `--color-sand` (warm bg), `--color-sunset` (error/danger), `--color-gold` (warning/accent), `--color-cream` (cards), `--color-charcoal` (text), `--color-dune` (secondary text). Never hardcode hex — use `var(--color-*)` or Tailwind classes like `bg-teal`, `text-charcoal`.
+- **tRPC procedures:** Tenant-scoped → `tenantProcedure`. Pre-tenant (onboarding) → `authedProcedure`. Add to existing router file in `apps/api/src/routes/` or create new router + register in `apps/api/src/routes/index.ts`.
+
 ## Guardrails
 
 - Drizzle `sql` tag breaks when bundled with tsup `noExternal` — use `pool.query()` for raw SQL in bundled code.
 - `@camello/shared` sub-path exports: `./types`, `./constants`, `./schemas`, `./messages`.
 - Never apply migrations to production Supabase. Write the SQL file only — human reviews and applies.
+- `ZodDefault` makes `_input` differ from `_output` — use `z.ZodType<T, z.ZodTypeDef, unknown>` in interfaces to accept defaults.
+- Vitest `vi.mock` factories are hoisted — use `vi.hoisted()` to declare mock variables the factory references.
+- `setImmediate` callbacks leak between Vitest tests — don't assert `toHaveBeenCalledOnce()` on mocks fired in deferred callbacks.
+- Touch targets must be >= 36px for a11y. Use `<button>` not `<div onClick>` for interactive elements.

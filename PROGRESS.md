@@ -5,7 +5,19 @@
 >
 > **AI memory lives at:** `~/.claude/projects/.../memory/` (MEMORY.md, architecture.md, compliance-gaps.md, differentiation.md). Not in-repo — persists across Claude sessions.
 
-## Current Phase: Week 5 — RAG Upgrade + Customer Memory + Launch Prep (Weeks 1-4 complete)
+## Current Phase: Sales Agent Optimization Sprint
+
+> **Authoritative task list:** `TASK_QUEUE.md` (root). Tasks use `CAM-1XX` IDs.
+> Gap analysis (2026-03-07) found 3 critical blockers, 4 high gaps, 7 medium gaps in the sales agent happy path.
+> NC (Nightcrawler) executes tasks autonomously on `nightcrawler/dev` branch.
+
+| ID | Task | Date | Notes |
+|----|------|------|-------|
+| CAM-007 | Follow-up queue cron job | Mar 7 | `apps/jobs/src/jobs/process-followups.ts` — pure functions (`computeFollowupOutcome`, `processClaimedRows`), FOR UPDATE SKIP LOCKED (50 row batch), 5-min cron schedule, unit tests. Type-check passes. |
+
+---
+
+## Previous Phase: Week 5 — RAG Upgrade + Customer Memory + Launch Prep (Weeks 1-4 complete)
 
 ### Done
 
@@ -91,22 +103,22 @@
 
 | 67d | Sales workspace audit + UI polish | Mar 1 | **19-issue audit resolved + visual redesign.** Audit fixes: div→`<button>` in KanbanBoard (WCAG 2.1.1), `<label>` on close-reason textarea (WCAG 1.3.1), `aria-label` on all "View" buttons + stage selects + score dots, touch targets ≥36px on stage/convert buttons, funnelColors hex→CSS vars (`var(--color-teal/gold/dune)`), opacity normalization (`/3`→`/5`, `/4`→`/5`), loading skeleton for SalesAlerts, per-card pending state for Convert to Payment, Tailwind `snap-x`/`snap-start` replacing inline styles, `useMemo`/`useCallback` perf pass (byStage, timeline sort, kanbanLeads, derived stats, sparklines, funnelData), `memo()` on KanbanBoard. **Shared constants:** extracted `sales/constants.ts` (STAGES, scoreDots, stageKey) — single source of truth across 4 files. **Visual polish:** Workspace header redesigned (agent initial avatar, module chips with autonomy-level dots, 3-panel KPI: Conversations hero + Automation Score w/ progress bar + centered secondary stats strip, subtle panel background). Sales stats row: 4 cards→single card with dividers. Funnel bars taller + rounded. Kanban columns: colored `border-t-2` headers + count pills. Section titles upgraded to `<h2 font-heading>`. Icons: Trophy/Crosshair/Gauge replacing generic set. Short-form i18n keys for compact stats strip (`metricTotalShort`/`metricPendingShort`). ~10 new i18n keys (en+es). Build clean. |
 
-### Next Up — Launch Readiness
+### Next Up — Sales Agent Optimization Sprint (see `TASK_QUEUE.md`)
+
+| ID | Task | Priority | Notes |
+|----|------|----------|-------|
+| CAM-101 | Approve/reject UI for pending executions | P0 | #1 blocker — buttons missing on SalesAlerts cards |
+| CAM-102 | Module config UI (calendar URL, payment URL, autonomy) | P0 | Unblocks book_meeting + collect_payment |
+| CAM-103 | Dashboard polling (refetchInterval 30s) | P0 | Stop-gap real-time |
+| CAM-104 | Robust budget parser | P0 | `parseFloat("$5k")` → NaN breaks pipeline |
+| CAM-105–116 | Enhanced scoring, prompts, notifications, auto-flows, workspace polish | P1–P2 | See TASK_QUEUE.md |
+
+### Deferred — Launch Readiness
 
 | # | Task | Priority | Notes |
 |---|------|----------|-------|
-| ~~40~~ | ~~Landing page (camello.xyz)~~ | ~~P1~~ | ~~DONE~~ |
-| ~~48~~ | ~~Dashboard retheme + collapsible sidebar~~ | ~~P1~~ | ~~DONE~~ |
-| ~~49~~ | ~~Dashboard UX simplification~~ | ~~P2~~ | ~~DONE~~ |
-| ~~57~~ | ~~Public chat page~~ | ~~P0~~ | ~~DONE — `camello.xyz/chat/[slug]`, SSR metadata, mobile-first chat UI, error differentiation, typing indicator, greeting from /info, i18n (en+es)~~ |
-| ~~58~~ | ~~Intent dashboard~~ | ~~P1~~ | ~~DONE — `analytics.intentBreakdown` procedure, CSS-only bar chart on overview, recent questions list, empty-state placeholder, i18n (en+es)~~ |
-| ~~60~~ | ~~Chat page → business card ("Linktree for AI")~~ | ~~P1~~ | ~~DONE — Collapsible business card (avatar+name+tagline header, expandable bio/location/hours/social), QR share modal, quick actions, profile dashboard page, tenant.updateProfile tRPC, session counter, message rate limit (20/min), conversation cap (50 msgs), daily customer cap (100 msgs/day), synthetic intent filtering, artifact quickActions validation, SSR metadata from profile, language prompt fix. Limits: tagline 50, bio 150, location/hours 50.~~ |
-| ~~45~~ | ~~Help center~~ | ~~P3~~ | ~~DONE — `/dashboard/docs` with getting started steps, share chat link tips, collapsible dashboard guide (7 sections), knowledge base tips, i18n (en+es)~~ |
-| ~~46~~ | ~~Paddle smoke test~~ | ~~P2~~ | ~~DONE — checkout + webhooks confirmed end-to-end~~ |
-| 41 | Clerk production instance | P2 | Deferred — closed beta uses dev keys. Swap when ready for public launch. |
+| 41 | Clerk production instance | P2 | Closed beta uses dev keys. Swap when ready for public launch. |
 | 42 | Paddle business verification | P2 | Required before processing real payments — sandbox works without it |
-| ~~44~~ | ~~Error handling polish~~ | ~~P2~~ | ~~DONE — Widget route JSON parse guards + try/catch, bilingual error UX (budget/rate-limit/auth), QueryError 6-code switch, dashboard error boundary, locale fallback to tenant preferredLocale~~ |
-| ~~66~~ | ~~Mobile-responsive dashboard~~ | ~~P1~~ | ~~DONE — Already implemented: sidebar `hidden md:flex` + mobile header with hamburger + slide-over overlay, all grids `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`, all flex rows `flex-col sm:flex-row`, `h-dvh` layout. Covers all dashboard pages.~~ |
 
 ### Post-Launch — Innovation Roadmap (Spec Section 20)
 
@@ -212,6 +224,15 @@
 - [x] Week 5 audit fixes: proactive chunk demotion, tenant scoping (4 queries), email/phone card rendering
 - [ ] Clerk production keys swap (#41 — manual)
 - [ ] Paddle business verification (#42 — manual)
+
+### Sprint 6 — Sales Agent Optimization (NC autonomous)
+- [x] CAM-007: Follow-up queue cron job (process-followups.ts, pure functions, FOR UPDATE SKIP LOCKED)
+- [ ] CAM-101: Approve/reject UI for pending module executions (P0 blocker)
+- [ ] CAM-102: Module config UI — calendar URL, payment URL, autonomy controls (P0)
+- [ ] CAM-103: Dashboard polling — refetchInterval 30s (P0)
+- [ ] CAM-104: Robust budget parser (P0)
+- [ ] CAM-105–116: Enhanced scoring, prompts, notifications, auto-flows, workspace polish (P1–P2)
+- See `TASK_QUEUE.md` for full acceptance criteria and dependency graph
 
 ---
 
