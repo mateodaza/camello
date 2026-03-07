@@ -103,7 +103,7 @@ export const leadNotes = pgTable('lead_notes', {
 
 export const leadStageChanges = pgTable('lead_stage_changes', {
   id:        uuid('id').primaryKey().defaultRandom(),
-  tenantId:  uuid('tenant_id').notNull(),
+  tenantId:  uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   leadId:    uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
   fromStage: text('from_stage').notNull(),
   toStage:   text('to_stage').notNull(),

@@ -49,9 +49,10 @@ describe('summarizeConversation', () => {
     expect(call.prompt).toContain('Summarize');
   });
 
-  it('5. LLM error propagates', async () => {
+  it('5. LLM error returns null (graceful failure)', async () => {
     mocks.generateText.mockRejectedValueOnce(new Error('LLM error'));
-    await expect(summarizeConversation(MSGS, 'en')).rejects.toThrow('LLM error');
+    const result = await summarizeConversation(MSGS, 'en');
+    expect(result).toBeNull();
   });
 
   it('6. Empty messages list works — filters out system messages, still calls LLM', async () => {

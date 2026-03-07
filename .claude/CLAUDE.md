@@ -84,7 +84,7 @@ packages/
 ## Recipes
 
 - **i18n:** Add keys to `apps/web/messages/en.json` + `es.json` under the relevant section. Use `const t = useTranslations('section')` then `t('key')`. Backend errors: `packages/shared/src/messages/{en,es}.ts`.
-- **Migrations:** Files in `packages/db/migrations/`. Name: `NNNN_description.sql`. Write SQL only — never apply to production. Increment from the latest migration number (currently 0015). Include RLS policies for tenant-scoped tables.
+- **Migrations:** Files in `packages/db/migrations/`. Name: `NNNN_description.sql`. Write SQL only — never apply to production. Increment from the latest migration number (currently 0020). Include RLS policies for tenant-scoped tables.
 - **Design system colors (CSS vars):** `--color-teal` (primary), `--color-midnight` (dark bg), `--color-sand` (warm bg), `--color-sunset` (error/danger), `--color-gold` (warning/accent), `--color-cream` (cards), `--color-charcoal` (text), `--color-dune` (secondary text). Never hardcode hex — use `var(--color-*)` or Tailwind classes like `bg-teal`, `text-charcoal`.
 - **tRPC procedures:** Tenant-scoped → `tenantProcedure`. Pre-tenant (onboarding) → `authedProcedure`. Add to existing router file in `apps/api/src/routes/` or create new router + register in `apps/api/src/routes/index.ts`.
 

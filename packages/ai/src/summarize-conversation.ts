@@ -5,23 +5,27 @@ import { MODEL_MAP } from '@camello/shared/constants';
 export async function summarizeConversation(
   messages: Array<{ role: string; content: string }>,
   locale: string,
-): Promise<string> {
-  const client = createLLMClient();
-  const conversationText = messages
-    .filter((m) => m.role !== 'system')
-    .map((m) => `${m.role}: ${m.content}`)
-    .join('\n');
+): Promise<string | null> {
+  try {
+    const client = createLLMClient();
+    const conversationText = messages
+      .filter((m) => m.role !== 'system')
+      .map((m) => `${m.role}: ${m.content}`)
+      .join('\n');
 
-  const prompt =
-    locale === 'es'
-      ? `Resume esta conversación en 1-2 oraciones concisas. Enfócate en el tema principal y resultado:\n\n${conversationText}`
-      : `Summarize this conversation in 1-2 concise sentences. Focus on the main topic and outcome:\n\n${conversationText}`;
+    const prompt =
+      locale === 'es'
+        ? `Resume esta conversación en 1-2 oraciones concisas. Enfócate en el tema principal y resultado:\n\n${conversationText}`
+        : `Summarize this conversation in 1-2 concise sentences. Focus on the main topic and outcome:\n\n${conversationText}`;
 
-  const { text } = await generateText({
-    model: client(MODEL_MAP['fast']),
-    prompt,
-    maxTokens: 100,
-  });
+    const { text } = await generateText({
+      model: client(MODEL_MAP['fast']),
+      prompt,
+      maxTokens: 100,
+    });
 
-  return text.trim();
+    return text.trim();
+  } catch {
+    return null;
+  }
 }

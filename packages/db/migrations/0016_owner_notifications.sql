@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS owner_notifications (
 ALTER TABLE owner_notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY owner_notifications_tenant_isolation ON owner_notifications
   FOR ALL USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
-GRANT SELECT, INSERT, UPDATE ON owner_notifications TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON owner_notifications TO app_user;
 
 -- Primary workspace query: unread first, then by date
 CREATE INDEX idx_notifications_artifact_unread
@@ -26,9 +26,15 @@ CREATE INDEX idx_notifications_artifact_unread
 CREATE INDEX idx_notifications_artifact_all
   ON owner_notifications (artifact_id, created_at DESC);
 
+-- Immutable helper for timestamptz -> UTC date (needed for expression indexes)
+CREATE OR REPLACE FUNCTION utc_date(ts timestamptz) RETURNS date
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT (ts AT TIME ZONE 'UTC')::date;
+$$;
+
 -- Stale dedup: max 1 per (tenant, lead, calendar-day)
 CREATE UNIQUE INDEX idx_notifications_stale_dedup
-  ON owner_notifications (tenant_id, lead_id, (created_at::date))
+  ON owner_notifications (tenant_id, lead_id, utc_date(created_at))
   WHERE type = 'lead_stale' AND lead_id IS NOT NULL;
 
 DO $$ BEGIN

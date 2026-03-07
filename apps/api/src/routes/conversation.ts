@@ -240,8 +240,9 @@ export const conversationRouter = router({
             });
             if (convMsgs.length === 0) return;
 
-            // 3. Generate summary using tenant locale
+            // 3. Generate summary using tenant locale (returns null on failure)
             const summary = await summarizeConversation(convMsgs, locale);
+            if (!summary) return;
 
             // 4. Persist into conversations.metadata.summary (JSONB merge, no migration)
             await tenantDb.query(async (db) => {

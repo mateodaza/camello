@@ -110,7 +110,8 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
 
   if (!hasAlerts) return null;
 
-  const mutBusy = approveMut.isPending || rejectMut.isPending;
+  const approvingId = approveMut.isPending ? (approveMut.variables as { executionId: string })?.executionId : null;
+  const rejectingBusyId = rejectMut.isPending ? (rejectMut.variables as { executionId: string })?.executionId : null;
 
   return (
     <div className="space-y-2">
@@ -167,14 +168,14 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
               <div className="flex shrink-0 gap-2">
                 <button
                   onClick={() => approveMut.mutate({ executionId: exec.id })}
-                  disabled={mutBusy}
+                  disabled={approvingId === exec.id || rejectingBusyId === exec.id}
                   className="min-h-9 min-w-9 rounded-md bg-teal px-3 text-xs font-medium text-white hover:bg-teal/90 disabled:opacity-50"
                 >
                   {t('approve')}
                 </button>
                 <button
                   onClick={() => setRejectingId(exec.id)}
-                  disabled={mutBusy}
+                  disabled={approvingId === exec.id || rejectingBusyId === exec.id}
                   className="min-h-9 min-w-9 rounded-md border border-charcoal/15 px-3 text-xs font-medium text-charcoal hover:bg-charcoal/5 disabled:opacity-50"
                 >
                   {t('reject')}
@@ -204,8 +205,12 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
                     onChange={(e) => setRejectText(e.target.value)}
                     rows={2}
                     maxLength={500}
+                    aria-invalid={rejectReason === 'other' && rejectText.trim() === '' ? 'true' : undefined}
                     className="rounded-md border border-charcoal/20 bg-white px-2 py-1.5 text-xs text-charcoal resize-none"
                   />
+                  {rejectReason === 'other' && rejectText.trim() === '' && (
+                    <p className="text-xs text-sunset" role="alert">{t('rejectFreeTextRequired')}</p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button

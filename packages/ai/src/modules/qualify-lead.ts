@@ -118,19 +118,16 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
     // Resolve final stage: never downgrade, never change terminal stages
     const existingLead = await ctx.db.getLeadByConversation(ctx.conversationId);
     let resolvedStage: string;
-    let didAdvance: boolean;
+    let advancedFrom: string | null = null;
     if (existingLead === null) {
       resolvedStage = scoreDerivedStage;
-      didAdvance = false;
     } else if (TERMINAL_STAGES.has(existingLead.stage)) {
       resolvedStage = existingLead.stage;
-      didAdvance = false;
     } else if ((STAGE_ORDER[scoreDerivedStage] ?? 0) > (STAGE_ORDER[existingLead.stage] ?? 0)) {
+      advancedFrom = existingLead.stage;
       resolvedStage = scoreDerivedStage;
-      didAdvance = true;
     } else {
       resolvedStage = existingLead.stage;
-      didAdvance = false;
     }
 
     // Side effect: upsert into leads table via DI callback
@@ -170,18 +167,18 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
     }
 
     // Emit stage_advanced notification (non-blocking, swallowed)
-    if (didAdvance && ctx.db.insertOwnerNotification) {
+    if (advancedFrom !== null && ctx.db.insertOwnerNotification) {
       ctx.db.insertOwnerNotification({
         tenantId: ctx.tenantId,
         artifactId: ctx.artifactId,
         leadId,
         type: 'stage_advanced',
         title: 'Lead stage advanced',
-        body: `Stage: ${existingLead!.stage} → ${resolvedStage}`,
+        body: `Stage: ${advancedFrom} → ${resolvedStage}`,
         metadata: {
           conversationId: ctx.conversationId,
           leadId,
-          from: existingLead!.stage,
+          from: advancedFrom,
           to: resolvedStage,
         },
       }).catch(() => {});

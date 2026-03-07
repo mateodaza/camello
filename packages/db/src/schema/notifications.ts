@@ -16,7 +16,7 @@ export const ownerNotifications = pgTable('owner_notifications', {
   readAt: timestamp('read_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
-  index('idx_notifications_artifact_unread').on(table.artifactId, table.createdAt),
+  index('idx_notifications_artifact_unread').on(table.artifactId, table.createdAt).where(sql`read_at IS NULL`),
   index('idx_notifications_artifact_all').on(table.artifactId, table.createdAt),
   // Note: idx_notifications_stale_dedup (partial unique index with expression column)
   // is defined in the SQL migration only — Drizzle schema DSL cannot express partial

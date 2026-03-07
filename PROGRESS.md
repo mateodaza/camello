@@ -5,11 +5,21 @@
 >
 > **AI memory lives at:** `~/.claude/projects/.../memory/` (MEMORY.md, architecture.md, compliance-gaps.md, differentiation.md). Not in-repo — persists across Claude sessions.
 
-## Current Phase: Sales Agent Optimization Sprint
+## Current Phase: Launch-Ready Polish Sprint
 
 > **Authoritative task list:** `TASK_QUEUE.md` (root). Tasks use `CAM-1XX` IDs.
-> Gap analysis (2026-03-07) found 3 critical blockers, 4 high gaps, 7 medium gaps in the sales agent happy path.
+> Goal: Make the product presentable for first real users. Fix onboarding gaps, finish workspace analytics, flesh out support/marketing workspaces, harden for production.
 > NC (Nightcrawler) executes tasks autonomously on `nightcrawler/dev` branch.
+
+| ID | Task | Date | Notes |
+|----|------|------|-------|
+
+---
+
+## Previous Phase: Sales Agent Optimization Sprint
+
+> Gap analysis (2026-03-07) found 3 critical blockers, 4 high gaps, 7 medium gaps in the sales agent happy path.
+> NC completed 13 tasks (CAM-101-116). Audit found 13 issues (3 critical, 4 high, 6 medium) — all fixed. Migrations 0016-0020 applied to Supabase cloud.
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|

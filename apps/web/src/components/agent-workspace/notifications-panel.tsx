@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
-import { Bell, ClipboardList, Flame, Trophy, Clock, AlertTriangle, DollarSign, X } from 'lucide-react';
+import { useTranslations, useLocale } from 'next-intl';
+import { Bell, ClipboardList, Flame, Trophy, Clock, AlertTriangle, DollarSign, TrendingUp, X } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Sheet, SheetHeader, SheetTitle, SheetContent } from '@/components/ui/sheet';
 
@@ -11,20 +11,20 @@ import { Sheet, SheetHeader, SheetTitle, SheetContent } from '@/components/ui/sh
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fmtTimeAgo(date: Date | null): string {
+function fmtTimeAgo(date: Date | null, locale: string): string {
   if (!date) return '';
-  const diffMs = Date.now() - new Date(date).getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  if (diffSecs < 60) return `${diffSecs}s ago`;
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'narrow' });
+  const diffSecs = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (Math.abs(diffSecs) < 60) return rtf.format(-diffSecs, 'second');
   const diffMins = Math.floor(diffSecs / 60);
-  if (diffMins < 60) return `${diffMins}m ago`;
+  if (Math.abs(diffMins) < 60) return rtf.format(-diffMins, 'minute');
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (Math.abs(diffHours) < 24) return rtf.format(-diffHours, 'hour');
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
+  return rtf.format(-diffDays, 'day');
 }
 
-type NotifType = 'approval_needed' | 'hot_lead' | 'deal_closed' | 'lead_stale' | 'escalation' | 'budget_warning';
+type NotifType = 'approval_needed' | 'hot_lead' | 'deal_closed' | 'lead_stale' | 'escalation' | 'budget_warning' | 'stage_advanced';
 
 const TYPE_ICON: Record<NotifType, React.ReactNode> = {
   approval_needed: <ClipboardList className="h-4 w-4" />,
@@ -33,6 +33,7 @@ const TYPE_ICON: Record<NotifType, React.ReactNode> = {
   lead_stale: <Clock className="h-4 w-4" />,
   escalation: <AlertTriangle className="h-4 w-4" />,
   budget_warning: <DollarSign className="h-4 w-4" />,
+  stage_advanced: <TrendingUp className="h-4 w-4" />,
 };
 
 const TYPE_COLOR: Record<NotifType, string> = {
@@ -42,6 +43,7 @@ const TYPE_COLOR: Record<NotifType, string> = {
   lead_stale: 'text-dune bg-dune/10',
   escalation: 'text-sunset bg-sunset/10',
   budget_warning: 'text-gold bg-gold/10',
+  stage_advanced: 'text-teal bg-teal/10',
 };
 
 // ---------------------------------------------------------------------------
@@ -55,6 +57,7 @@ interface NotificationsPanelProps {
 
 export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps) {
   const t = useTranslations('notifications');
+  const locale = useLocale();
   const utils = trpc.useUtils();
 
   const { data } = trpc.agent.ownerNotifications.useQuery(
@@ -121,7 +124,7 @@ export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps
                       <p className="text-sm font-medium text-charcoal truncate">{n.title}</p>
                     </div>
                     <p className="mt-0.5 text-xs text-dune line-clamp-2">{n.body}</p>
-                    <p className="mt-1 text-[10px] text-dune/70">{fmtTimeAgo(n.createdAt)}</p>
+                    <p className="mt-1 text-[10px] text-dune/70">{fmtTimeAgo(n.createdAt, locale)}</p>
                   </div>
                 </div>
               );

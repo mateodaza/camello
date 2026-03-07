@@ -11,7 +11,7 @@ function makeCtx(): ModuleExecutionContext {
     autonomyLevel: 'fully_autonomous',
     configOverrides: {},
     db: {
-      insertLead: vi.fn().mockResolvedValue(undefined),
+      insertLead: vi.fn().mockResolvedValue('lead-scoring-001'),
       insertModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateConversationStatus: vi.fn().mockResolvedValue(undefined),
