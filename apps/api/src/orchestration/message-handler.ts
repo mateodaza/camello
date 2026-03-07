@@ -430,6 +430,15 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
         await db.insert(ownerNotifications).values(data);
       });
     },
+    getLeadByConversation: async (convId) => {
+      const [row] = await tenantDb.query(async (db) =>
+        db.select({ stage: leads.stage })
+          .from(leads)
+          .where(eq(leads.conversationId, convId))
+          .limit(1),
+      );
+      return row ?? null;
+    },
   };
 
   // 6d. Build approval notifier (non-blocking — guardrail #4)

@@ -179,8 +179,9 @@ When owner approves a `send_quote`, auto-create a pending payment record linked 
 
 **Depends on:** CAM-101
 
-#### CAM-110 [ ] Auto-stage progression on re-qualification
+#### CAM-110 [x] Auto-stage progression on re-qualification
 A `qualifying` lead stays forever unless manually moved. Enable automatic stage advancement when the agent re-qualifies with better signals.
+Added `getLeadByConversation` (required) to `ModuleDbCallbacks`; stage resolution logic in `qualify-lead.ts` (STAGE_ORDER, TERMINAL_STAGES, anti-downgrade, fire-and-forget `stage_advanced` notification); migration 0017 adds `stage_advanced` to type CHECK; 6 new stage-progression unit tests; all 5 caller sites updated. Type-check passes.
 
 **Acceptance Criteria:**
 - In `qualify_lead` execute: compare new score with existing lead's stage. If new score maps to a more advanced stage (new→qualifying→proposal), update. Never auto-downgrade.

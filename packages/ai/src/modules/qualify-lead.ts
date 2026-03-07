@@ -51,6 +51,16 @@ export function parseBudgetString(raw: string): number | null {
 type Input = typeof qualifyLeadInputSchema._output;
 type Output = typeof qualifyLeadOutputSchema._output;
 
+const STAGE_ORDER: Record<string, number> = {
+  new: 0,
+  qualifying: 1,
+  proposal: 2,
+  negotiation: 3,
+  closed_won: 4,
+  closed_lost: 4,
+};
+const TERMINAL_STAGES = new Set(['closed_won', 'closed_lost']);
+
 export function computeLeadScore(input: Input): number {
   let total = 0;
 
@@ -97,13 +107,31 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
         : 'continue_conversation';
 
     // Stage derived from score
-    const stage =
+    const scoreDerivedStage =
       score === 'hot' ? 'proposal' as const
         : score === 'warm' ? 'qualifying' as const
         : 'new' as const;
 
     // Estimated value: parse budget string as number if possible
     const estimated_value = input.budget ? parseBudgetString(input.budget) : null;
+
+    // Resolve final stage: never downgrade, never change terminal stages
+    const existingLead = await ctx.db.getLeadByConversation(ctx.conversationId);
+    let resolvedStage: string;
+    let didAdvance: boolean;
+    if (existingLead === null) {
+      resolvedStage = scoreDerivedStage;
+      didAdvance = false;
+    } else if (TERMINAL_STAGES.has(existingLead.stage)) {
+      resolvedStage = existingLead.stage;
+      didAdvance = false;
+    } else if ((STAGE_ORDER[scoreDerivedStage] ?? 0) > (STAGE_ORDER[existingLead.stage] ?? 0)) {
+      resolvedStage = scoreDerivedStage;
+      didAdvance = true;
+    } else {
+      resolvedStage = existingLead.stage;
+      didAdvance = false;
+    }
 
     // Side effect: upsert into leads table via DI callback
     const leadId = await ctx.db.insertLead({
@@ -115,7 +143,7 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
       budget: input.budget,
       timeline: input.timeline,
       summary: input.conversation_summary,
-      stage,
+      stage: resolvedStage,
       estimatedValue: estimated_value,
     });
 
@@ -139,7 +167,25 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
       });
     }
 
-    return { score, tags, next_action, stage, estimated_value, numeric_score: numericScore };
+    // Emit stage_advanced notification (non-blocking, swallowed)
+    if (didAdvance && ctx.db.insertOwnerNotification) {
+      ctx.db.insertOwnerNotification({
+        tenantId: ctx.tenantId,
+        artifactId: ctx.artifactId,
+        leadId,
+        type: 'stage_advanced',
+        title: 'Lead stage advanced',
+        body: `Stage: ${existingLead!.stage} → ${resolvedStage}`,
+        metadata: {
+          conversationId: ctx.conversationId,
+          leadId,
+          from: existingLead!.stage,
+          to: resolvedStage,
+        },
+      }).catch(() => {});
+    }
+
+    return { score, tags, next_action, stage: resolvedStage as Output['stage'], estimated_value, numeric_score: numericScore };
   },
 
   formatForLLM: (output) =>

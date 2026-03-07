@@ -29,6 +29,7 @@ function mockDbCallbacks(): ModuleDbCallbacks {
     insertModuleExecution: vi.fn().mockResolvedValue('exec-001'),
     updateModuleExecution: vi.fn().mockResolvedValue(undefined),
     updateConversationStatus: vi.fn().mockResolvedValue(undefined),
+    getLeadByConversation: vi.fn().mockResolvedValue(null),
   };
 }
 
@@ -96,6 +97,7 @@ function makeCtx(dbOverrides?: Partial<ModuleDbCallbacks>): ModuleExecutionConte
       insertModuleExecution: vi.fn().mockResolvedValue('exec-001'),
       updateModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateConversationStatus: vi.fn().mockResolvedValue(undefined),
+      getLeadByConversation: vi.fn().mockResolvedValue(null),
       ...dbOverrides,
     },
   };

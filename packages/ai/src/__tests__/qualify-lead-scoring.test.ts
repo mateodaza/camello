@@ -15,6 +15,7 @@ function makeCtx(): ModuleExecutionContext {
       insertModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateConversationStatus: vi.fn().mockResolvedValue(undefined),
+      getLeadByConversation: vi.fn().mockResolvedValue(null),
     },
   };
 }

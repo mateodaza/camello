@@ -57,6 +57,7 @@ export type OwnerNotificationType =
   | 'hot_lead'
   | 'deal_closed'
   | 'lead_stale'
+  | 'stage_advanced'
   | 'escalation'
   | 'budget_warning';
 
@@ -151,6 +152,8 @@ export interface ModuleDbCallbacks {
     body: string;
     metadata: Record<string, unknown>;
   }) => Promise<void>;
+  /** Returns current stage of lead for this conversation, or null if no lead exists yet. */
+  getLeadByConversation: (conversationId: string) => Promise<{ stage: string } | null>;
   /** Optional — wired when payment creation needs to be triggered from a module. */
   insertPayment?: (data: {
     artifactId: string;

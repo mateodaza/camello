@@ -17,6 +17,7 @@ function makeCtx(insertOwnerNotification?: ModuleExecutionContext['db']['insertO
       insertModuleExecution: vi.fn().mockResolvedValue('exec-001'),
       updateModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateConversationStatus: vi.fn().mockResolvedValue(undefined),
+      getLeadByConversation: vi.fn().mockResolvedValue(null),
       insertOwnerNotification,
     },
   };

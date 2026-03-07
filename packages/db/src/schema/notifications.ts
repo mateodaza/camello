@@ -22,6 +22,6 @@ export const ownerNotifications = pgTable('owner_notifications', {
   // is defined in the SQL migration only — Drizzle schema DSL cannot express partial
   // unique indexes on expressions. ON CONFLICT DO NOTHING still respects it at runtime.
   check('owner_notifications_type_values', sql`type IN (
-    'approval_needed', 'hot_lead', 'deal_closed', 'lead_stale', 'escalation', 'budget_warning'
+    'approval_needed', 'hot_lead', 'deal_closed', 'lead_stale', 'escalation', 'budget_warning', 'stage_advanced'
   )`),
 ]);

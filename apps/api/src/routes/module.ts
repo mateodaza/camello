@@ -128,6 +128,7 @@ export const moduleRouter = router({
           insertModuleExecution: async () => '',
           updateModuleExecution: async () => {},
           updateConversationStatus: async () => {},
+          getLeadByConversation: async () => null,
         },
       };
 
