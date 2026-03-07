@@ -207,8 +207,8 @@ This-week vs last-week comparison on sales overview with delta arrows.
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-#### CAM-112 [ ] Lead notes and unified activity timeline
-Notes on leads + all touchpoints merged into one timeline on lead detail sheet.
+#### CAM-112 [x] Lead notes and unified activity timeline
+Notes on leads + all touchpoints merged into one timeline on lead detail sheet. Migration 0018 (lead_notes + lead_stage_changes + DB trigger), Drizzle tables, agent.leadNotes + agent.addLeadNote procedures, salesLeadDetail extended with notes/messages/stageChanges, buildTimeline() exported pure function, notes textarea UI, 7 API tests + 1 timeline test, 9 i18n keys (en+es). Type-check passes.
 
 **Acceptance Criteria:**
 - Migration 0017: `lead_notes` table (id, tenant_id, lead_id FK, author 'owner'|'system', content max 500, created_at). RLS.

@@ -19,20 +19,55 @@ interface LeadDetailSheetProps {
 
 const ATTRIBUTION_KEYS = ['messages', 'interactions', 'cost'] as const;
 
+export type TimelineItem =
+  | { kind: 'interaction'; intent: string | null; costUsd: string | null; latencyMs: number | null; createdAt: Date | string }
+  | { kind: 'execution';   moduleSlug: string; status: string; createdAt: Date | string }
+  | { kind: 'note';        author: string; content: string; createdAt: Date | string }
+  | { kind: 'message';     role: string; content: string; createdAt: Date | string }
+  | { kind: 'stageChange'; fromStage: string; toStage: string; createdAt: Date | string };
+
+export function buildTimeline(data: {
+  interactions?: Array<{ intent: string | null; costUsd: string | null; latencyMs: number | null; createdAt: Date | string }>;
+  executions?:   Array<{ moduleSlug: string; status: string; createdAt: Date | string }>;
+  notes?:        Array<{ author: string; content: string; createdAt: Date | string }>;
+  messages?:     Array<{ role: string; content: string; createdAt: Date | string }>;
+  stageChanges?: Array<{ fromStage: string; toStage: string; createdAt: Date | string }>;
+}): TimelineItem[] {
+  return [
+    ...(data.interactions ?? []).map((i) => ({ kind: 'interaction' as const, ...i })),
+    ...(data.executions   ?? []).map((e) => ({ kind: 'execution'   as const, ...e })),
+    ...(data.notes        ?? []).map((n) => ({ kind: 'note'        as const, ...n })),
+    ...(data.messages     ?? []).map((m) => ({ kind: 'message'     as const, ...m })),
+    ...(data.stageChanges ?? []).map((s) => ({ kind: 'stageChange' as const, ...s })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
 export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSheetProps) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
   const { addToast } = useToast();
+  const utils = trpc.useUtils();
 
   const [pendingStage, setPendingStage] = useState<Stage | null>(null);
   const [closeReason, setCloseReason] = useState('');
+  const [noteText, setNoteText] = useState('');
 
   const query = trpc.agent.salesLeadDetail.useQuery(
     { leadId: leadId! },
     { enabled: !!leadId },
   );
 
-  const { lead, customer, attribution, interactions, executions } = query.data ?? {};
+  const addLeadNoteMut = trpc.agent.addLeadNote.useMutation({
+    onSuccess: () => {
+      utils.agent.salesLeadDetail.invalidate({ leadId: leadId! });
+      addToast(t('leadNoteAdded'), 'success');
+      setNoteText('');
+    },
+  });
+
+  const { lead, customer, attribution, interactions, executions, notes, messages, stageChanges } = query.data ?? {};
+
+  const isNotePending = addLeadNoteMut.isPending;
 
   function handleStageClick(stage: Stage) {
     if (CLOSED_STAGES.includes(stage)) {
@@ -51,16 +86,9 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
     addToast(t('stageUpdated'), 'success');
   }
 
-  type TimelineItem =
-    | { kind: 'interaction'; intent: string | null; costUsd: string | null; latencyMs: number | null; createdAt: Date | string }
-    | { kind: 'execution'; moduleSlug: string; status: string; createdAt: Date | string };
-
   const timeline = useMemo<TimelineItem[]>(() => {
-    return [
-      ...(interactions ?? []).map((i) => ({ kind: 'interaction' as const, ...i })),
-      ...(executions ?? []).map((e) => ({ kind: 'execution' as const, ...e })),
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [interactions, executions]);
+    return buildTimeline({ interactions, executions, notes, messages, stageChanges });
+  }, [interactions, executions, notes, messages, stageChanges]);
 
   return (
     <Sheet open={!!leadId} onClose={onClose}>
@@ -189,7 +217,27 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
               </div>
             )}
 
-            {/* 4. AI Timeline */}
+            {/* 4. Notes input */}
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dune">{t('leadNotesTitle')}</p>
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                maxLength={500}
+                placeholder={t('leadNotePlaceholder')}
+                className="w-full resize-none rounded border border-charcoal/15 bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal"
+                style={{ minHeight: '36px' }}
+              />
+              <button
+                onClick={() => addLeadNoteMut.mutate({ leadId: leadId!, content: noteText })}
+                disabled={!noteText.trim() || isNotePending}
+                className="mt-2 min-h-[36px] rounded-md bg-teal px-3 py-1.5 text-xs font-medium text-cream hover:bg-teal/80 disabled:cursor-default disabled:opacity-40"
+              >
+                {t('leadNoteSubmit')}
+              </button>
+            </div>
+
+            {/* 5. AI Timeline */}
             {timeline.length > 0 && (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dune">{t('leadTimeline')}</p>
@@ -204,7 +252,7 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                           <span className="text-xs text-dune">{fmtDateTime(item.createdAt, locale)}</span>
                           {item.costUsd && <span className="text-xs text-dune">{fmtCost(item.costUsd, locale)}</span>}
                         </>
-                      ) : (
+                      ) : item.kind === 'execution' ? (
                         <>
                           <Badge
                             variant={item.status === 'executed' ? 'active' : item.status === 'pending' ? 'pending' : 'default'}
@@ -214,6 +262,32 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                           </Badge>
                           <span className="text-xs text-dune">{fmtDateTime(item.createdAt, locale)}</span>
                           <span className="text-xs text-dune">{item.status}</span>
+                        </>
+                      ) : item.kind === 'note' ? (
+                        <>
+                          <Badge variant="default" className="shrink-0 text-xs">
+                            {item.author === 'owner' ? t('leadNoteAuthorOwner') : t('leadNoteAuthorSystem')}
+                          </Badge>
+                          <span className="flex-1 text-xs text-charcoal">{item.content}</span>
+                          <span className="text-xs text-dune">{fmtDateTime(item.createdAt, locale)}</span>
+                        </>
+                      ) : item.kind === 'message' ? (
+                        <>
+                          <Badge variant="default" className="shrink-0 text-xs">
+                            {item.role}
+                          </Badge>
+                          <span className="flex-1 truncate text-xs text-charcoal/80">
+                            {item.content.length > 80 ? `${item.content.slice(0, 80)}…` : item.content}
+                          </span>
+                          <span className="text-xs text-dune">{fmtDateTime(item.createdAt, locale)}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Badge variant="default" className="shrink-0 text-xs">
+                            {t('leadTimelineStageChange')}
+                          </Badge>
+                          <span className="text-xs text-charcoal">{item.fromStage} → {item.toStage}</span>
+                          <span className="text-xs text-dune">{fmtDateTime(item.createdAt, locale)}</span>
                         </>
                       )}
                     </div>

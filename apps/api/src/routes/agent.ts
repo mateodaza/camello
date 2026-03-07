@@ -16,6 +16,8 @@ import {
   tenants,
   payments,
   ownerNotifications,
+  leadNotes,
+  leadStageChanges,
 } from '@camello/db';
 import { paymentStatusSchema } from '@camello/shared/schemas';
 
@@ -625,6 +627,31 @@ export const agentRouter = router({
           .orderBy(desc(moduleExecutions.createdAt))
           .limit(10);
 
+        // Lead notes (up to 50, oldest first for timeline ordering)
+        const notes = await db
+          .select({ id: leadNotes.id, author: leadNotes.author, content: leadNotes.content, createdAt: leadNotes.createdAt })
+          .from(leadNotes)
+          .where(and(eq(leadNotes.leadId, leadRow.id), eq(leadNotes.tenantId, ctx.tenantId)))
+          .orderBy(asc(leadNotes.createdAt))
+          .limit(50);
+
+        // Recent messages (up to 30) — skip if no conversationId
+        const recentMessages = leadRow.conversationId
+          ? await db
+              .select({ id: messages.id, role: messages.role, content: messages.content, createdAt: messages.createdAt })
+              .from(messages)
+              .where(eq(messages.conversationId, leadRow.conversationId))
+              .orderBy(desc(messages.createdAt))
+              .limit(30)
+          : [];
+
+        // Stage changes for this lead (trigger-populated, all code paths)
+        const stageChanges = await db
+          .select({ id: leadStageChanges.id, fromStage: leadStageChanges.fromStage, toStage: leadStageChanges.toStage, createdAt: leadStageChanges.createdAt })
+          .from(leadStageChanges)
+          .where(and(eq(leadStageChanges.leadId, leadRow.id), eq(leadStageChanges.tenantId, ctx.tenantId)))
+          .orderBy(asc(leadStageChanges.createdAt));
+
         return {
           lead: {
             id: leadRow.id,
@@ -648,7 +675,59 @@ export const agentRouter = router({
           attribution: attrRow ?? { totalMessages: 0, totalInteractions: 0, totalCost: '0' },
           interactions: recentInteractions,
           executions: recentExecutions,
+          notes,
+          messages: recentMessages,
+          stageChanges,
         };
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // leadNotes — fetch notes for a lead
+  // -------------------------------------------------------------------------
+
+  leadNotes: tenantProcedure
+    .input(z.object({ leadId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const [leadRow] = await db
+          .select({ id: leads.id })
+          .from(leads)
+          .where(and(eq(leads.id, input.leadId), eq(leads.tenantId, ctx.tenantId)))
+          .limit(1);
+
+        if (!leadRow) throw new TRPCError({ code: 'NOT_FOUND', message: 'Lead not found' });
+
+        return db
+          .select({ id: leadNotes.id, leadId: leadNotes.leadId, author: leadNotes.author, content: leadNotes.content, createdAt: leadNotes.createdAt })
+          .from(leadNotes)
+          .where(and(eq(leadNotes.leadId, input.leadId), eq(leadNotes.tenantId, ctx.tenantId)))
+          .orderBy(asc(leadNotes.createdAt));
+      });
+    }),
+
+  // -------------------------------------------------------------------------
+  // addLeadNote — add an owner note to a lead
+  // -------------------------------------------------------------------------
+
+  addLeadNote: tenantProcedure
+    .input(z.object({ leadId: z.string().uuid(), content: z.string().min(1).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const [leadRow] = await db
+          .select({ id: leads.id })
+          .from(leads)
+          .where(and(eq(leads.id, input.leadId), eq(leads.tenantId, ctx.tenantId)))
+          .limit(1);
+
+        if (!leadRow) throw new TRPCError({ code: 'NOT_FOUND', message: 'Lead not found' });
+
+        const [note] = await db
+          .insert(leadNotes)
+          .values({ tenantId: ctx.tenantId, leadId: input.leadId, author: 'owner', content: input.content })
+          .returning();
+
+        return note;
       });
     }),
 
