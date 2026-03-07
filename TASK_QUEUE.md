@@ -40,7 +40,8 @@ The `module.approve` and `module.reject` tRPC procedures are fully implemented s
 **Notes:**
 This is the #1 blocker. Without this, `send_quote` and `collect_payment` are dead features. The `module.approve` handler already executes the module and writes output — the frontend just needs buttons. Check `apps/api/src/routes/module.ts` lines 63+ for the approve mutation contract.
 
-#### CAM-102 [ ] Module config UI — calendar URL, payment URL, autonomy controls
+#### CAM-102 [x] Module config UI — calendar URL, payment URL, autonomy controls
+New `module-settings.tsx` collapsible component renders per-module autonomy dropdown + slug-specific config fields (calendarUrl, paymentUrl, currency/validDays, slaMinutes); inserted below WorkspaceHeader in agents/[id]/page.tsx; en/es i18n keys added. Type-check passes.
 `book_meeting` returns "No calendar link configured" because there's no way to set `configOverrides.calendarUrl`. No UI exists to change autonomy levels after artifact creation.
 
 **Acceptance Criteria:**

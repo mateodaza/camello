@@ -10,6 +10,7 @@ import { WorkspaceHeader } from '@/components/agent-workspace/workspace-header';
 import { PriorityIntents } from '@/components/agent-workspace/priority-intents';
 import { AgentActivity } from '@/components/agent-workspace/agent-activity';
 import { sectionRegistry } from '@/components/agent-workspace/registry';
+import { ModuleSettings } from '@/components/agent-workspace/module-settings';
 
 export default function AgentWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -66,6 +67,19 @@ export default function AgentWorkspacePage() {
           slug: m.slug,
           name: m.name,
           autonomyLevel: m.autonomyLevel,
+        }))}
+      />
+
+      {/* Module settings — collapsible, shown for all agent types */}
+      <ModuleSettings
+        artifactId={id}
+        boundModules={data.boundModules.map((m) => ({
+          id: m.id,
+          moduleId: m.moduleId,
+          slug: m.slug,
+          name: m.name,
+          autonomyLevel: m.autonomyLevel,
+          configOverrides: (m.configOverrides ?? {}) as Record<string, unknown>,
         }))}
       />
 
