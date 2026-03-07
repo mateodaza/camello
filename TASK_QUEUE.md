@@ -69,18 +69,21 @@ The support workspace shows tickets but has no way to resolve them or collect fe
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-#### CAM-118 [ ] Support workspace: knowledge gap detection
-Surface questions the agent couldn't answer so the owner can fill gaps.
+#### CAM-118 [ ] Support workspace: knowledge gap inline ingest + improved UX
+The support workspace already has `agent.supportKnowledgeGaps` procedure and a `SupportKnowledgeGaps` section. Improve it with actionable inline ingest.
 
 **Acceptance Criteria:**
-- New tRPC procedure `agent.supportKnowledgeGaps`: queries conversations where `metadata.ragConfidence < 0.3` OR `metadata.fallbackUsed = true`, groups by intent, returns top 10 with count + sample question
-- New `CardFeed` section in support workspace: "Knowledge Gaps" — each card shows the question cluster, count, and a "Add to Knowledge Base" button
-- "Add to Knowledge Base" button opens a textarea pre-filled with the sample question, calls existing `knowledge.ingest` on submit
+- Add "Add Answer" button on each knowledge gap card — opens inline textarea where owner types the answer
+- On submit: calls `knowledge.ingest` with the answer text + the original question as context (title)
+- After successful ingest: remove the gap card from the list (optimistic UI)
+- Add sample question preview on each card (first message from the lowest-confidence conversation)
+- Add count badge: "Asked N times" on each gap card
+- Improve clustering: group by normalized intent (lowercase, trim) instead of raw intent string to reduce duplicates
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
 **Notes:**
-The RAG pipeline already tracks confidence. This surfaces low-confidence patterns so the owner can teach the agent. Read `packages/ai/src/rag.ts` for confidence scoring and `apps/api/src/routes/knowledge.ts` for the ingest procedure.
+The backend procedure and basic UI already exist. This task improves the UX so gaps are actionable without leaving the workspace. Read `apps/web/src/components/agent-workspace/registry/support.tsx` for the current rendering.
 
 #### CAM-119 [ ] Marketing workspace: interest stats + draft content feed
 The marketing workspace is a skeleton. Add substance.
@@ -88,10 +91,14 @@ The marketing workspace is a skeleton. Add substance.
 **Acceptance Criteria:**
 - New tRPC procedure `agent.marketingStats`: total interests captured (from `capture_interest` executions), top 3 interest categories, draft content count (from `draft_content` executions)
 - `MetricsGrid` row at top of marketing workspace with interests captured, categories, drafts pending
-- `CardFeed` section: "Content Drafts" — each card shows draft title, preview (80 chars), created date, and Approve/Edit/Discard buttons
-- Approve = mark execution `status: 'completed'` (existing mutation pattern)
-- Discard = mark execution `status: 'rejected'`
-- Edit = open textarea with full draft, save updates `output` JSONB
+- `CardFeed` section: "Content Drafts" — shows `draft_content` executions with `status = 'executed'`. Each card shows draft title, preview (80 chars), created date, and Approve/Edit/Discard buttons.
+- All three actions use a new `module.updateDraft` tRPC mutation (NOT `module.approve`/`module.reject` — those are for the pending-approval autonomy flow, which is a different lifecycle).
+- New tRPC mutation `module.updateDraft`: input `{ executionId: string, action: 'approve' | 'edit' | 'discard', output?: Record<string, unknown> }`. Validates execution exists, belongs to tenant, and has `status = 'executed'` + `module_slug = 'draft_content'`.
+  - `action: 'approve'` → sets `output.draft_status = 'approved'` (owner accepted the draft as-is)
+  - `action: 'discard'` → sets `output.draft_status = 'discarded'` (owner rejected the draft)
+  - `action: 'edit'` → requires `output` param, merges updated content into `output` JSONB + sets `output.draft_status = 'approved'`
+- Feed filters: only show drafts where `output.draft_status` is null (unreviewed). Approved/discarded drafts hidden from feed.
+- No changes to `module_executions.status` column — it stays `'executed'`. The draft lifecycle lives entirely in `output` JSONB.
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
@@ -145,9 +152,10 @@ The conversation list is a flat chronological dump. Add filtering and search.
 **Acceptance Criteria:**
 - Add filter bar above conversation list in `apps/web/src/app/dashboard/conversations/page.tsx`
 - Filters: status (all/active/resolved), channel (all/web_chat/whatsapp), date range (last 7d/30d/all)
-- Search input: filters by customer name or message content (ILIKE on `conversations.metadata` + join to `messages.content`)
-- New tRPC input params on `conversation.list`: `status`, `channel`, `search`, `dateRange`
+- Search input: filters by customer name (ILIKE on `conversations.metadata->>'customerName'`) or by EXISTS subquery on `messages.content` (NOT a plain join — must avoid duplicating conversation rows and breaking keyset pagination)
+- New tRPC input params on `conversation.list`: `status`, `channel`, `search`, `dateRange`, `customerId` (optional UUID — stable FK filter for click-through from customer insights CAM-131)
 - Debounced search (300ms)
+- IMPORTANT: use `EXISTS (SELECT 1 FROM messages WHERE messages.conversation_id = conversations.id AND messages.content ILIKE ...)` for message search — never join messages directly into the paginated query
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
@@ -161,7 +169,7 @@ The `/dashboard` page is bare. Add a useful landing view.
 - New tRPC procedure `agent.dashboardOverview`: total conversations (today/week), unread notifications count, pending approvals count, active leads count. Scoped to tenant (all artifacts).
 - Activity feed: last 10 events across all artifacts (new lead, conversation resolved, approval needed, deal closed). Reuse `ownerNotifications` data.
 - Quick stat cards using `MetricsGrid` pattern
-- "Your Agents" list with status indicators (active/paused) and link to workspace
+- "Your Agents" list with status indicators (active/inactive, based on `artifacts.isActive` boolean) and link to workspace
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
@@ -171,8 +179,8 @@ The `/dashboard` page is bare. Add a useful landing view.
 The settings pages need a few more features before launch.
 
 **Acceptance Criteria:**
-- "Danger Zone" section on settings page: "Delete Agent" button (confirmation dialog → calls `artifact.delete` which soft-deletes)
-- New tRPC procedure `artifact.delete`: sets `artifacts.status = 'archived'`, does NOT hard delete. Archived agents hidden from dashboard list but data preserved.
+- "Danger Zone" section on settings page: "Delete Agent" button (confirmation dialog → calls `artifact.deactivate` which soft-deletes)
+- New tRPC procedure `artifact.deactivate`: sets `artifacts.is_active = false`, does NOT hard delete. Deactivated agents hidden from dashboard list but data preserved. Update agent list query to filter `isActive = true`.
 - "Export Data" button: generates JSON download of all leads + conversations for the artifact (client-side blob download from tRPC query)
 - New tRPC procedure `agent.exportData`: returns leads + conversations + notes as JSON (limit 1000 records, warn if truncated)
 - i18n keys (en + es)
@@ -184,13 +192,13 @@ Step 4 lets owners add knowledge but the UX is minimal.
 **Acceptance Criteria:**
 - Add "Suggested topics" section: based on archetype, show 3-4 prompts like "Add your pricing info", "Describe your services", "Add FAQ answers". Each is a clickable card that pre-fills the textarea.
 - Show knowledge base count badge: "3 documents added" with progress indicator
-- Add URL ingestion field: paste a URL, backend fetches + chunks it (uses existing `knowledge.ingestUrl` procedure)
+- Add URL ingestion field: paste a URL, backend fetches + chunks it (uses existing `knowledge.queueUrl` tRPC procedure)
 - Validate minimum: soft warning if 0 docs added ("Your agent works better with knowledge")
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
 **Notes:**
-Read `apps/web/src/components/onboarding/step4-teach-agent.tsx` for current implementation. The URL ingestion backend already exists in `apps/api/src/routes/knowledge.ts`.
+Read `apps/web/src/components/onboarding/step4-teach-agent.tsx` for current implementation. URL ingestion uses `knowledge.queueUrl` (async queue + cron processing), NOT a synchronous ingest. Read `apps/api/src/routes/knowledge.ts` for the procedure.
 
 #### CAM-127 [ ] Widget chat — typing indicator + message status
 The widget feels static. Add basic interaction feedback.
@@ -255,13 +263,45 @@ Show which customers come back and what they ask about over time.
 
 **Acceptance Criteria:**
 - New tRPC procedure `agent.customerInsights`: top 10 returning customers (by conversation count), with last visit date, total conversations, last topic
-- Uses `customer_memories` table (already exists) + `conversations` join
+- Uses `customers` table (join on `customers.id` → `conversations.customer_id`). Customer memory is stored in `customers.memory` JSONB column — extract last topic from there. Do NOT reference a `customer_memories` table (it does not exist).
 - New `DataTable` section in sales workspace: "Returning Customers" with name, visits, last seen, last topic
-- Click row → opens conversation list filtered to that customer
+- Click row → navigates to conversation list with `?customerId=<id>` query param. Add `customerId` as optional filter to `conversation.list` tRPC input (filter via `conversations.customer_id = customerId`). This is a stable FK filter, not a name search.
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
 **Depends on:** CAM-123 (conversation filters for click-through)
+
+## P5 — Pre-Launch
+
+#### CAM-132 [ ] E2E smoke test plan
+Generate a comprehensive manual smoke test checklist covering the full user journey. This is the final gate before real users.
+
+**Acceptance Criteria:**
+- Create `SMOKE_TEST.md` in project root
+- Organized by user journey phase:
+  1. **Sign up & Onboarding:** Clerk sign-up → org creation → Step 1-6 wizard (describe business, meet agent, teach agent, connect channel, test chat). Verify module badges show only archetype modules (CAM-107). Verify profile fields populate `/chat/[slug]` card.
+  2. **Knowledge Base:** Add text knowledge → verify RAG retrieval in chat. Queue URL ingestion (CAM-126) → verify chunked + embedded. Check knowledge gap detection surfaces low-confidence questions (CAM-118).
+  3. **Public Chat (`/chat/[slug]`):** Business card renders (avatar, tagline, bio, social, hours). Quick actions work. Chat sends/receives. Typing indicator shows (CAM-127). Abuse limits trigger (20msg/min burst, 50msg/conversation, 100msg/day). Session counter increments.
+  4. **Sales Workspace:** Leads appear in kanban after chat qualifies. Lead scoring shows numeric score (CAM-105). Stage auto-advances on re-qualification (CAM-110). Stale lead alerts fire. Source attribution bar chart populates (CAM-113). Week-over-week comparison shows deltas (CAM-111). Revenue forecast card renders (CAM-114). Sparklines populate.
+  5. **Approvals & Notifications:** `send_quote` triggers approval card. Approve → payment record created (CAM-109). Reject with reason → toast + card removed. Bell icon shows unread count. Notification panel shows chronological feed. Mark all read works. `stage_advanced` notification fires on auto-progression.
+  6. **Lead Detail:** Click lead → sheet opens. Timeline shows messages + notes + stage changes + summaries. Add note → appears in timeline. Close reason dialog works (won/lost).
+  7. **Follow-ups:** Warm/hot lead → queued follow-up created (CAM-115). Cron processes follow-up (CAM-007). No duplicate follow-ups (unique index CAM-020).
+  8. **Support Workspace:** Tickets list. Resolve button → CSAT prompt (CAM-117). Resolution stats populate. Knowledge gaps show with inline ingest (CAM-118).
+  9. **Marketing Workspace:** Interest stats populate (CAM-119). Content drafts feed with approve/edit/discard.
+  10. **Conversations Page:** List with summaries (CAM-116). Filters work: status, channel, date range, search (CAM-123). Pagination stable with search active.
+  11. **Dashboard Home:** Activity feed shows recent events (CAM-124). Quick stats cards. Agent list with status.
+  12. **Settings:** Profile page (tagline, bio, avatar, social, QR). Module settings (autonomy, config overrides) (CAM-102). Billing page (plan display, upgrade flow). Danger zone: deactivate agent (CAM-125). Export data download.
+  13. **Error Handling:** Kill API → error boundaries render retry cards (CAM-120). Mutations show error toasts. Polling retries with backoff.
+  14. **i18n:** Switch locale to Spanish → all dashboard text translates. Chat page respects artifact language. Relative timestamps localize.
+  15. **Widget Embed:** Copy snippet → paste in external HTML → widget loads. Chat works end-to-end through widget.
+- Each test case has: description, preconditions, steps, expected result
+- Mark tests that require seed data vs. tests that can run on empty state
+- `pnpm type-check` passes (no code changes, just the markdown file)
+
+**Depends on:** All other CAM tasks in this sprint
+
+**Notes:**
+This is the checklist Mateo will walk through manually after the sprint audit is clean. It should be exhaustive enough that passing all tests means the product is ready for first users.
 
 ## Manual / Blocked — Not for NC
 
