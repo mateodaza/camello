@@ -245,8 +245,8 @@ Simple weighted pipeline forecast for next 30 days.
 
 **Depends on:** CAM-111
 
-#### CAM-115 [ ] Sales auto-follow-up scheduling
-Warm/hot leads auto-schedule follow-ups processed by the cron (CAM-007).
+#### CAM-115 [x] Sales auto-follow-up scheduling
+Warm/hot leads auto-schedule follow-ups processed by the cron (CAM-007). Added `checkModuleExecutionExists` + `checkQueuedFollowupExists` (required) + `scheduleFollowupExecution` (optional) to `ModuleDbCallbacks`; scheduling logic in `qualify-lead.ts`; 3 callbacks wired in `message-handler.ts`; stub in `module.ts`; 6 stubs updated in test helpers; 6-test `qualify-lead-followup-scheduling.test.ts` created. Type-check passes.
 
 **Acceptance Criteria:**
 - In `qualify_lead`: if warm/hot AND no `book_meeting` execution exists, create `send_followup` execution with `followup_status: 'queued'`, `scheduled_at`: now+24h (warm) or now+4h (hot)

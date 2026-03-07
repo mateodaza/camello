@@ -172,6 +172,23 @@ export interface ModuleDbCallbacks {
     customerId?: string;
     quoteExecutionId?: string;
   }) => Promise<string>;
+  /**
+   * Returns true if any module execution exists for this conversation + module slug.
+   * Used to check if a booking already exists before auto-scheduling a follow-up.
+   */
+  checkModuleExecutionExists: (conversationId: string, moduleSlug: string) => Promise<boolean>;
+  /**
+   * Returns true if a send_followup execution with followup_status='queued' exists
+   * for this conversation. Prevents double-scheduling when qualify_lead fires again.
+   */
+  checkQueuedFollowupExists: (conversationId: string) => Promise<boolean>;
+  /** Optional — fire-and-forget insertion of a queued send_followup execution row. */
+  scheduleFollowupExecution?: (data: {
+    tenantId: string;
+    artifactId: string;
+    conversationId: string;
+    scheduledAt: Date;
+  }) => Promise<void>;
 }
 
 /** Artifact module binding: the JOIN row from artifact_modules + modules. */

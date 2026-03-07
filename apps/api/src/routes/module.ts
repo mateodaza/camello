@@ -129,6 +129,8 @@ export const moduleRouter = router({
           updateModuleExecution: async () => {},
           updateConversationStatus: async () => {},
           getLeadByConversation: async () => null,
+          checkModuleExecutionExists: async () => false,
+          checkQueuedFollowupExists: async () => false,
         },
       };
 

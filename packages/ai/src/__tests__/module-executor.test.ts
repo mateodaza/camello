@@ -30,6 +30,8 @@ function mockDbCallbacks(): ModuleDbCallbacks {
     updateModuleExecution: vi.fn().mockResolvedValue(undefined),
     updateConversationStatus: vi.fn().mockResolvedValue(undefined),
     getLeadByConversation: vi.fn().mockResolvedValue(null),
+    checkModuleExecutionExists: vi.fn().mockResolvedValue(false),
+    checkQueuedFollowupExists: vi.fn().mockResolvedValue(false),
   };
 }
 
@@ -98,6 +100,8 @@ function makeCtx(dbOverrides?: Partial<ModuleDbCallbacks>): ModuleExecutionConte
       updateModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateConversationStatus: vi.fn().mockResolvedValue(undefined),
       getLeadByConversation: vi.fn().mockResolvedValue(null),
+      checkModuleExecutionExists: vi.fn().mockResolvedValue(false),
+      checkQueuedFollowupExists: vi.fn().mockResolvedValue(false),
       ...dbOverrides,
     },
   };

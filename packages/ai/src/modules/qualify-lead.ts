@@ -187,6 +187,29 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
       }).catch(() => {});
     }
 
+    // Auto-schedule follow-up for warm/hot leads (fire-and-forget, non-blocking)
+    if (score !== 'cold' && ctx.db.scheduleFollowupExecution) {
+      try {
+        const [hasMeeting, hasQueuedFollowup] = await Promise.all([
+          ctx.db.checkModuleExecutionExists(ctx.conversationId, 'book_meeting'),
+          ctx.db.checkQueuedFollowupExists(ctx.conversationId),
+        ]);
+        if (!hasMeeting && !hasQueuedFollowup) {
+          const delayMs = score === 'hot'
+            ? 4 * 60 * 60 * 1000    // 4h for hot
+            : 24 * 60 * 60 * 1000;  // 24h for warm
+          ctx.db.scheduleFollowupExecution({
+            tenantId: ctx.tenantId,
+            artifactId: ctx.artifactId,
+            conversationId: ctx.conversationId,
+            scheduledAt: new Date(Date.now() + delayMs),
+          }).catch(() => {}); // fire-and-forget — never blocks qualification
+        }
+      } catch {
+        // Swallow — scheduling failure must never block lead qualification
+      }
+    }
+
     return { score, tags, next_action, stage: resolvedStage as Output['stage'], estimated_value, numeric_score: numericScore };
   },
 

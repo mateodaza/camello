@@ -440,6 +440,66 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       );
       return row ?? null;
     },
+    checkModuleExecutionExists: async (convId, moduleSlug) => {
+      const [row] = await tenantDb.query(async (db) =>
+        db.select({ id: moduleExecutions.id })
+          .from(moduleExecutions)
+          .where(
+            and(
+              eq(moduleExecutions.conversationId, convId),
+              eq(moduleExecutions.moduleSlug, moduleSlug),
+            ),
+          )
+          .limit(1),
+      );
+      return row != null;
+    },
+    checkQueuedFollowupExists: async (convId) => {
+      const rows = await tenantDb.query(async (db) =>
+        db.select({ output: moduleExecutions.output })
+          .from(moduleExecutions)
+          .where(
+            and(
+              eq(moduleExecutions.conversationId, convId),
+              eq(moduleExecutions.moduleSlug, 'send_followup'),
+              eq(moduleExecutions.status, 'executed'),
+            ),
+          ),
+      );
+      return rows.some(
+        (r) =>
+          r.output != null &&
+          (r.output as Record<string, unknown>).followup_status === 'queued',
+      );
+    },
+    scheduleFollowupExecution: async (data) => {
+      await tenantDb.query(async (db) => {
+        const [modRow] = await db
+          .select({ id: modules.id })
+          .from(modules)
+          .where(eq(modules.slug, 'send_followup'))
+          .limit(1);
+        if (!modRow) return; // module not seeded yet — skip silently
+        // ON CONFLICT DO NOTHING: if a concurrent qualify_lead already inserted a
+        // queued row (race condition), the unique partial index prevents duplicates.
+        await db.insert(moduleExecutions).values({
+          moduleId: modRow.id,
+          moduleSlug: 'send_followup',
+          artifactId: data.artifactId,
+          tenantId: data.tenantId,
+          conversationId: data.conversationId,
+          input: { message_template: 'gentle_reminder' },
+          output: {
+            followup_status: 'queued',
+            scheduled_at: data.scheduledAt.toISOString(),
+            channel: 'pending',
+            followup_number: 1,
+          },
+          status: 'executed',
+          durationMs: 0,
+        }).onConflictDoNothing();
+      });
+    },
   };
 
   // 6d. Build approval notifier (non-blocking — guardrail #4)

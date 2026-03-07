@@ -16,6 +16,8 @@ function makeCtx(overrides?: Partial<ModuleExecutionContext>): ModuleExecutionCo
       updateModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateConversationStatus: vi.fn().mockResolvedValue(undefined),
       getLeadByConversation: vi.fn().mockResolvedValue(null),
+      checkModuleExecutionExists: vi.fn().mockResolvedValue(false),
+      checkQueuedFollowupExists: vi.fn().mockResolvedValue(false),
     },
     ...overrides,
   };
