@@ -63,13 +63,26 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
   const utils = trpc.useUtils();
 
   const approveMut = trpc.module.approve.useMutation({
+    onMutate: async ({ executionId }) => {
+      await utils.agent.salesAlerts.cancel({ artifactId });
+      const prev = utils.agent.salesAlerts.getData({ artifactId });
+      utils.agent.salesAlerts.setData({ artifactId }, (old) =>
+        old
+          ? { ...old, pendingApprovals: old.pendingApprovals.filter((e) => e.id !== executionId) }
+          : old,
+      );
+      return { prev };
+    },
     onSuccess: () => {
       utils.agent.salesAlerts.invalidate({ artifactId });
       utils.agent.salesQuotes.invalidate({ artifactId });
       utils.agent.salesPayments.invalidate({ artifactId });
       addToast(t('approvalConfirmed'), 'success');
     },
-    onError: () => addToast(t('errorLoading'), 'error'),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) utils.agent.salesAlerts.setData({ artifactId }, ctx.prev);
+      addToast(t('errorLoading'), 'error');
+    },
   });
 
   const rejectMut = trpc.module.reject.useMutation({

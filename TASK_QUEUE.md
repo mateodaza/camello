@@ -22,7 +22,8 @@ Full monorepo, 22 tables, RLS, RAG, 9 modules, channel adapters, widget, dashboa
 
 ## P0 — Fix Broken Sales Fundamentals
 
-#### CAM-101 [ ] Approve/reject UI for pending module executions
+#### CAM-101 [x] Approve/reject UI for pending module executions
+Added optimistic UI (`onMutate`/`onError` rollback) to `approveMut`; fixed `useUtils` proxy to 3-level depth and `useMutation` to forward `onMutate` in test mock; added 1 new optimistic-UI test. All 12 ACs satisfied.
 The `module.approve` and `module.reject` tRPC procedures are fully implemented server-side but completely unreachable from the frontend. `SalesAlerts` shows gold pending-approval cards with zero action buttons. The owner CANNOT approve quotes or payments — they're permanently stuck at "pending".
 
 **Acceptance Criteria:**

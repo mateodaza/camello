@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React, { createElement } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +64,13 @@ function setMutationMock(path: string, overrides?: Parameters<typeof mockMutatio
   mutationMocks.set(path, mockMutationResult(overrides));
 }
 
+// Stable spy registry for utils — keyed by 'ns.resource.method'
+const utilsSpies = new Map<string, ReturnType<typeof vi.fn>>();
+function getUtilsSpy(path: string) {
+  if (!utilsSpies.has(path)) utilsSpies.set(path, vi.fn());
+  return utilsSpies.get(path)!;
+}
+
 function buildNestedProxy(target: Record<string, unknown>, path: string[] = []): unknown {
   return new Proxy(target, {
     get(_, prop: string) {
@@ -73,13 +80,33 @@ function buildNestedProxy(target: Record<string, unknown>, path: string[] = []):
       }
       if (prop === 'useMutation') {
         const key = path.join('.');
-        return () => mutationMocks.get(key) ?? mockMutationResult();
+        return (opts?: {
+          onMutate?: (vars: unknown) => unknown;
+          onSuccess?: () => void;
+          onError?: (err: unknown, vars: unknown, ctx: unknown) => void;
+        }) => {
+          const base = mutationMocks.get(key) ?? mockMutationResult();
+          const baseMutate = base.mutate as (vars: unknown) => void;
+          return {
+            ...base,
+            mutate: (vars: unknown) => {
+              void opts?.onMutate?.(vars);
+              baseMutate(vars);
+            },
+          };
+        };
       }
       if (prop === 'useUtils') {
         return () => new Proxy({}, {
-          get() {
+          get(_, ns: string) {
             return new Proxy({}, {
-              get() { return vi.fn(); },
+              get(_, resource: string) {
+                return new Proxy({}, {
+                  get(_, method: string) {
+                    return getUtilsSpy(`${ns}.${resource}.${method}`);
+                  },
+                });
+              },
             });
           },
         });
@@ -472,6 +499,7 @@ describe('SalesAlerts', () => {
   beforeEach(() => {
     queryMocks.clear();
     mutationMocks.clear();
+    utilsSpies.clear();
   });
 
   const emptyAlertsData = {
@@ -668,5 +696,30 @@ describe('SalesAlerts', () => {
     }));
 
     expect(screen.getByText('USD 1500')).toBeInTheDocument();
+  });
+
+  it('approve button optimistically calls setData with updater that removes the card', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, { artifactId: 'art-1', onLeadClick: vi.fn() }));
+
+    fireEvent.click(screen.getByText('approve'));
+
+    // onMutate is async; await the microtask that fires after `await cancel()`
+    const setDataSpy = getUtilsSpy('agent.salesAlerts.setData');
+    await waitFor(() => expect(setDataSpy).toHaveBeenCalled());
+
+    // Assert called with correct input key
+    expect(setDataSpy).toHaveBeenCalledWith({ artifactId: 'art-1' }, expect.any(Function));
+
+    // Verify the updater function removes the approved card
+    const updater = setDataSpy.mock.calls[0][1] as (
+      old: typeof onePendingApproval,
+    ) => typeof onePendingApproval;
+    const result = updater(onePendingApproval);
+    expect(result.pendingApprovals).toHaveLength(0);
   });
 });
