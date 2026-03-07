@@ -3,6 +3,51 @@ import type { ModuleExecutionContext } from '@camello/shared/types';
 import type { ModuleDefinition } from '../module-registry.js';
 import { registerModule } from '../module-registry.js';
 
+const NULL_BUDGET_WORDS = new Set(['not sure', 'flexible', 'tbd', 'unknown', 'n/a', 'none', 'open']);
+const APPROX_PREFIX = /^(?:~|around|about|approx(?:imately)?)\s*/i;
+const CURRENCY_PREFIX = /^(?:usd|eur|cop|mxn|[$£€])\s*/i;
+const RATE_SUFFIX = /\s*(?:per\s+(?:month|year|week)|\/(?:month|mo|year|yr|wk|week))\s*$/i;
+const RANGE_PATTERN = /^([^-]+)-([^-]+)$/;
+const MULTIPLIER_SUFFIX = /([kmb])$/i;
+
+function parseWithMultiplier(s: string): number | null {
+  const m = s.match(MULTIPLIER_SUFFIX);
+  let str = s;
+  let mult = 1;
+  if (m) {
+    str = s.slice(0, -1);
+    const ch = m[1].toLowerCase();
+    if (ch === 'k') mult = 1_000;
+    else if (ch === 'm') mult = 1_000_000;
+    else if (ch === 'b') mult = 1_000_000_000;
+  }
+  str = str.replace(/,/g, '');
+  const n = parseFloat(str);
+  return isFinite(n) ? n * mult : null;
+}
+
+export function parseBudgetString(raw: string): number | null {
+  if (!raw || !raw.trim()) return null;
+
+  let s = raw.trim().toLowerCase();
+  if (NULL_BUDGET_WORDS.has(s)) return null;
+
+  s = s.replace(APPROX_PREFIX, '').trim();
+  s = s.replace(CURRENCY_PREFIX, '').trim();
+  s = s.replace(RATE_SUFFIX, '').trim();
+
+  // Range: X-Y → midpoint
+  const rangeMatch = s.match(RANGE_PATTERN);
+  if (rangeMatch) {
+    const a = parseBudgetString(rangeMatch[1].trim());
+    const b = parseBudgetString(rangeMatch[2].trim());
+    if (a !== null && b !== null) return (a + b) / 2;
+    // fall through to try single parse
+  }
+
+  return parseWithMultiplier(s);
+}
+
 type Input = typeof qualifyLeadInputSchema._output;
 type Output = typeof qualifyLeadOutputSchema._output;
 
@@ -41,7 +86,7 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
         : 'new' as const;
 
     // Estimated value: parse budget string as number if possible
-    const estimated_value = input.budget ? parseFloat(input.budget) || null : null;
+    const estimated_value = input.budget ? parseBudgetString(input.budget) : null;
 
     // Side effect: upsert into leads table via DI callback
     await ctx.db.insertLead({

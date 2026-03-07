@@ -81,7 +81,8 @@ All tRPC queries fire once on mount. New leads, messages, approvals are invisibl
 **Notes:**
 This is the simplest path to "see live what's going on". Supabase Realtime is better but requires manual wiring (Mateo handles later). 30s polling is a good stop-gap that NC can ship immediately.
 
-#### CAM-104 [ ] Robust budget parser for lead estimated_value
+#### CAM-104 [x] Robust budget parser for lead estimated_value
+Exported `parseBudgetString` from `qualify-lead.ts` (handles $Nk, ~N, USD N, N/month, X-Y ranges, M/B suffixes, null-list); replaced `parseFloat` on line 44; 17 unit tests in `qualify-lead-budget-parser.test.ts`; updated 3 assertions in `module-executor.test.ts`. Type-check passes.
 `parseFloat("$5k")` → `NaN` → `estimated_value = null`. Pipeline value, high-value alerts, and revenue metrics are empty for most real leads.
 
 **Acceptance Criteria:**

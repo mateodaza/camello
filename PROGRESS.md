@@ -17,6 +17,7 @@
 | CAM-101 | Approve/reject UI for pending module executions | Mar 7 | `sales-alerts.tsx`: added `onMutate` + `onError` rollback to `approveMut` for optimistic card removal. `agent-workspace.test.ts`: fixed `useUtils` proxy to 3-level depth, updated `useMutation` mock to forward `onMutate`, added 1 new optimistic-UI test. 10 tests total. Type-check passes. |
 | CAM-102 | Module config UI | Mar 7 | Created `apps/web/src/components/agent-workspace/module-settings.tsx` (collapsible, per-module autonomy + slug-specific config fields); inserted into `apps/web/src/app/dashboard/agents/[id]/page.tsx` below WorkspaceHeader; added 17 i18n keys to en.json + es.json. Type-check passes. |
 | CAM-103 | Dashboard polling | Mar 7 | Added `refetchInterval: 30_000, refetchIntervalInBackground: false` to 10 tRPC queries across 7 files: `agents/[id]/page.tsx`, `registry/sales.tsx` (3 queries), `sales-alerts.tsx`, `conversations/[id]/page.tsx`, `conversations/page.tsx` (useInfiniteQuery), `registry/support.tsx` (4 queries), `registry/marketing.tsx` (3 queries). Type-check passes. |
+| CAM-104 | Robust budget parser | Mar 7 | Exported `parseBudgetString` from `packages/ai/src/modules/qualify-lead.ts`; new `__tests__/qualify-lead-budget-parser.test.ts` (17 cases covering $Nk, ~N, ranges, multipliers, null-list); updated 3 assertions in `module-executor.test.ts`. Type-check passes. |
 
 ---
 
@@ -755,3 +756,4 @@
 - **CAM-101** — 2026-03-07 — `34b40d4` — Session: 20260307-181842-camello
 - **CAM-102** — 2026-03-07 — `ba41d9c` — Session: 20260307-181842-camello
 - **CAM-103** — 2026-03-07 — `1769f1c` — Session: 20260307-181842-camello
+- **CAM-104** — 2026-03-07 — `8b03493` — Session: 20260307-181842-camello

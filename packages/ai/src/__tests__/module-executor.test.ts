@@ -161,7 +161,7 @@ describe('qualify_lead scoring', () => {
       { budget: '$10k', timeline: 'immediate', needs: ['crm'], conversation_summary: 'test' },
       ctx,
     );
-    expect(result).toEqual({ score: 'hot', tags: ['crm'], next_action: 'offer_meeting', stage: 'proposal', estimated_value: null });
+    expect(result).toEqual({ score: 'hot', tags: ['crm'], next_action: 'offer_meeting', stage: 'proposal', estimated_value: 10000 });
   });
 
   it('scores WARM when budget but no immediate timeline', async () => {
@@ -170,7 +170,7 @@ describe('qualify_lead scoring', () => {
       { budget: '$5k', timeline: '1-3months', needs: [], conversation_summary: 'test' },
       ctx,
     );
-    expect(result).toEqual({ score: 'warm', tags: [], next_action: 'continue_qualifying', stage: 'qualifying', estimated_value: null });
+    expect(result).toEqual({ score: 'warm', tags: [], next_action: 'continue_qualifying', stage: 'qualifying', estimated_value: 5000 });
   });
 
   it('scores WARM when timeline but no budget', async () => {
@@ -210,7 +210,7 @@ describe('qualify_lead scoring', () => {
       timeline: 'immediate',
       summary: 'hot lead',
       stage: 'proposal',
-      estimatedValue: null,
+      estimatedValue: 10000,
     });
   });
 });
