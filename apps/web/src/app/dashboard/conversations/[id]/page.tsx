@@ -42,7 +42,10 @@ export default function ConversationDetailPage() {
   const [customerInfoOpen, setCustomerInfoOpen] = useState(true);
 
   const conversation = trpc.conversation.byId.useQuery({ id });
-  const messagesQuery = trpc.conversation.messages.useQuery({ conversationId: id });
+  const messagesQuery = trpc.conversation.messages.useQuery(
+    { conversationId: id },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
   const updateStatus = trpc.conversation.updateStatus.useMutation({
     onSuccess: () => {
       utils.conversation.byId.invalidate({ id });

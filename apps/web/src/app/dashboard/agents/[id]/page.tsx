@@ -16,7 +16,10 @@ export default function AgentWorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const t = useTranslations('agentWorkspace');
 
-  const workspace = trpc.agent.workspace.useQuery({ artifactId: id });
+  const workspace = trpc.agent.workspace.useQuery(
+    { artifactId: id },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   if (workspace.isLoading) {
     return (

@@ -96,7 +96,10 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
     onError: () => addToast(t('errorLoading'), 'error'),
   });
 
-  const query = trpc.agent.salesAlerts.useQuery({ artifactId });
+  const query = trpc.agent.salesAlerts.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
   const data = query.data;
 
   if (query.isLoading) return <AlertsSkeleton />;

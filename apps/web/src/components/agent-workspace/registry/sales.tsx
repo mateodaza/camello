@@ -41,7 +41,10 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
 
-  const pipeline = trpc.agent.salesPipeline.useQuery({ artifactId });
+  const pipeline = trpc.agent.salesPipeline.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
   const funnel = trpc.agent.salesFunnel.useQuery({ artifactId });
 
   const stages = pipeline.data?.stages ?? [];
@@ -237,11 +240,14 @@ function SalesPipeline({
   const [stage, setStage] = useState('');
   const [score, setScore] = useState('');
 
-  const query = trpc.agent.salesLeads.useQuery({
-    artifactId,
-    stage: (stage || undefined) as Stage | undefined,
-    score: (score || undefined) as typeof SCORES[number] | undefined,
-  });
+  const query = trpc.agent.salesLeads.useQuery(
+    {
+      artifactId,
+      stage: (stage || undefined) as Stage | undefined,
+      score: (score || undefined) as typeof SCORES[number] | undefined,
+    },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   const updateStage = trpc.agent.updateLeadStage.useMutation({
     onSuccess: () => {
@@ -464,7 +470,10 @@ export function SalesWorkspace({ artifactId }: { artifactId: string }) {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
   // Shared queries
-  const leadsQuery = trpc.agent.salesLeads.useQuery({ artifactId });
+  const leadsQuery = trpc.agent.salesLeads.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   const kanbanLeads = useMemo<KanbanLead[]>(() =>
     (leadsQuery.data ?? []).map((l) => ({

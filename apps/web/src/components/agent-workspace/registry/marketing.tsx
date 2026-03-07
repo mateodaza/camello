@@ -27,7 +27,10 @@ function pascalCase(s: string): string {
 
 function MarketingOverview({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
-  const query = trpc.agent.marketingInterestMap.useQuery({ artifactId });
+  const query = trpc.agent.marketingInterestMap.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
   const data = query.data ?? [];
 
   const total = data.reduce((sum, d) => sum + d.count, 0);
@@ -63,7 +66,10 @@ function MarketingEngagement({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
 
-  const query = trpc.agent.marketingEngagement.useQuery({ artifactId, limit: 20, offset: 0 });
+  const query = trpc.agent.marketingEngagement.useQuery(
+    { artifactId, limit: 20, offset: 0 },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   return (
     <CardFeed
@@ -100,7 +106,10 @@ function MarketingDrafts({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
 
-  const query = trpc.agent.marketingDrafts.useQuery({ artifactId, limit: 20, offset: 0 });
+  const query = trpc.agent.marketingDrafts.useQuery(
+    { artifactId, limit: 20, offset: 0 },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   return (
     <CardFeed

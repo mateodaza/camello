@@ -16,7 +16,11 @@ export default function ConversationsPage() {
   const { data, isLoading, isError, error, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     trpc.conversation.list.useInfiniteQuery(
       { limit: 30 },
-      { getNextPageParam: (last) => last.nextCursor ?? undefined },
+      {
+        getNextPageParam: (last) => last.nextCursor ?? undefined,
+        refetchInterval: 30_000,
+        refetchIntervalInBackground: false,
+      },
     );
 
   if (isLoading) return (

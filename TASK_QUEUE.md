@@ -62,7 +62,8 @@ New `module-settings.tsx` collapsible component renders per-module autonomy drop
 **Notes:**
 `artifact.attachModule` already supports `configOverrides` via upsert. The gap is purely UI + adding autonomy to the upsert. This unblocks `book_meeting` (the most common sales action).
 
-#### CAM-103 [ ] Dashboard polling — refetchInterval on workspace queries
+#### CAM-103 [x] Dashboard polling — refetchInterval on workspace queries
+Added `refetchInterval: 30_000, refetchIntervalInBackground: false` to 10 tRPC queries across 7 files: `agents/[id]/page.tsx` (workspace), `registry/sales.tsx` (salesPipeline, salesLeads ×2), `sales/sales-alerts.tsx` (salesAlerts), `conversations/[id]/page.tsx` (messages), `conversations/page.tsx` (list), `registry/support.tsx` (supportMetrics, supportTickets, supportEscalations, supportKnowledgeGaps), `registry/marketing.tsx` (marketingInterestMap, marketingEngagement, marketingDrafts). Type-check passes.
 All tRPC queries fire once on mount. New leads, messages, approvals are invisible until manual refresh. Add polling as a lightweight real-time stop-gap.
 
 **Acceptance Criteria:**

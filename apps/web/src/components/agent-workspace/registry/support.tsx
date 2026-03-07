@@ -26,7 +26,10 @@ function statusKeyFor(s: string): string {
 
 function SupportOverview({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
-  const query = trpc.agent.supportMetrics.useQuery({ artifactId });
+  const query = trpc.agent.supportMetrics.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
   const data = query.data;
 
   return (
@@ -56,11 +59,14 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
 
-  const query = trpc.agent.supportTickets.useQuery({
-    artifactId,
-    status: (status || undefined) as typeof STATUSES[number] | undefined,
-    priority: (priority || undefined) as typeof PRIORITIES[number] | undefined,
-  });
+  const query = trpc.agent.supportTickets.useQuery(
+    {
+      artifactId,
+      status: (status || undefined) as typeof STATUSES[number] | undefined,
+      priority: (priority || undefined) as typeof PRIORITIES[number] | undefined,
+    },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   const updateStatus = trpc.agent.updateTicketStatus.useMutation({
     onSuccess: () => {
@@ -134,7 +140,10 @@ function SupportEscalations({ artifactId }: { artifactId: string }) {
   const { addToast } = useToast();
   const utils = trpc.useUtils();
 
-  const query = trpc.agent.supportEscalations.useQuery({ artifactId, limit: 20, offset: 0 });
+  const query = trpc.agent.supportEscalations.useQuery(
+    { artifactId, limit: 20, offset: 0 },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   const acknowledge = trpc.agent.acknowledgeEscalation.useMutation({
     onSuccess: () => {
@@ -170,7 +179,10 @@ function SupportKnowledgeGaps({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
 
-  const query = trpc.agent.supportKnowledgeGaps.useQuery({ artifactId });
+  const query = trpc.agent.supportKnowledgeGaps.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   return (
     <DataTable
