@@ -339,7 +339,20 @@
     "moduleDraftContent": "Borrador de Contenido",
     "activityTitle": "Actividad",
     "activityEmpty": "Sin actividad aún",
-    "activityEmptyDesc": "El historial de ejecución de módulos aparecerá aquí."
+    "activityEmptyDesc": "El historial de ejecución de módulos aparecerá aquí.",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "rejectReason": "Motivo",
+    "rejectionSent": "Rechazado — el agente aprenderá de esto",
+    "approvalConfirmed": "Aprobado — el agente ejecutará esta acción",
+    "rejectReasonWrongInfo": "Información incorrecta",
+    "rejectReasonNotRelevant": "No es relevante",
+    "rejectReasonBadTiming": "Mal momento",
+    "rejectReasonOther": "Otro",
+    "rejectFreeText": "Notas adicionales (opcional)",
+    "rejectFreeTextRequired": "Por favor describe tu motivo",
+    "rejectConfirm": "Confirmar rechazo",
+    "approvalPreview": "Vista previa"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",

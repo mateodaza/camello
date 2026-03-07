@@ -748,3 +748,4 @@
 - **Migrations applied to Supabase cloud:** 0011 (backfill passed post-check) + 0012 (customer memory column)
 - **486 tests (187 AI + 221 API + 78 Web)** — all passing
 - **NC-007** — 2026-03-07 — `b9e071d` — Session: 20260307-165056-camello
+- **NC-101** — 2026-03-07 — `e6e8450` — Session: 20260307-174628-camello — ⚠ Committed after soft review rejections cap; local verification passed.

@@ -339,7 +339,20 @@
     "moduleDraftContent": "Draft Content",
     "activityTitle": "Activity",
     "activityEmpty": "No activity yet",
-    "activityEmptyDesc": "Module execution history will appear here."
+    "activityEmptyDesc": "Module execution history will appear here.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "rejectReason": "Reason",
+    "rejectionSent": "Rejected — the agent will learn from this",
+    "approvalConfirmed": "Approved — the agent will execute this action",
+    "rejectReasonWrongInfo": "Wrong information",
+    "rejectReasonNotRelevant": "Not relevant",
+    "rejectReasonBadTiming": "Bad timing",
+    "rejectReasonOther": "Other",
+    "rejectFreeText": "Additional notes (optional)",
+    "rejectFreeTextRequired": "Please describe your reason",
+    "rejectConfirm": "Confirm rejection",
+    "approvalPreview": "Preview"
   },
   "knowledge": {
     "pageTitle": "Knowledge",

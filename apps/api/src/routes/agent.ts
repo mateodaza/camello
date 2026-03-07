@@ -426,6 +426,7 @@ export const agentRouter = router({
             moduleSlug: moduleExecutions.moduleSlug,
             conversationId: moduleExecutions.conversationId,
             createdAt: moduleExecutions.createdAt,
+            input: moduleExecutions.input,
           })
           .from(moduleExecutions)
           .where(and(

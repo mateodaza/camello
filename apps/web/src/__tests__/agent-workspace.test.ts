@@ -463,3 +463,210 @@ describe('MetricsGrid', () => {
     expect(screen.getByText('Hot Leads')).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Render Tests — SalesAlerts
+// ---------------------------------------------------------------------------
+
+describe('SalesAlerts', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  const emptyAlertsData = {
+    pendingApprovals: [],
+    staleLeads: [],
+    highValueEarly: [],
+  };
+
+  const onePendingApproval = {
+    pendingApprovals: [
+      {
+        id: 'exec-1',
+        moduleSlug: 'send_quote',
+        conversationId: 'conv-1',
+        createdAt: new Date('2026-01-01'),
+        input: { total: 1500, currency: 'USD' },
+      },
+    ],
+    staleLeads: [],
+    highValueEarly: [],
+  };
+
+  it('renders null when data has no alerts', async () => {
+    setQueryMock('agent.salesAlerts', emptyAlertsData);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    const { container } = render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('renders approve + reject buttons for pending approval', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    expect(screen.getByText('approve')).toBeInTheDocument();
+    expect(screen.getByText('reject')).toBeInTheDocument();
+  });
+
+  it('approve button calls mutation with correct executionId', async () => {
+    const approveMutate = vi.fn();
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve', { mutate: approveMutate });
+    setMutationMock('module.reject');
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    fireEvent.click(screen.getByText('approve'));
+    expect(approveMutate).toHaveBeenCalledWith({ executionId: 'exec-1' });
+  });
+
+  it('reject button shows inline form with 4 reason options', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    fireEvent.click(screen.getByText('reject'));
+
+    // The inline form should appear with a select
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    expect(select).toBeInTheDocument();
+    expect(select.options.length).toBe(4);
+
+    // Confirm button appears
+    expect(screen.getByText('rejectConfirm')).toBeInTheDocument();
+  });
+
+  it('confirm reject maps UI reason wrong_info to backend incorrect_data', async () => {
+    const rejectMutate = vi.fn();
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject', { mutate: rejectMutate });
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    fireEvent.click(screen.getByText('reject'));
+
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'wrong_info' } });
+
+    fireEvent.click(screen.getByText('rejectConfirm'));
+
+    expect(rejectMutate).toHaveBeenCalledWith({
+      executionId: 'exec-1',
+      reason: 'incorrect_data',
+      freeText: undefined,
+    });
+  });
+
+  it('other reason maps to false_positive; confirm disabled until text entered', async () => {
+    const rejectMutate = vi.fn();
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject', { mutate: rejectMutate });
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    fireEvent.click(screen.getByText('reject'));
+
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'other' } });
+
+    const confirmBtn = screen.getByText('rejectConfirm').closest('button') as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+
+    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'custom reason' } });
+
+    expect(confirmBtn.disabled).toBe(false);
+
+    fireEvent.click(confirmBtn);
+    expect(rejectMutate).toHaveBeenCalledWith({
+      executionId: 'exec-1',
+      reason: 'false_positive',
+      freeText: 'custom reason',
+    });
+  });
+
+  it('buttons are disabled while mutation isPending', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve', { isPending: true });
+    setMutationMock('module.reject');
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    const approveBtn = screen.getByText('approve').closest('button') as HTMLButtonElement;
+    const rejectBtn = screen.getByText('reject').closest('button') as HTMLButtonElement;
+
+    expect(approveBtn.disabled).toBe(true);
+    expect(rejectBtn.disabled).toBe(true);
+  });
+
+  it('cancel closes inline form', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    fireEvent.click(screen.getByText('reject'));
+    expect(screen.getByText('rejectConfirm')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('cancel'));
+    expect(screen.queryByText('rejectConfirm')).toBeNull();
+  });
+
+  it('input preview renders for send_quote', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+
+    expect(screen.getByText('USD 1500')).toBeInTheDocument();
+  });
+});
