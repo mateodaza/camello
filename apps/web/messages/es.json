@@ -714,5 +714,18 @@
     "ogDescription": "Chatea con {name} — impulsado por Camello",
     "ogFallbackTitle": "Chatea con nosotros | Camello",
     "ogFallbackDescription": "Habla con nuestro agente de IA para ayuda inmediata"
+  },
+  "notifications": {
+    "panelTitle": "Notificaciones del Agente",
+    "bellLabel": "{count, plural, =0 {Notificaciones} =1 {1 notificación sin leer} other {# notificaciones sin leer}}",
+    "markAllRead": "Marcar todo como leído",
+    "allMarkedRead": "Todas las notificaciones marcadas como leídas",
+    "emptyState": "Sin notificaciones aún. Tu agente reportará aquí.",
+    "typeApprovalNeeded": "Aprobación requerida",
+    "typeHotLead": "Lead caliente",
+    "typeDealClosed": "Trato cerrado",
+    "typeLeadStale": "Lead enfriándose",
+    "typeEscalation": "Escalación",
+    "typeBudgetWarning": "Alerta de presupuesto"
   }
 }

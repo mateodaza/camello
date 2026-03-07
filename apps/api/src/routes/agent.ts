@@ -15,6 +15,7 @@ import {
   conversationArtifactAssignments,
   tenants,
   payments,
+  ownerNotifications,
 } from '@camello/db';
 import { paymentStatusSchema } from '@camello/shared/schemas';
 
@@ -376,6 +377,40 @@ export const agentRouter = router({
         if (rows.length === 0) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Lead not found' });
         }
+
+        if (input.stage === 'closed_won') {
+          const [leadMeta] = await db
+            .select({
+              artifactId: conversations.artifactId,
+              conversationId: leads.conversationId,
+              estimatedValue: leads.estimatedValue,
+            })
+            .from(leads)
+            .leftJoin(conversations, eq(leads.conversationId, conversations.id))
+            .where(eq(leads.id, input.leadId))
+            .limit(1);
+
+          if (leadMeta?.artifactId) {
+            db.insert(ownerNotifications).values({
+              tenantId: ctx.tenantId,
+              artifactId: leadMeta.artifactId,
+              leadId: input.leadId,
+              type: 'deal_closed',
+              title: 'Deal closed — won!',
+              body: leadMeta.estimatedValue
+                ? `Value: $${Number(leadMeta.estimatedValue).toLocaleString()}`
+                : 'A deal was marked closed won.',
+              metadata: {
+                conversationId: leadMeta.conversationId,
+                leadId: input.leadId,
+                estimatedValue: leadMeta.estimatedValue ?? null,
+              },
+            }).catch(() => {
+              // Swallow — notification failure must not fail the stage update
+            });
+          }
+        }
+
         return rows[0];
       });
     }),
@@ -387,13 +422,15 @@ export const agentRouter = router({
   salesAlerts: tenantProcedure
     .input(artifactIdInput)
     .query(async ({ ctx, input }) => {
-      return ctx.tenantDb.query(async (db) => {
+      // Main query: collect all alert data
+      const result = await ctx.tenantDb.query(async (db) => {
         // Stale: active leads with last real activity > 3 days ago
         // GREATEST(COALESCE(max_interaction, lead.created_at), COALESCE(max_execution, lead.created_at))
         // ensures true maximum across both sources even when one is empty.
         const staleRows = await db.execute(sql`
           SELECT
             l.id,
+            l.conversation_id,
             c.name AS customer_name,
             l.stage,
             l.estimated_value::text AS estimated_value,
@@ -409,7 +446,7 @@ export const agentRouter = router({
           WHERE conv.artifact_id = ${input.artifactId}
             AND l.tenant_id = ${ctx.tenantId}
             AND l.stage NOT IN ('closed_won', 'closed_lost')
-          GROUP BY l.id, c.name, l.stage, l.estimated_value, l.created_at
+          GROUP BY l.id, c.name, l.stage, l.estimated_value, l.created_at, l.conversation_id
           HAVING GREATEST(
             COALESCE(MAX(il.created_at), l.created_at),
             COALESCE(MAX(me.created_at), l.created_at)
@@ -462,12 +499,13 @@ export const agentRouter = router({
           LIMIT 5
         `);
 
-        type StaleRow = { id: string; customer_name: string; stage: string; estimated_value: string | null; days_since_activity: number };
+        type StaleRow = { id: string; conversation_id: string | null; customer_name: string; stage: string; estimated_value: string | null; days_since_activity: number };
         type HVRow = { id: string; customer_name: string; score: string; estimated_value: string; stage: string };
 
         return {
           staleLeads: (staleRows.rows as StaleRow[]).map(r => ({
             id: r.id,
+            conversationId: r.conversation_id,
             customerName: r.customer_name,
             stage: r.stage,
             estimatedValue: r.estimated_value,
@@ -483,6 +521,37 @@ export const agentRouter = router({
           })),
         };
       });
+
+      // FIX Issue 2: Stale notification insert is a SEPARATE tenantDb.query call,
+      // fire-and-forget at procedure level — not inside the main callback.
+      // FIX Issue 3: Individual Drizzle ORM inserts with .onConflictDoNothing()
+      // instead of raw SQL with ANY(uuid[]). The partial unique index
+      // idx_notifications_stale_dedup handles dedup atomically.
+      if (result.staleLeads.length > 0) {
+        ctx.tenantDb.query(async (db) => {
+          await Promise.all(
+            result.staleLeads.map((lead) =>
+              db.insert(ownerNotifications).values({
+                tenantId: ctx.tenantId,
+                artifactId: input.artifactId,
+                leadId: lead.id,
+                type: 'lead_stale',
+                title: `Lead going cold: ${lead.customerName}`,
+                body: `${lead.daysSinceActivity} days without activity`,
+                metadata: {
+                  conversationId: lead.conversationId,
+                  leadId: lead.id,
+                  daysSinceActivity: lead.daysSinceActivity,
+                },
+              }).onConflictDoNothing()
+            )
+          );
+        }).catch(() => {
+          // Swallow — stale notification failure must not break alert query
+        });
+      }
+
+      return result;
     }),
 
   // -------------------------------------------------------------------------
@@ -1392,6 +1461,91 @@ export const agentRouter = router({
           .where(eq(tenants.id, ctx.tenantId));
 
         return { intents: input.intents };
+      });
+    }),
+
+  // =========================================================================
+  // OWNER NOTIFICATIONS procedures
+  // =========================================================================
+
+  ownerNotifications: tenantProcedure
+    .input(z.object({
+      artifactId: z.string().uuid(),
+      limit: z.number().int().min(1).max(100).default(30),
+      offset: z.number().int().min(0).default(0),
+    }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .select()
+          .from(ownerNotifications)
+          .where(and(
+            eq(ownerNotifications.artifactId, input.artifactId),
+            eq(ownerNotifications.tenantId, ctx.tenantId),
+          ))
+          .orderBy(
+            asc(sql`CASE WHEN ${ownerNotifications.readAt} IS NULL THEN 0 ELSE 1 END`),
+            desc(ownerNotifications.createdAt),
+          )
+          .limit(input.limit)
+          .offset(input.offset);
+
+        const [countRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(ownerNotifications)
+          .where(and(
+            eq(ownerNotifications.artifactId, input.artifactId),
+            eq(ownerNotifications.tenantId, ctx.tenantId),
+            isNull(ownerNotifications.readAt),
+          ));
+
+        return { notifications: rows, unreadCount: countRow?.count ?? 0 };
+      });
+    }),
+
+  markNotificationRead: tenantProcedure
+    .input(z.object({ notificationId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        await db
+          .update(ownerNotifications)
+          .set({ readAt: new Date() })
+          .where(and(
+            eq(ownerNotifications.id, input.notificationId),
+            eq(ownerNotifications.tenantId, ctx.tenantId),
+            isNull(ownerNotifications.readAt),
+          ));
+      });
+    }),
+
+  markAllNotificationsRead: tenantProcedure
+    .input(z.object({ artifactId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        await db
+          .update(ownerNotifications)
+          .set({ readAt: new Date() })
+          .where(and(
+            eq(ownerNotifications.artifactId, input.artifactId),
+            eq(ownerNotifications.tenantId, ctx.tenantId),
+            isNull(ownerNotifications.readAt),
+          ));
+      });
+    }),
+
+  unreadNotificationCount: tenantProcedure
+    .input(z.object({ artifactId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const [row] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(ownerNotifications)
+          .where(and(
+            eq(ownerNotifications.artifactId, input.artifactId),
+            eq(ownerNotifications.tenantId, ctx.tenantId),
+            isNull(ownerNotifications.readAt),
+          ));
+        return { count: row?.count ?? 0 };
       });
     }),
 });

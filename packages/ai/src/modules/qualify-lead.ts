@@ -106,7 +106,7 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
     const estimated_value = input.budget ? parseBudgetString(input.budget) : null;
 
     // Side effect: upsert into leads table via DI callback
-    await ctx.db.insertLead({
+    const leadId = await ctx.db.insertLead({
       tenantId: ctx.tenantId,
       customerId: ctx.customerId,
       conversationId: ctx.conversationId,
@@ -118,6 +118,26 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
       stage,
       estimatedValue: estimated_value,
     });
+
+    // Emit hot_lead notification (non-blocking, swallowed)
+    if (score === 'hot' && ctx.db.insertOwnerNotification) {
+      ctx.db.insertOwnerNotification({
+        tenantId: ctx.tenantId,
+        artifactId: ctx.artifactId,
+        leadId,
+        type: 'hot_lead',
+        title: 'Hot lead detected',
+        body: `Scored ${numericScore}/100${input.budget ? ` · Budget: ${input.budget}` : ''}`,
+        metadata: {
+          conversationId: ctx.conversationId,
+          leadId,
+          numericScore,
+          budget: input.budget ?? null,
+        },
+      }).catch(() => {
+        // Swallow — notification failure must never block lead qualification
+      });
+    }
 
     return { score, tags, next_action, stage, estimated_value, numeric_score: numericScore };
   },

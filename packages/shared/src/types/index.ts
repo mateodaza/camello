@@ -52,6 +52,14 @@ export type LeadScore = 'hot' | 'warm' | 'cold';
 
 export type ModuleExecutionStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
 
+export type OwnerNotificationType =
+  | 'approval_needed'
+  | 'hot_lead'
+  | 'deal_closed'
+  | 'lead_stale'
+  | 'escalation'
+  | 'budget_warning';
+
 export type ModelTier = 'fast' | 'balanced' | 'powerful';
 
 // === Intent Classification ===
@@ -133,6 +141,16 @@ export interface ModuleDbCallbacks {
     durationMs?: number;
   }) => Promise<void>;
   updateConversationStatus: (conversationId: string, status: ConversationStatus) => Promise<void>;
+  /** Optional — wired for owner notification emission from modules. Errors are swallowed by caller. */
+  insertOwnerNotification?: (data: {
+    tenantId: string;
+    artifactId: string;
+    leadId?: string;
+    type: OwnerNotificationType;
+    title: string;
+    body: string;
+    metadata: Record<string, unknown>;
+  }) => Promise<void>;
   /** Optional — wired when payment creation needs to be triggered from a module. */
   insertPayment?: (data: {
     artifactId: string;

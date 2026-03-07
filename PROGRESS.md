@@ -20,6 +20,7 @@
 | CAM-104 | Robust budget parser | Mar 7 | Exported `parseBudgetString` from `packages/ai/src/modules/qualify-lead.ts`; new `__tests__/qualify-lead-budget-parser.test.ts` (17 cases covering $Nk, ~N, ranges, multipliers, null-list); updated 3 assertions in `module-executor.test.ts`. Type-check passes. |
 | CAM-105 | Enhanced lead scoring | Mar 7 | Added `computeLeadScore` to `qualify-lead.ts` (6 weighted signals, capped at 100); extended `qualifyLeadInputSchema` with `asked_pricing`/`is_returning`/`need_count` (`.optional()` only, no `.default()`); added `numeric_score` to `qualifyLeadOutputSchema`; updated `formatForLLM`; created `__tests__/qualify-lead-scoring.test.ts` (22 cases). Type-check passes. |
 | CAM-106 | Sales prompt optimization | Mar 7 | Replaced 8-line prompts in `packages/ai/src/archetypes/sales.ts` with structured ~25-line prompts (en + es) covering objection handling (acknowledge→validate→reframe→offer alternative), urgency detection, trial/assumptive/alternative close techniques, upsell signals, and "never do" rules. Type-check passes. |
+| CAM-108 | Owner notification channel | Mar 7 | Created `packages/db/migrations/0016_owner_notifications.sql` + `packages/db/src/schema/notifications.ts` (`ownerNotifications` table with RLS + stale dedup partial index); added `OwnerNotificationType` + `insertOwnerNotification` callback to `@camello/shared/types`; wired emit paths in `qualify-lead.ts` (hot_lead), `message-handler.ts` (approval_needed + insertOwnerNotification callback), `agent.ts` (deal_closed on updateLeadStage; lead_stale fire-and-forget in salesAlerts; 4 new tRPC procedures: ownerNotifications, markNotificationRead, markAllNotificationsRead, unreadNotificationCount); created `NotificationsPanel` + `NotificationsBell` components (`notifications-panel.tsx`) with 15s polling; updated `WorkspaceHeader` with `rightAction` slot; wired bell in `agents/[id]/page.tsx`; added 12 i18n keys to en.json + es.json. 5 unit tests in `qualify-lead-notification.test.ts`. Type-check passes. |
 
 ---
 
@@ -761,3 +762,4 @@
 - **CAM-104** — 2026-03-07 — `8b03493` — Session: 20260307-181842-camello
 - **CAM-105** — 2026-03-07 — `e4785aa` — Session: 20260307-181842-camello
 - **CAM-106** — 2026-03-07 — `e3115ab` — Session: 20260307-181842-camello
+- **CAM-108** — 2026-03-07 — `aaf66c2` — Session: 20260307-181842-camello — ⚠ Committed after soft review rejections cap; local verification passed.

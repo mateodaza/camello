@@ -142,7 +142,8 @@ Step 3 renders all 9 catalog modules instead of the 4 sales modules. No profile 
 **Notes:**
 The module badge fix is a one-line query change. Profile collection ensures `/chat/[slug]` looks professional from day one.
 
-#### CAM-108 [ ] Owner notification channel — in-app chat with the agent
+#### CAM-108 [x] Owner notification channel — in-app chat with the agent
+Migration 0016 + `owner_notifications` Drizzle schema; 4 tRPC procedures (ownerNotifications, markNotificationRead, markAllNotificationsRead, unreadNotificationCount); emit approval_needed from onApprovalNeeded, hot_lead from qualify_lead, deal_closed from updateLeadStage, lead_stale from salesAlerts (deduplicated via partial unique index + onConflictDoNothing); NotificationsBell + NotificationsPanel components with 15s polling; WorkspaceHeader rightAction slot; i18n en+es; 5 unit tests.
 Instead of email/push, create an "Owner Chat" — a persistent in-app channel where the sales agent notifies the owner about important events. Think of it as the agent reporting to its boss.
 
 **Acceptance Criteria:**

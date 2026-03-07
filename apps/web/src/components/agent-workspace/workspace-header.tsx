@@ -40,9 +40,10 @@ interface WorkspaceHeaderProps {
     conversationCount: number;
   };
   boundModules: Array<{ slug: string; name: string; autonomyLevel: string }>;
+  rightAction?: React.ReactNode;
 }
 
-export function WorkspaceHeader({ artifact, metrics, boundModules }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ artifact, metrics, boundModules, rightAction }: WorkspaceHeaderProps) {
   const t = useTranslations('agentWorkspace');
   const initial = artifact.name.charAt(0).toUpperCase();
 
@@ -65,19 +66,23 @@ export function WorkspaceHeader({ artifact, metrics, boundModules }: WorkspaceHe
             </Badge>
           </div>
         </div>
-        {boundModules.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {boundModules.map((m) => (
-              <span
-                key={m.slug}
-                className="inline-flex items-center gap-1.5 rounded-md bg-cream px-2 py-0.5 text-xs font-medium text-dune ring-1 ring-charcoal/10"
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${autonomyDot[m.autonomyLevel] ?? 'bg-charcoal/30'}`} />
-                {m.name}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Right side: module badges + rightAction slot */}
+        <div className="flex items-center gap-3">
+          {boundModules.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {boundModules.map((m) => (
+                <span
+                  key={m.slug}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-cream px-2 py-0.5 text-xs font-medium text-dune ring-1 ring-charcoal/10"
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${autonomyDot[m.autonomyLevel] ?? 'bg-charcoal/30'}`} />
+                  {m.name}
+                </span>
+              ))}
+            </div>
+          )}
+          {rightAction}
+        </div>
       </div>
 
       {/* KPI strip — items-stretch so all cards match height */}

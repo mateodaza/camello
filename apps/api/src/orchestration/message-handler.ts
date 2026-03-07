@@ -15,6 +15,7 @@ import {
   moduleExecutions,
   leads,
   customers,
+  ownerNotifications,
 } from '@camello/db';
 import {
   classifyIntent,
@@ -424,9 +425,30 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           .where(and(eq(conversations.id, convId), eq(conversations.tenantId, tenantId)));
       });
     },
+    insertOwnerNotification: async (data) => {
+      await tenantDb.query(async (db) => {
+        await db.insert(ownerNotifications).values(data);
+      });
+    },
   };
 
   // 6d. Build approval notifier (non-blocking — guardrail #4)
+  function buildApprovalBody(moduleSlug: string, input: unknown): string {
+    const i = (input ?? {}) as Record<string, unknown>;
+    if (moduleSlug === 'send_quote') {
+      const total = i.total ?? i.amount;
+      const currency = (i.currency as string | undefined) ?? '';
+      if (total) return `Send quote: ${[currency, String(total)].filter(Boolean).join(' ')}`;
+    }
+    if (moduleSlug === 'collect_payment') {
+      const amount = i.amount;
+      const currency = (i.currency as string | undefined) ?? '';
+      if (amount) return `Collect payment: ${[currency, String(amount)].filter(Boolean).join(' ')}`;
+    }
+    if (moduleSlug === 'book_meeting') return 'Schedule a meeting with this lead';
+    return `Action: ${moduleSlug.replace(/_/g, ' ')}`;
+  }
+
   const onApprovalNeeded = async (executionId: string, moduleSlug: string, input: unknown) => {
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -436,6 +458,24 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       type: 'broadcast',
       event: 'approval_needed',
       payload: { executionId, moduleSlug, input, conversationId, artifactId: resolved.artifactId },
+    });
+
+    // Persist owner notification (non-blocking — separate tenantDb.query call)
+    tenantDb.query(async (db) => {
+      await db.insert(ownerNotifications).values({
+        tenantId,
+        artifactId: resolved.artifactId,
+        type: 'approval_needed',
+        title: `Approval needed: ${moduleSlug.replace(/_/g, ' ')}`,
+        body: buildApprovalBody(moduleSlug, input),
+        metadata: {
+          conversationId,
+          executionId,
+          moduleSlug,
+        },
+      });
+    }).catch(() => {
+      // Swallow — same guardrail as Supabase broadcast
     });
   };
 

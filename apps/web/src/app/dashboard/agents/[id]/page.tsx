@@ -11,6 +11,7 @@ import { PriorityIntents } from '@/components/agent-workspace/priority-intents';
 import { AgentActivity } from '@/components/agent-workspace/agent-activity';
 import { sectionRegistry } from '@/components/agent-workspace/registry';
 import { ModuleSettings } from '@/components/agent-workspace/module-settings';
+import { NotificationsBell } from '@/components/agent-workspace/notifications-panel';
 
 export default function AgentWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +72,7 @@ export default function AgentWorkspacePage() {
           name: m.name,
           autonomyLevel: m.autonomyLevel,
         }))}
+        rightAction={<NotificationsBell artifactId={id} />}
       />
 
       {/* Module settings — collapsible, shown for all agent types */}
