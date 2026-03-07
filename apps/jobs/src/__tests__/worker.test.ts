@@ -9,6 +9,7 @@ const {
   mockRunUrlIngestion,
   mockRunMetricsRollup,
   mockRunLearningDecay,
+  mockRunProcessFollowups,
   mockCreateServer,
   capturedHandler,
 } = vi.hoisted(() => {
@@ -22,6 +23,7 @@ const {
     mockRunUrlIngestion: vi.fn().mockResolvedValue({ processed: 0, succeeded: 0, failed: 0 }),
     mockRunMetricsRollup: vi.fn().mockResolvedValue({ tenantsProcessed: 0, metricDate: '2026-02-20' }),
     mockRunLearningDecay: vi.fn().mockResolvedValue({ tenantsProcessed: 0, totalDecayed: 0, totalArchived: 0 }),
+    mockRunProcessFollowups: vi.fn().mockResolvedValue({ processed: 0, succeeded: 0, failed: 0 }),
     mockCreateServer: vi.fn((fn: (...args: unknown[]) => void) => {
       handler.current = fn;
       return { listen: vi.fn((_port: number, cb?: () => void) => cb?.()), close: vi.fn() };
@@ -50,6 +52,7 @@ vi.mock('../lib/job-lock.js', () => ({
 vi.mock('../jobs/url-ingestion.js', () => ({ runUrlIngestion: mockRunUrlIngestion }));
 vi.mock('../jobs/metrics-rollup.js', () => ({ runMetricsRollup: mockRunMetricsRollup }));
 vi.mock('../jobs/learning-decay.js', () => ({ runLearningDecay: mockRunLearningDecay }));
+vi.mock('../jobs/process-followups.js', () => ({ runProcessFollowups: mockRunProcessFollowups }));
 
 vi.mock('node:http', () => ({
   default: { createServer: mockCreateServer },
@@ -77,11 +80,11 @@ describe('worker', () => {
     expect(mockSchedule).not.toHaveBeenCalled();
   });
 
-  it('start() registers 3 cron schedules with correct expressions', () => {
+  it('start() registers 4 cron schedules with correct expressions', () => {
     const worker = createWorker();
     worker.start();
 
-    expect(mockSchedule).toHaveBeenCalledTimes(3);
+    expect(mockSchedule).toHaveBeenCalledTimes(4);
 
     expect(mockSchedule).toHaveBeenCalledWith(
       '*/5 * * * *',
