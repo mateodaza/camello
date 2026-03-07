@@ -166,7 +166,8 @@ Instead of email/push, create an "Owner Chat" — a persistent in-app channel wh
 **Notes:**
 This is the "get notices when needed" solution without requiring email/SMS infrastructure. The owner opens the workspace and sees what their agent wants to tell them. Later this channel can be mirrored to WhatsApp/email when those are wired.
 
-#### CAM-109 [ ] Quote-to-payment auto-flow on approval
+#### CAM-109 [x] Quote-to-payment auto-flow on approval
+New `apps/api/src/lib/insert-payment-for-quote.ts` helper + `if (moduleRow.slug === 'send_quote')` guard in `module.ts` approve handler; 3 tests in `module-approve-quote-payment.test.ts` (payment inserted, non-send_quote skipped, no-lead skipped). Type-check passes.
 When owner approves a `send_quote`, auto-create a pending payment record linked to the lead.
 
 **Acceptance Criteria:**

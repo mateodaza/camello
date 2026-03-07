@@ -5,6 +5,7 @@ import { modules, moduleExecutions, learnings, learningAuditLogs } from '@camell
 import { getModule, processRejection, generateEmbedding } from '@camello/ai';
 import type { ModuleExecutionContext, RejectionReason } from '@camello/shared/types';
 import { MODULE_TIMEOUT_MS } from '@camello/shared/constants';
+import { insertPaymentForQuote } from '../lib/insert-payment-for-quote.js';
 
 export const moduleRouter = router({
   /** List global module catalog. Uses tenantProcedure for auth, but modules table has no RLS. */
@@ -145,6 +146,17 @@ export const moduleRouter = router({
             .set({ status: 'executed', output, executedAt: new Date(), durationMs })
             .where(eq(moduleExecutions.id, input.executionId));
         });
+
+        // Auto-create pending payment when owner approves a send_quote
+        if (moduleRow.slug === 'send_quote') {
+          await insertPaymentForQuote(ctx.tenantDb, {
+            tenantId: ctx.tenantId,
+            artifactId: execution.artifactId,
+            conversationId: execution.conversationId,
+            quoteExecutionId: execution.id,
+            output: output as { total: string; currency: string; quote_id: string },
+          });
+        }
 
         return { ...execution, status: 'executed' as const, output, durationMs };
       } catch (error) {
