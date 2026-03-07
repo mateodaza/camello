@@ -116,8 +116,8 @@ Added `computeLeadScore` (6-signal weighted formula), extended input schema with
 **Notes:**
 The LLM already extracts budget/timeline/needs. New optional fields give it more signals. Existing calls without new fields still work.
 
-#### CAM-106 [ ] Sales prompt optimization — objection handling + closing techniques
-Upgrade sales archetype behavioral prompt for a "smart business salesman" that handles objections, detects urgency, and closes naturally.
+#### CAM-106 [x] Sales prompt optimization — objection handling + closing techniques
+Updated `packages/ai/src/archetypes/sales.ts` prompts (en + es) with structured objection handling (acknowledge→validate→reframe→offer alternative), urgency detection, trial/assumptive/alternative close techniques, upsell signals, and "never do" rules (~25 lines each). Type-check passes.
 
 **Acceptance Criteria:**
 - Update `packages/ai/src/archetypes/sales.ts` prompts (en + es)

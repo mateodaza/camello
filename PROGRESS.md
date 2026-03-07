@@ -19,6 +19,7 @@
 | CAM-103 | Dashboard polling | Mar 7 | Added `refetchInterval: 30_000, refetchIntervalInBackground: false` to 10 tRPC queries across 7 files: `agents/[id]/page.tsx`, `registry/sales.tsx` (3 queries), `sales-alerts.tsx`, `conversations/[id]/page.tsx`, `conversations/page.tsx` (useInfiniteQuery), `registry/support.tsx` (4 queries), `registry/marketing.tsx` (3 queries). Type-check passes. |
 | CAM-104 | Robust budget parser | Mar 7 | Exported `parseBudgetString` from `packages/ai/src/modules/qualify-lead.ts`; new `__tests__/qualify-lead-budget-parser.test.ts` (17 cases covering $Nk, ~N, ranges, multipliers, null-list); updated 3 assertions in `module-executor.test.ts`. Type-check passes. |
 | CAM-105 | Enhanced lead scoring | Mar 7 | Added `computeLeadScore` to `qualify-lead.ts` (6 weighted signals, capped at 100); extended `qualifyLeadInputSchema` with `asked_pricing`/`is_returning`/`need_count` (`.optional()` only, no `.default()`); added `numeric_score` to `qualifyLeadOutputSchema`; updated `formatForLLM`; created `__tests__/qualify-lead-scoring.test.ts` (22 cases). Type-check passes. |
+| CAM-106 | Sales prompt optimization | Mar 7 | Replaced 8-line prompts in `packages/ai/src/archetypes/sales.ts` with structured ~25-line prompts (en + es) covering objection handling (acknowledge→validate→reframe→offer alternative), urgency detection, trial/assumptive/alternative close techniques, upsell signals, and "never do" rules. Type-check passes. |
 
 ---
 
@@ -759,3 +760,4 @@
 - **CAM-103** — 2026-03-07 — `1769f1c` — Session: 20260307-181842-camello
 - **CAM-104** — 2026-03-07 — `8b03493` — Session: 20260307-181842-camello
 - **CAM-105** — 2026-03-07 — `e4785aa` — Session: 20260307-181842-camello
+- **CAM-106** — 2026-03-07 — `e3115ab` — Session: 20260307-181842-camello
