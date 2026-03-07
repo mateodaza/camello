@@ -108,6 +108,10 @@ export interface ModuleExecutionContext {
   autonomyLevel: AutonomyLevel;
   configOverrides: Record<string, unknown>;
   db: ModuleDbCallbacks;
+  /** Channel this conversation came through (e.g. 'webchat', 'whatsapp'). */
+  channel?: Channel;
+  /** Arbitrary context metadata (e.g. { sourcePage: '/pricing' }). */
+  metadata?: Record<string, unknown>;
 }
 
 /** DI callbacks injected by apps/api — keeps @camello/ai free of @camello/db. */
@@ -123,6 +127,8 @@ export interface ModuleDbCallbacks {
     summary?: string;
     stage?: string;
     estimatedValue?: number | null;
+    sourceChannel?: string;
+    sourcePage?: string;
   }) => Promise<string>;
   insertModuleExecution: (data: {
     moduleId: string;

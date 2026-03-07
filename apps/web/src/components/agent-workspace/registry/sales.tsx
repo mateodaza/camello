@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DataTable } from '../primitives/data-table';
 import { CardFeed } from '../primitives/card-feed';
 import { Sparkline } from '../primitives/sparkline';
+import { BarChartCss } from '../primitives/bar-chart-css';
 import { KanbanBoard, KanbanLead } from '../sales/kanban-board';
 import { LeadDetailSheet } from '../sales/lead-detail-sheet';
 import { SalesAlerts } from '../sales/sales-alerts';
@@ -46,6 +47,7 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
     { refetchInterval: 30_000, refetchIntervalInBackground: false },
   );
   const funnel = trpc.agent.salesFunnel.useQuery({ artifactId });
+  const sourceBreakdown = trpc.agent.salesSourceBreakdown.useQuery({ artifactId });
 
   const stages = pipeline.data?.stages ?? [];
   const avgDaysToClose = pipeline.data?.avgDaysToClose ?? null;
@@ -203,6 +205,23 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
                 );
               })}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Source breakdown */}
+      {sourceBreakdown.data && sourceBreakdown.data.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t('salesSourceBreakdownTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BarChartCss
+              bars={sourceBreakdown.data.map(r => ({
+                label: t(`sourceChannel${r.channel.charAt(0).toUpperCase()}${r.channel.slice(1)}` as Parameters<typeof t>[0]),
+                value: r.count,
+              }))}
+            />
           </CardContent>
         </Card>
       )}

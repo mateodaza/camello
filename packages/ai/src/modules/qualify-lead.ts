@@ -145,6 +145,8 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
       summary: input.conversation_summary,
       stage: resolvedStage,
       estimatedValue: estimated_value,
+      sourceChannel: ctx.channel,
+      sourcePage: ctx.metadata?.sourcePage as string | undefined,
     });
 
     // Emit hot_lead notification (non-blocking, swallowed)

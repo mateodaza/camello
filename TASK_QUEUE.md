@@ -218,8 +218,9 @@ Notes on leads + all touchpoints merged into one timeline on lead detail sheet. 
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-#### CAM-113 [ ] Lead source attribution
+#### CAM-113 [x] Lead source attribution
 Track which channel/page brought each lead. Show source breakdown in overview.
+Migration 0019 adds source_channel/source_page; ModuleExecutionContext extended; qualify_lead wires attribution; salesSourceBreakdown procedure + BarChartCss in SalesOverview; 5 tests; type-check passes.
 
 **Acceptance Criteria:**
 - Migration 0018: add `source_channel text` and `source_page text` to `leads` table

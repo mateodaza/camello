@@ -71,6 +71,8 @@ export const leads = pgTable('leads', {
   timeline: text('timeline'),
   summary: text('summary'),
   closeReason: text('close_reason'),
+  sourceChannel: text('source_channel'),
+  sourcePage:    text('source_page'),
   qualifiedAt: timestamp('qualified_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   convertedAt: timestamp('converted_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

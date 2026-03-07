@@ -377,14 +377,14 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   const moduleDbCallbacks: ModuleDbCallbacks = {
     insertLead: async (data) => {
       return tenantDb.query(async (db) => {
-        const { estimatedValue, ...rest } = data;
+        const { estimatedValue, sourceChannel, sourcePage, ...rest } = data;
         const numericValue = estimatedValue != null ? String(estimatedValue) : null;
         // Upsert: idx_leads_conversation_unique enforces one lead per conversation.
         // Re-qualification enriches the existing row. qualifiedAt is NOT updated —
         // it records the original qualification timestamp.
         const [row] = await db
           .insert(leads)
-          .values({ ...rest, estimatedValue: numericValue })
+          .values({ ...rest, estimatedValue: numericValue, sourceChannel, sourcePage })
           .onConflictDoUpdate({
             target: leads.conversationId,
             targetWhere: sql`conversation_id IS NOT NULL`,
@@ -397,6 +397,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
               timeline: rest.timeline ?? null,
               summary: rest.summary ?? null,
               updatedAt: new Date(),
+              // sourceChannel + sourcePage intentionally omitted: first-write-wins
             },
           })
           .returning({ id: leads.id });
@@ -613,6 +614,10 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
         triggerMessageId,
         db: moduleDbCallbacks,
         onApprovalNeeded,
+        channel,
+        metadata: conversationMetadata
+          ? { sourcePage: conversationMetadata.sourcePage }
+          : undefined,
       })
     : undefined;
 

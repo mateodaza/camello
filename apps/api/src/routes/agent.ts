@@ -346,6 +346,31 @@ export const agentRouter = router({
       });
     }),
 
+  salesSourceBreakdown: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .select({
+            channel: leads.sourceChannel,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(leads)
+          .innerJoin(conversations, eq(leads.conversationId, conversations.id))
+          .where(and(
+            eq(conversations.artifactId, input.artifactId),
+            eq(leads.tenantId, ctx.tenantId),
+          ))
+          .groupBy(leads.sourceChannel)
+          .orderBy(desc(sql`count(*)`));
+
+        return rows.map(r => ({
+          channel: r.channel ?? 'unknown',
+          count: r.count,
+        }));
+      });
+    }),
+
   updateLeadStage: tenantProcedure
     .input(z.object({
       leadId: z.string().uuid(),
