@@ -51,6 +51,23 @@ export function parseBudgetString(raw: string): number | null {
 type Input = typeof qualifyLeadInputSchema._output;
 type Output = typeof qualifyLeadOutputSchema._output;
 
+export function computeLeadScore(input: Input): number {
+  let total = 0;
+
+  if (input.budget) total += 30;
+  if (input.timeline === 'immediate') total += 25;
+  else if (input.timeline === '1-3months') total += 15;
+
+  // need_count is explicit signal; falls back to needs.length for existing callers
+  const needCount = input.need_count ?? input.needs?.length ?? 0;
+  total += Math.min(needCount, 3) * 10;
+
+  if (input.is_returning) total += 15;
+  if (input.asked_pricing) total += 10;
+
+  return Math.min(total, 100);
+}
+
 const qualifyLeadModule: ModuleDefinition<Input, Output> = {
   slug: 'qualify_lead',
   name: 'Qualify Lead',
@@ -67,10 +84,10 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
   outputSchema: qualifyLeadOutputSchema,
 
   async execute(input: Input, ctx: ModuleExecutionContext): Promise<Output> {
-    // Deterministic scoring per spec
+    const numericScore = computeLeadScore(input);
     const score =
-      input.budget && input.timeline === 'immediate' ? 'hot' as const
-        : input.budget || input.timeline ? 'warm' as const
+      numericScore >= 60 ? 'hot' as const
+        : numericScore >= 30 ? 'warm' as const
         : 'cold' as const;
 
     const tags = input.needs ?? [];
@@ -102,11 +119,13 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
       estimatedValue: estimated_value,
     });
 
-    return { score, tags, next_action, stage, estimated_value };
+    return { score, tags, next_action, stage, estimated_value, numeric_score: numericScore };
   },
 
   formatForLLM: (output) =>
-    `Lead qualified as "${output.score}" (stage: ${output.stage}). Tags: [${output.tags.join(', ')}]. Recommended: ${output.next_action}.`,
+    `Lead scored ${output.numeric_score}/100 (${output.score}). Stage: ${output.stage}. Tags: [${output.tags.join(', ')}]. Recommended: ${output.next_action}.`,
 };
+
+export default qualifyLeadModule;
 
 registerModule(qualifyLeadModule as ModuleDefinition);

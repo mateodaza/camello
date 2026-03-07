@@ -37,6 +37,9 @@ export const qualifyLeadInputSchema = z.object({
   timeline: z.enum(['immediate', '1-3months', '3-6months', 'exploring']).optional(),
   needs: z.array(z.string()).optional().describe('Identified customer needs'),
   conversation_summary: z.string().describe('Brief summary of conversation so far'),
+  asked_pricing: z.boolean().optional().describe('Customer asked about pricing'),
+  is_returning: z.boolean().optional().describe('Customer is a returning contact'),
+  need_count: z.number().int().min(0).optional().describe('Explicit count of identified needs'),
 });
 
 export const leadStageSchema = z.enum([
@@ -49,6 +52,7 @@ export const qualifyLeadOutputSchema = z.object({
   next_action: z.string(),
   stage: leadStageSchema,
   estimated_value: z.number().nullable(),
+  numeric_score: z.number().int(),
 });
 
 export const bookMeetingInputSchema = z.object({

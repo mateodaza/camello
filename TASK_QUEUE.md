@@ -98,8 +98,8 @@ This directly fixes the empty pipeline value problem. Most real budget strings f
 
 ## P1 — Smarter Sales Agent
 
-#### CAM-105 [ ] Enhanced lead scoring — multi-signal weighted algorithm
-Current scoring: `budget + timeline=immediate → hot`. Misses returning customers, pricing interest, urgency signals, multi-turn accumulation.
+#### CAM-105 [x] Enhanced lead scoring — multi-signal weighted algorithm
+Added `computeLeadScore` (6-signal weighted formula), extended input schema with `asked_pricing`/`is_returning`/`need_count` (no defaults), added `numeric_score` to output, updated `formatForLLM`, 22 tests in `qualify-lead-scoring.test.ts`. Type-check passes.
 
 **Acceptance Criteria:**
 - Refactor `packages/ai/src/modules/qualify-lead.ts` execute function
