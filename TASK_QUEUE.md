@@ -212,8 +212,8 @@ The widget feels static. Add basic interaction feedback.
 **Notes:**
 The widget is a Vite IIFE bundle (`apps/widget/`). It communicates via HTTP to `/api/widget/*`. The typing indicator is purely client-side (show while fetch is pending). Read `apps/widget/src/App.tsx` for current structure.
 
-#### CAM-128 [ ] Support prompt optimization — empathy + escalation intelligence
-The support archetype prompts are basic. Improve them like we did for sales (CAM-106).
+#### CAM-128 [x] Support prompt optimization — empathy + escalation intelligence
+`packages/ai/src/archetypes/support.ts`: replaced both `prompts.en` and `prompts.es` with 5-section structured prompts (EMPATHY FRAMEWORK, ESCALATION INTELLIGENCE, DE-ESCALATION TECHNIQUES, KNOWLEDGE GAP HANDLING, NEVER DO). Type-check passes.
 
 **Acceptance Criteria:**
 - Update `packages/ai/src/archetypes/support.ts` prompts (en + es)

@@ -13,6 +13,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| CAM-128 | Support prompt optimization — empathy + escalation intelligence | Mar 8 | `packages/ai/src/archetypes/support.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (EMPATHY FRAMEWORK, ESCALATION INTELLIGENCE, DE-ESCALATION TECHNIQUES, KNOWLEDGE GAP HANDLING, NEVER DO). Both locales ≤25 lines. Type-check passes. |
 | CAM-127 | Widget chat — typing indicator + message status | Mar 8 | `useChat.ts`: `ChatMessage` extended with `id`+`metadata.status`; `retryMessage` hook; 429 removes, other errors set `status:'error'`. New: `utils/injectStyles.ts` (CSS keyframes injected once), `TypingIndicator.tsx` (animated dots), `MessageStatusIcon.tsx` (✓/✓✓/retry). `ChatWindow.tsx`: scroll tracking+button, `camello-msg-enter` fade-in, new components wired. `messages.ts`: 2 new i18n keys (en+es). Type-check passes. |
 | CAM-126 | Onboarding wizard — Step 4 (Teach Agent) improvements | Mar 8 | `apps/api/src/routes/knowledge.ts`: `docCount` procedure (COUNT DISTINCT title). `Step4TeachAgent.tsx`: `archetype?` prop, `TOPICS_BY_ARCHETYPE` constant, `docCount` query, topic button grid, `role="progressbar"` indicator, soft warning. `apps/web/src/app/onboarding/page.tsx`: `archetype={suggestion?.agentType}` prop. 13 i18n keys (en+es). 6 tests in `step4-teach-agent.test.tsx`. Type-check passes. |
 | CAM-125 | Settings page polish — danger zone + data export | Mar 8 | `apps/api/src/routes/artifact.ts`: `deactivate` mutation (`.update().set({ isActive: false })` + `TRPCError NOT_FOUND`). `apps/api/src/routes/agent.ts`: `exportData` query (LIMIT+1 fetch on convs/leads/notes; `truncated` flag). `apps/web/src/components/ui/dialog.tsx`: custom centered modal (no Radix dep, mirrors `sheet.tsx`). `apps/web/src/components/agent-workspace/agent-settings-panel.tsx`: Export Data + Danger Zone cards, confirmation dialog, `tc = useTranslations('common')` for Cancel. `agents/[id]/page.tsx`: `AgentSettingsPanel` added. `dashboard/page.tsx`: `allArtifacts` query removed; `YourAgentsSection` now uses `artifacts.data` (activeOnly: true). 13 i18n keys (en+es). 7 tests: `artifact-deactivate.test.ts` (3) + `agent-export-data.test.ts` (4). Type-check passes. |
@@ -813,3 +814,4 @@
 - **CAM-125** — 2026-03-08 — `dcd95e5` — Session: 20260307-231133-camello
 - **CAM-126** — 2026-03-08 — `6becbf4` — Session: 20260307-231133-camello
 - **CAM-127** — 2026-03-08 — `21e6be8` — Session: 20260307-231133-camello
+- **CAM-128** — 2026-03-08 — `9c65885` — Session: 20260307-231133-camello
