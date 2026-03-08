@@ -20,10 +20,11 @@
 ## Previous Phase: Launch-Ready Polish Sprint
 
 > 20 tasks (CAM-107→132). All completed. 23 audit fixes applied (ILIKE injection, scoped db racing, empty catches, focus trap, keyboard a11y).
+> Historical note: many entries below describe the pre-Workspace-v2 agent-workspace architecture (`agent-workspace/*`, registry sections, kanban, workspace header, etc.). Keep them as implementation history, not as current product direction. Current workspace/product direction lives in `WORKSPACE_ARCHITECTURE.md` and `TASK_QUEUE.md`.
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
-| CAM-132 | E2E smoke test plan | Mar 8 | Created `SMOKE_TEST.md` in project root: 78 manual test cases across 15 user journey phases (sign-up/onboarding → widget embed). Each case has preconditions, steps, and expected result. 20 empty-state tests (🌱) + 58 seed-data tests (🌾). Includes execution checklist table + seed data guide. No code changes — type-check passes from cache. |
+| CAM-132 | E2E smoke test plan | Mar 8 | Created a manual smoke test plan with 78 cases across 15 user journey phases (sign-up/onboarding → widget embed). Each case had preconditions, steps, and expected result. 20 empty-state tests (🌱) + 58 seed-data tests (🌾). Historical artifact later removed during Workspace v2 cleanup because it no longer matched the current inbox-first product direction. |
 | CAM-131 | Customer insights — returning visitor tracking | Mar 8 | `apps/api/src/routes/agent.ts`: `customerInsights` tRPC procedure (raw SQL — customers JOIN conversations, `HAVING COUNT(conv.id) > 1` excludes first-time visitors, correlated subquery on `customers.memory->'facts'` for `past_topic`, ORDER BY conv count DESC LIMIT 10). `DataTable` primitive: `onRowClick?: (row: T) => void` prop added (cursor-pointer only when provided). `registry/sales.tsx`: `ReturningCustomers` component (`useRouter` + `onRowClick` for whole-row nav; `Link` retained in name cell with `stopPropagation` for a11y/right-click); registered in `salesSections`. 5 i18n keys (en+es). 4 tests in `agent-customer-insights.test.ts`. Type-check passes. |
 | CAM-130 | Agent performance dashboard — response time + satisfaction trends | Mar 8 | `apps/api/src/routes/agent.ts`: `performanceMetrics` procedure (3-query: rollup from `artifact_metrics_daily`, response time + fallback from `conversations`, all-time module counts from `module_executions`; weighted avg scalar, zero-filled 14d/30d arrays). New `performance-panel.tsx` (`BarChartCss` response time 14d + `Sparkline` volume/resolution 30d + module usage chart); appended to `salesSections`, `supportSections`, `marketingSections`. 10 i18n keys (en+es). 8 tests in `agent-routes.test.ts`. Type-check passes. |
 | CAM-129 | Marketing prompt optimization — engagement + content strategy | Mar 8 | `packages/ai/src/archetypes/marketing.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (INTEREST CAPTURE, CONTENT TONE MATCHING, LEAD WARMING, CAMPAIGN AWARENESS, NEVER DO). Both locales ≤25 lines. Type-check passes. |
@@ -49,6 +50,7 @@
 
 > Gap analysis (2026-03-07) found 3 critical blockers, 4 high gaps, 7 medium gaps in the sales agent happy path.
 > NC completed 13 tasks (CAM-101-116). Audit found 13 issues (3 critical, 4 high, 6 medium) — all fixed. Migrations 0016-0020 applied to Supabase cloud.
+> Historical note: this phase optimized the sales-specific workspace that existed before the inbox-first Workspace v2 direction. The backend capabilities remain valuable; the UI surface is now historical unless explicitly reused in the new architecture.
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|

@@ -302,6 +302,33 @@ Rename and reorder sidebar items to match the new structure.
 - i18n keys (en + es) for renamed items
 - `pnpm type-check` passes
 
+#### NC-220 [ ] Sprint smoke tests + summary
+Final task. Write smoke tests covering the end-to-end inbox loop and produce a sprint summary.
+
+**Acceptance Criteria:**
+- **Smoke test file:** `apps/api/src/__tests__/inbox-smoke.test.ts` (Vitest)
+- Tests must cover the critical path through the sprint deliverables:
+  1. `conversation.activity` returns module executions + stage changes for a conversation (NC-202)
+  2. `conversation.replyAsOwner` inserts a `role: 'human'` message and rejects non-escalated conversations (NC-203)
+  3. `conversation.list` returns COALESCE'd display names (no raw `visitor_*` IDs) and supports `artifactId` filter (NC-204)
+  4. `dashboardActivityFeed` accepts optional `artifactId` and filters correctly (NC-212 backend change)
+- Each test: setup → act → assert. Use `createCallerFactory` pattern from existing test files (see `learning-routes.test.ts`).
+- Minimum 6 test cases across the 4 areas above.
+- `pnpm type-check` passes
+- **Sprint summary:** Update `PROGRESS.md` with a "Workspace v2 Sprint Summary" section:
+  - Total tasks completed (count)
+  - New files created (list)
+  - Files modified (list)
+  - Migrations written (list with numbers)
+  - New tRPC procedures added (list)
+  - Components created (list)
+  - i18n keys added (approximate count)
+  - Known limitations or deferred items
+  - `pnpm build` output (pass/fail)
+  - `pnpm type-check` output (pass/fail)
+
+**Depends on:** NC-214, NC-216, NC-217, NC-218, NC-219
+
 ## Manual / Blocked — Not for NC
 
 #### CAM-200 [manual] Clerk production keys (Mateo)
