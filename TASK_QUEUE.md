@@ -115,7 +115,8 @@ Follow the pattern from `sales-alerts.tsx` for approve/reject mutations with opt
 **Notes:**
 Focus on the workspace page (`agents/[id]/page.tsx`) and its registry components. The conversations pages already have `QueryError` handling.
 
-#### CAM-121 [ ] Test coverage push for new tRPC procedures
+#### CAM-121 [x] Test coverage push for new tRPC procedures
+Added 12 tests in `agent-notifications.test.ts` (ownerNotifications×3, markNotificationRead×3, markAllNotificationsRead×3, unreadNotificationCount×3) and 1 test in `agent-source-breakdown.test.ts`. All type-check passes.
 Add integration tests for procedures added in the sales optimization sprint.
 
 **Acceptance Criteria:**

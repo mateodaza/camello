@@ -87,4 +87,28 @@ describe('agent.salesSourceBreakdown', () => {
     expect(result[0]).toEqual({ channel: 'unknown', count: 7 });
     expect(result[1]).toEqual({ channel: 'webchat', count: 2 });
   });
+
+  it('returns empty array when no conversations exist', async () => {
+    const db = mockTenantDb(async (fn: Any) => {
+      const mockDb = {
+        select: () => ({
+          from: () => ({
+            innerJoin: () => ({
+              where: () => ({
+                groupBy: () => ({
+                  orderBy: () => [],
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.salesSourceBreakdown({ artifactId: ARTIFACT_ID });
+
+    expect(result).toEqual([]);
+  });
 });
