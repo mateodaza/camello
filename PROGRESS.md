@@ -13,6 +13,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| CAM-132 | E2E smoke test plan | Mar 8 | Created `SMOKE_TEST.md` in project root: 78 manual test cases across 15 user journey phases (sign-up/onboarding → widget embed). Each case has preconditions, steps, and expected result. 20 empty-state tests (🌱) + 58 seed-data tests (🌾). Includes execution checklist table + seed data guide. No code changes — type-check passes from cache. |
 | CAM-131 | Customer insights — returning visitor tracking | Mar 8 | `apps/api/src/routes/agent.ts`: `customerInsights` tRPC procedure (raw SQL — customers JOIN conversations, `HAVING COUNT(conv.id) > 1` excludes first-time visitors, correlated subquery on `customers.memory->'facts'` for `past_topic`, ORDER BY conv count DESC LIMIT 10). `DataTable` primitive: `onRowClick?: (row: T) => void` prop added (cursor-pointer only when provided). `registry/sales.tsx`: `ReturningCustomers` component (`useRouter` + `onRowClick` for whole-row nav; `Link` retained in name cell with `stopPropagation` for a11y/right-click); registered in `salesSections`. 5 i18n keys (en+es). 4 tests in `agent-customer-insights.test.ts`. Type-check passes. |
 | CAM-130 | Agent performance dashboard — response time + satisfaction trends | Mar 8 | `apps/api/src/routes/agent.ts`: `performanceMetrics` procedure (3-query: rollup from `artifact_metrics_daily`, response time + fallback from `conversations`, all-time module counts from `module_executions`; weighted avg scalar, zero-filled 14d/30d arrays). New `performance-panel.tsx` (`BarChartCss` response time 14d + `Sparkline` volume/resolution 30d + module usage chart); appended to `salesSections`, `supportSections`, `marketingSections`. 10 i18n keys (en+es). 8 tests in `agent-routes.test.ts`. Type-check passes. |
 | CAM-129 | Marketing prompt optimization — engagement + content strategy | Mar 8 | `packages/ai/src/archetypes/marketing.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (INTEREST CAPTURE, CONTENT TONE MATCHING, LEAD WARMING, CAMPAIGN AWARENESS, NEVER DO). Both locales ≤25 lines. Type-check passes. |
@@ -821,3 +822,4 @@
 - **CAM-129** — 2026-03-08 — `62fff7a` — Session: 20260307-231133-camello
 - **CAM-130** — 2026-03-08 — `188b024` — Session: 20260307-231133-camello — ⚠ Committed after soft review rejections cap; local verification passed.
 - **CAM-131** — 2026-03-08 — `422e24b` — Session: 20260307-231133-camello
+- **CAM-132** — 2026-03-08 — `35d6e08` — Session: 20260307-231133-camello

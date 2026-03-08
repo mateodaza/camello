@@ -274,7 +274,8 @@ Show which customers come back and what they ask about over time.
 
 ## P5 — Pre-Launch
 
-#### CAM-132 [ ] E2E smoke test plan
+#### CAM-132 [x] E2E smoke test plan
+Created `SMOKE_TEST.md` in project root: 78 test cases across 15 phases (sign-up through widget embed), each with preconditions/steps/expected result, 🌱/🌾 empty-vs-seed labeling, execution checklist table, and seed data guide. Type-check passes.
 Generate a comprehensive manual smoke test checklist covering the full user journey. This is the final gate before real users.
 
 **Acceptance Criteria:**
