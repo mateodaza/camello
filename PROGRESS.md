@@ -13,6 +13,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| CAM-111 | Period-over-period sales comparison | Mar 8 | `apps/api/src/routes/agent.ts`: `salesComparison` tRPC procedure (single CTE SQL with `date_trunc('week', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'` bounds, `COUNT(*) FILTER` conditional aggregates, TypeScript `delta()` helper). `apps/web/src/components/agent-workspace/registry/sales.tsx`: `DeltaBadge` component (fully i18n via `useTranslations`), delta badges on Revenue Earned + Money in Play hero cards, new "This Week" 4-cell comparison card. 8 i18n keys per locale (en+es). New `apps/api/src/__tests__/routes/agent-sales-comparison.test.ts` (4 tests). Type-check passes. |
 | CAM-107 | Fix onboarding Step 3 module badges + collect profile basics | Mar 7 | `apps/api/src/routes/onboarding.ts`: `setupArtifact` restructured — `profile` field added to input, `runSetupTransaction` helper extracted, all 4 resolution paths converge into `resolvedArtifact`, unified Phase 2 `UPDATE artifacts SET personality = personality || $patch` runs after convergence. `Step3MeetAgent.tsx`: `trpc.module.catalog` removed, static `ARCHETYPE_MODULE_SLUGS` map added, Quick Profile section (tagline/bio/avatar upload via `tenant.uploadAvatar`), mutation chain `setupArtifact → updateProfile → onComplete`. 10 i18n keys (en+es), `loadingModules` removed. 7 new API tests (Paths 1–4 + blank/omit/avatarUrl) + 9 new web tests. Type-check passes. |
 
 ---
@@ -787,3 +788,4 @@
 - **CAM-115** — 2026-03-07 — `213437f` — Session: 20260307-181842-camello
 - **CAM-116** — 2026-03-07 — `c9534a7` — Session: 20260307-181842-camello
 - **CAM-107** — 2026-03-08 — `04c6682` — Session: 20260307-231133-camello
+- **CAM-111** — 2026-03-08 — `cfd0483` — Session: 20260307-231133-camello

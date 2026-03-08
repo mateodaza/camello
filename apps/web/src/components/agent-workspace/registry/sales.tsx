@@ -27,6 +27,38 @@ const STAGE_PROBABILITIES: Record<string, number> = {
   new: 0.1, qualifying: 0.2, proposal: 0.4, negotiation: 0.6, closed_won: 1, closed_lost: 0,
 };
 
+// ---------------------------------------------------------------------------
+// DeltaBadge — period-over-period comparison badge
+// ---------------------------------------------------------------------------
+
+interface DeltaBadgeProps {
+  current: number;
+  pct: number | null;
+  format?: 'count' | 'currency';
+  locale?: string;
+}
+
+function DeltaBadge({ current, pct, format = 'count', locale }: DeltaBadgeProps) {
+  const t = useTranslations('agentWorkspace');
+
+  if (pct === null && current === 0) {
+    return <span className="text-xs text-dune">—</span>;
+  }
+  if (pct === null && current > 0) {
+    const text = format === 'currency'
+      ? t('salesComparisonBadgeCurrencyNew', { amount: fmtMoney(current, locale!) })
+      : t('salesComparisonBadgeCountNew', { count: current });
+    return <span className="text-xs font-medium text-teal">{text}</span>;
+  }
+  if (pct === null || pct === 0) {
+    return <span className="text-xs text-dune">—</span>;
+  }
+  if (pct > 0) {
+    return <span className="text-xs font-medium text-teal">↑{pct}%</span>;
+  }
+  return <span className="text-xs font-medium" style={{ color: 'var(--color-sunset)' }}>↓{Math.abs(pct)}%</span>;
+}
+
 const SUPPORTED_CURRENCIES = ['USD', 'COP', 'MXN', 'BRL'];
 
 const funnelColors: Record<string, string> = {
@@ -48,6 +80,10 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
   );
   const funnel = trpc.agent.salesFunnel.useQuery({ artifactId });
   const sourceBreakdown = trpc.agent.salesSourceBreakdown.useQuery({ artifactId });
+  const comparison = trpc.agent.salesComparison.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
 
   const stages = pipeline.data?.stages ?? [];
   const avgDaysToClose = pipeline.data?.avgDaysToClose ?? null;
@@ -95,6 +131,14 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
                 <p className="mt-1 text-sm text-dune">
                   {t('salesWonDealsCount', { count: wonDeals })}
                 </p>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <DeltaBadge
+                    current={comparison.data?.thisWeek.wonDeals ?? 0}
+                    pct={comparison.data?.deltas.wonDeals ?? null}
+                    format="count"
+                  />
+                  <span className="text-xs text-dune">{t('salesComparisonVsLastWeek')}</span>
+                </div>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <div className="rounded-lg bg-teal/15 p-2.5">
@@ -119,6 +163,14 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
                 <p className="mt-1 text-sm text-dune">
                   {t('salesActiveLeads', { count: activeLeads })}
                 </p>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <DeltaBadge
+                    current={comparison.data?.thisWeek.newLeads ?? 0}
+                    pct={comparison.data?.deltas.newLeads ?? null}
+                    format="count"
+                  />
+                  <span className="text-xs text-dune">{t('salesComparisonVsLastWeek')}</span>
+                </div>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <div className="rounded-lg bg-gold/15 p-2.5">
@@ -132,6 +184,70 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* This Week comparison card */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{t('salesComparisonTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 divide-x divide-charcoal/10 sm:grid-cols-4">
+            <div className="px-4 first:pl-0 last:pr-0">
+              <p className="text-xs font-medium text-dune">{t('salesComparisonNewLeads')}</p>
+              <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+                {comparison.data?.thisWeek.newLeads ?? 0}
+              </p>
+              <div className="mt-0.5">
+                <DeltaBadge
+                  current={comparison.data?.thisWeek.newLeads ?? 0}
+                  pct={comparison.data?.deltas.newLeads ?? null}
+                  format="count"
+                />
+              </div>
+            </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <p className="text-xs font-medium text-dune">{t('salesComparisonWonDeals')}</p>
+              <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+                {comparison.data?.thisWeek.wonDeals ?? 0}
+              </p>
+              <div className="mt-0.5">
+                <DeltaBadge
+                  current={comparison.data?.thisWeek.wonDeals ?? 0}
+                  pct={comparison.data?.deltas.wonDeals ?? null}
+                  format="count"
+                />
+              </div>
+            </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <p className="text-xs font-medium text-dune">{t('salesComparisonRevenue')}</p>
+              <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+                {fmtMoney(comparison.data?.thisWeek.totalRevenue ?? 0, locale)}
+              </p>
+              <div className="mt-0.5">
+                <DeltaBadge
+                  current={comparison.data?.thisWeek.totalRevenue ?? 0}
+                  pct={comparison.data?.deltas.totalRevenue ?? null}
+                  format="currency"
+                  locale={locale}
+                />
+              </div>
+            </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <p className="text-xs font-medium text-dune">{t('salesComparisonConversations')}</p>
+              <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+                {comparison.data?.thisWeek.conversations ?? 0}
+              </p>
+              <div className="mt-0.5">
+                <DeltaBadge
+                  current={comparison.data?.thisWeek.conversations ?? 0}
+                  pct={comparison.data?.deltas.conversations ?? null}
+                  format="count"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats strip — single card, divided, breaks the 4-card grid pattern */}
       <Card>

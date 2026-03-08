@@ -25,8 +25,8 @@ Follow-up cron, approve/reject UI, module config, polling, budget parser, lead s
 #### CAM-107 [x] Fix onboarding Step 3 module badges + collect profile basics
 Static `ARCHETYPE_MODULE_SLUGS` map replaces `trpc.module.catalog` query; Quick Profile section (tagline/bio/avatar) added; `setupArtifact` restructured to converge all 4 paths + unified Phase 2 profile merge; `tenant.updateProfile` chained on success; 7 API tests + 9 web tests (including Path 2 race condition). 10 i18n keys (en + es).
 
-#### CAM-111 [ ] Period-over-period sales comparison
-This-week vs last-week comparison on sales overview with delta arrows.
+#### CAM-111 [x] Period-over-period sales comparison
+This-week vs last-week comparison on sales overview with delta arrows. `agent.salesComparison` tRPC procedure (single CTE SQL, UTC week boundaries, delta TS logic); `DeltaBadge` component (fully i18n); delta badges on 2 hero cards + new "This Week" 4-cell card; 8 i18n keys (en+es); 4 tests in `agent-sales-comparison.test.ts`. Type-check passes.
 
 **Acceptance Criteria:**
 - New tRPC procedure `agent.salesComparison`: this/last week counts for new_leads, won_deals, total_revenue, conversations

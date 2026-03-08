@@ -371,6 +371,118 @@ export const agentRouter = router({
       });
     }),
 
+  // =========================================================================
+  // salesComparison — this week vs last week for 4 metrics
+  // =========================================================================
+
+  salesComparison: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db.execute(sql`
+          WITH week_bounds AS (
+            SELECT
+              date_trunc('week', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+                AS this_start,
+              (date_trunc('week', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')
+                + INTERVAL '7 days'
+                AS next_start,
+              (date_trunc('week', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')
+                - INTERVAL '7 days'
+                AS last_start
+          ),
+          lead_counts AS (
+            SELECT
+              COUNT(*) FILTER (
+                WHERE l.created_at >= wb.this_start AND l.created_at < wb.next_start
+              )::int AS this_new_leads,
+              COUNT(*) FILTER (
+                WHERE l.created_at >= wb.last_start AND l.created_at < wb.this_start
+              )::int AS last_new_leads,
+              COUNT(*) FILTER (
+                WHERE l.stage = 'closed_won'
+                  AND l.converted_at >= wb.this_start AND l.converted_at < wb.next_start
+              )::int AS this_won_deals,
+              COUNT(*) FILTER (
+                WHERE l.stage = 'closed_won'
+                  AND l.converted_at >= wb.last_start AND l.converted_at < wb.this_start
+              )::int AS last_won_deals,
+              COALESCE(SUM(l.estimated_value) FILTER (
+                WHERE l.stage = 'closed_won'
+                  AND l.converted_at >= wb.this_start AND l.converted_at < wb.next_start
+              ), 0)::text AS this_revenue,
+              COALESCE(SUM(l.estimated_value) FILTER (
+                WHERE l.stage = 'closed_won'
+                  AND l.converted_at >= wb.last_start AND l.converted_at < wb.this_start
+              ), 0)::text AS last_revenue
+            FROM leads l
+            INNER JOIN conversations c ON c.id = l.conversation_id
+            CROSS JOIN week_bounds wb
+            WHERE c.artifact_id = ${input.artifactId}
+              AND l.tenant_id = ${ctx.tenantId}
+          ),
+          conv_counts AS (
+            SELECT
+              COUNT(*) FILTER (
+                WHERE c.created_at >= wb.this_start AND c.created_at < wb.next_start
+              )::int AS this_conversations,
+              COUNT(*) FILTER (
+                WHERE c.created_at >= wb.last_start AND c.created_at < wb.this_start
+              )::int AS last_conversations
+            FROM conversations c
+            CROSS JOIN week_bounds wb
+            WHERE c.artifact_id = ${input.artifactId}
+              AND c.tenant_id = ${ctx.tenantId}
+          )
+          SELECT lc.*, cc.*
+          FROM lead_counts lc, conv_counts cc
+        `);
+
+        type ComparisonRow = {
+          this_new_leads: number; last_new_leads: number;
+          this_won_deals: number; last_won_deals: number;
+          this_revenue: string;   last_revenue: string;
+          this_conversations: number; last_conversations: number;
+        };
+
+        const row = (rows.rows as ComparisonRow[])[0] ?? {
+          this_new_leads: 0, last_new_leads: 0,
+          this_won_deals: 0, last_won_deals: 0,
+          this_revenue: '0', last_revenue: '0',
+          this_conversations: 0, last_conversations: 0,
+        };
+
+        function delta(current: number, last: number): number | null {
+          if (last === 0) return null;
+          return Math.round(((current - last) / last) * 100);
+        }
+
+        const thisWeek = {
+          newLeads: row.this_new_leads,
+          wonDeals: row.this_won_deals,
+          totalRevenue: Number(row.this_revenue),
+          conversations: row.this_conversations,
+        };
+        const lastWeek = {
+          newLeads: row.last_new_leads,
+          wonDeals: row.last_won_deals,
+          totalRevenue: Number(row.last_revenue),
+          conversations: row.last_conversations,
+        };
+
+        return {
+          thisWeek,
+          lastWeek,
+          deltas: {
+            newLeads: delta(thisWeek.newLeads, lastWeek.newLeads),
+            wonDeals: delta(thisWeek.wonDeals, lastWeek.wonDeals),
+            totalRevenue: delta(thisWeek.totalRevenue, lastWeek.totalRevenue),
+            conversations: delta(thisWeek.conversations, lastWeek.conversations),
+          },
+        };
+      });
+    }),
+
   updateLeadStage: tenantProcedure
     .input(z.object({
       leadId: z.string().uuid(),
