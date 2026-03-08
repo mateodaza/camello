@@ -25,7 +25,8 @@ export async function summarizeConversation(
     });
 
     return text.trim();
-  } catch {
+  } catch (err) {
+    console.error('[summarizeConversation] LLM call failed:', err instanceof Error ? err.message : String(err));
     return null;
   }
 }

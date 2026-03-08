@@ -531,22 +531,22 @@ export const agentRouter = router({
             .limit(1);
 
           if (leadMeta?.artifactId) {
-            db.insert(ownerNotifications).values({
+            await db.insert(ownerNotifications).values({
               tenantId: ctx.tenantId,
               artifactId: leadMeta.artifactId,
               leadId: input.leadId,
               type: 'deal_closed',
-              title: 'Deal closed — won!',
+              title: 'Deal closed',
               body: leadMeta.estimatedValue
-                ? `Value: $${Number(leadMeta.estimatedValue).toLocaleString()}`
-                : 'A deal was marked closed won.',
+                ? `$${Number(leadMeta.estimatedValue).toLocaleString('en-US')}`
+                : 'closed_won',
               metadata: {
                 conversationId: leadMeta.conversationId,
                 leadId: input.leadId,
                 estimatedValue: leadMeta.estimatedValue ?? null,
               },
-            }).catch(() => {
-              // Swallow — notification failure must not fail the stage update
+            }).catch((err: unknown) => {
+              console.warn('[agent.updateLeadStage] deal_closed notification failed:', err instanceof Error ? err.message : String(err));
             });
           }
         }
@@ -668,7 +668,7 @@ export const agentRouter = router({
       // instead of raw SQL with ANY(uuid[]). The partial unique index
       // idx_notifications_stale_dedup handles dedup atomically.
       if (result.staleLeads.length > 0) {
-        ctx.tenantDb.query(async (db) => {
+        void ctx.tenantDb.query(async (db) => {
           await Promise.all(
             result.staleLeads.map((lead) =>
               db.insert(ownerNotifications).values({
@@ -676,8 +676,8 @@ export const agentRouter = router({
                 artifactId: input.artifactId,
                 leadId: lead.id,
                 type: 'lead_stale',
-                title: `Lead going cold: ${lead.customerName}`,
-                body: `${lead.daysSinceActivity} days without activity`,
+                title: lead.customerName,
+                body: `${lead.daysSinceActivity}d`,
                 metadata: {
                   conversationId: lead.conversationId,
                   leadId: lead.id,
@@ -686,8 +686,8 @@ export const agentRouter = router({
               }).onConflictDoNothing()
             )
           );
-        }).catch(() => {
-          // Swallow — stale notification failure must not break alert query
+        }).catch((err: unknown) => {
+          console.warn('[agent.salesAlerts] stale notification insert failed:', err instanceof Error ? err.message : String(err));
         });
       }
 
@@ -1099,7 +1099,11 @@ export const agentRouter = router({
           .where(eq(tenants.id, ctx.tenantId))
           .limit(1);
 
-        const tz: string = (tenantRow?.settings as Record<string, unknown> | null)?.timezone as string | undefined ?? 'America/Bogota';
+        const rawTz = (tenantRow?.settings as Record<string, unknown> | null)?.timezone;
+        let tz = 'America/Bogota';
+        if (typeof rawTz === 'string') {
+          try { Intl.DateTimeFormat(undefined, { timeZone: rawTz }); tz = rawTz; } catch { /* invalid tz, keep default */ }
+        }
 
         const result = await db.execute(sql`
           WITH after_hours_convs AS (

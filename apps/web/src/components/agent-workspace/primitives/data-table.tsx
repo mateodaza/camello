@@ -127,12 +127,14 @@ export function DataTable<T>({
                   {rows.map((row, i) => (
                     <tr
                       key={i}
+                      tabIndex={onRowClick ? 0 : undefined}
                       className={cn(
                         'border-b border-charcoal/5 last:border-0',
                         rowClassName?.(row),
-                        onRowClick && 'cursor-pointer',
+                        onRowClick && 'cursor-pointer focus:bg-sand focus:outline-none',
                       )}
                       onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row); } } : undefined}
                     >
                       {columns.map((col) => (
                         <td key={col.key} className="py-2 pr-3">

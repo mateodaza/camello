@@ -259,13 +259,14 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
 
         {/* Quick Facts */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-charcoal">
+          <label htmlFor="quick-facts" className="text-sm font-medium text-charcoal">
             {t('tellMoreLabel', { agentName })} <span className="font-normal text-dune">{t('tellMoreOptional')}</span>
           </label>
           <p className="text-xs text-dune">
             {t('quickFactsDescription')}
           </p>
           <textarea
+            id="quick-facts"
             value={quickFacts}
             onChange={(e) => setQuickFacts(e.target.value)}
             placeholder={t('quickFactsPlaceholder')}
@@ -277,13 +278,14 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
 
         {/* Website URL */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-charcoal">
+          <label htmlFor="website-url" className="text-sm font-medium text-charcoal">
             {t('importFromWebsite')} <span className="font-normal text-dune">{t('tellMoreOptional')}</span>
           </label>
           <p className="text-xs text-dune">
             {t('importWebsiteDescription')}
           </p>
           <input
+            id="website-url"
             type="url"
             value={websiteUrl}
             onChange={(e) => setWebsiteUrl(e.target.value)}
@@ -297,7 +299,7 @@ export function Step4TeachAgent({ agentName, businessDescription, alreadySeeded,
 
         {/* Error display */}
         {(ingest.isError || queueUrl.isError) && (
-          <p className="text-sm text-error">
+          <p className="text-sm text-sunset">
             {ingest.error?.message ?? queueUrl.error?.message ?? t('analyzeError')}
           </p>
         )}

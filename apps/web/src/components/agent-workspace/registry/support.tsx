@@ -178,7 +178,7 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
                 <button
                   type="button"
                   onClick={() => setCsatFor(null)}
-                  className="text-xs text-dune hover:underline ml-1"
+                  className="text-xs text-dune hover:underline ml-1 min-h-[36px]"
                 >
                   {t('skipCsat')}
                 </button>
@@ -378,6 +378,7 @@ function SupportKnowledgeGaps({ artifactId }: { artifactId: string }) {
           ) : (
             <div className="space-y-2">
               <textarea
+                aria-label={t('gapAnswerPlaceholder')}
                 className="w-full rounded border border-charcoal/20 bg-white p-2 text-sm text-charcoal placeholder:text-dune min-h-[80px] resize-y"
                 value={answerText}
                 onChange={(e) => setAnswerText(e.target.value)}

@@ -46,7 +46,7 @@ function DeltaBadge({ current, pct, format = 'count', locale }: DeltaBadgeProps)
   }
   if (pct === null && current > 0) {
     const text = format === 'currency'
-      ? t('salesComparisonBadgeCurrencyNew', { amount: fmtMoney(current, locale!) })
+      ? t('salesComparisonBadgeCurrencyNew', { amount: fmtMoney(current, locale ?? 'en') })
       : t('salesComparisonBadgeCountNew', { count: current });
     return <span className="text-xs font-medium text-teal">{text}</span>;
   }
@@ -635,6 +635,7 @@ function SalesQuotes({ artifactId }: { artifactId: string }) {
               )}
               {item.status === 'executed' && total != null && (
                 <button
+                  type="button"
                   onClick={handleConvert}
                   disabled={pendingQuoteId === item.id}
                   className="rounded-md border border-teal/40 px-3 py-2 text-xs font-medium text-teal hover:bg-teal/5 disabled:opacity-50"

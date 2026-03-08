@@ -21,7 +21,10 @@ export async function insertPaymentForQuote(
     return rows[0] ?? null;
   });
 
-  if (!lead) return;
+  if (!lead) {
+    console.warn('[insertPaymentForQuote] No lead found for conversation', params.conversationId, '— payment not created');
+    return;
+  }
 
   await tenantDb.query(async (db) => {
     await db.insert(payments).values({

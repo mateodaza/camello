@@ -144,8 +144,11 @@ export default function ConversationsPage() {
                 {items.map((c) => (
                   <tr
                     key={c.id}
-                    className="cursor-pointer border-b border-charcoal/8 last:border-0 hover:bg-sand"
+                    tabIndex={0}
+                    role="link"
+                    className="cursor-pointer border-b border-charcoal/8 last:border-0 hover:bg-sand focus:bg-sand focus:outline-none"
                     onClick={() => router.push(`/dashboard/conversations/${c.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/dashboard/conversations/${c.id}`); } }}
                   >
                     <td className="px-4 py-3">
                       <div className="font-medium">{c.customerName ?? c.customerExternalId ?? t('unknown')}</div>

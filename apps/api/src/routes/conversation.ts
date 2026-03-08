@@ -41,7 +41,8 @@ export const conversationRouter = router({
           conditions.push(sql`${conversations.createdAt} >= ${cutoff}`);
         }
         if (input.search) {
-          const pattern = `%${input.search}%`;
+          const escaped = input.search.replace(/[%_\\]/g, '\\$&');
+          const pattern = `%${escaped}%`;
           conditions.push(
             or(
               sql`(${conversations.metadata}->>'customerName') ILIKE ${pattern}`,

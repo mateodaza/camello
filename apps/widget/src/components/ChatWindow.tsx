@@ -5,8 +5,6 @@ import { TypingIndicator } from './TypingIndicator.js';
 import { MessageStatusIcon } from './MessageStatusIcon.js';
 import { injectWidgetStyles } from '../utils/injectStyles.js';
 
-injectWidgetStyles();
-
 interface ChatWindowProps {
   token: string;
   tenantName: string;
@@ -33,6 +31,8 @@ export function ChatWindow({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const { messages, conversationId, isSending, error, inputDisabled, send, retryMessage } = useChat(token, apiUrl, language);
+
+  useEffect(() => { injectWidgetStyles(); }, []);
 
   const handleScroll = useCallback(() => {
     const el = messagesContainerRef.current;

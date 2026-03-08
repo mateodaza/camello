@@ -5,11 +5,21 @@
 >
 > **AI memory lives at:** `~/.claude/projects/.../memory/` (MEMORY.md, architecture.md, compliance-gaps.md, differentiation.md). Not in-repo — persists across Claude sessions.
 
-## Current Phase: Launch-Ready Polish Sprint
+## Current Phase: Workspace v2 — Conversation-Centric Inbox
 
-> **Authoritative task list:** `TASK_QUEUE.md` (root). Tasks use `CAM-1XX` IDs.
-> Goal: Make the product presentable for first real users. Fix onboarding gaps, finish workspace analytics, flesh out support/marketing workspaces, harden for production.
+> **Authoritative task list:** `TASK_QUEUE.md` (root). Tasks use `NC-2XX` IDs.
+> Goal: Replace complex per-archetype workspace with 3-panel conversation inbox. Owner chat intervention, visitor naming, book_meeting fix.
+> Product architecture note: inbox becomes the shared operational layer for conversation-first agents. This does not remove the idea of specialized workspaces for non-chat-first agents. Sales is the reference implementation for the conversation-centric path. See `WORKSPACE_ARCHITECTURE.md`.
 > NC (Nightcrawler) executes tasks autonomously on `nightcrawler/dev` branch.
+
+| ID | Task | Date | Notes |
+|----|------|------|-------|
+
+---
+
+## Previous Phase: Launch-Ready Polish Sprint
+
+> 20 tasks (CAM-107→132). All completed. 23 audit fixes applied (ILIKE injection, scoped db racing, empty catches, focus trap, keyboard a11y).
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|

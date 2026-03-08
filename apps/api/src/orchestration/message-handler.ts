@@ -544,8 +544,8 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           moduleSlug,
         },
       });
-    }).catch(() => {
-      // Swallow — same guardrail as Supabase broadcast
+    }).catch((err: unknown) => {
+      console.warn('[handleMessage] approval_needed notification failed:', err instanceof Error ? err.message : String(err));
     });
   };
 

@@ -38,7 +38,7 @@ export function MessageStatusIcon({ status, onRetry, language }: MessageStatusIc
           color: '#ef4444',
           fontSize: '10px',
           padding: '0',
-          minHeight: '24px',
+          minHeight: '36px',
           display: 'inline-flex',
           alignItems: 'center',
           gap: '2px',

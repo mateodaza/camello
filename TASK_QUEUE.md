@@ -6,8 +6,29 @@
 > After completing a task: mark `[x]`, add summary line, update `PROGRESS.md`, commit together.
 > When starting a new sprint: update the goal below, add new tasks, collapse old completed tasks.
 
-> **Current sprint:** Launch-Ready Polish
-> Make the product presentable for first real users. Fix onboarding gaps, finish workspace analytics, flesh out support/marketing workspaces, and harden for production.
+> **Current sprint:** Workspace v2 — Conversation-Centric Inbox
+> Replace the complex per-archetype workspace with a 3-panel conversation inbox. Owner sees sales, agent activity, and numbers from one screen. Inspired by Botly (clean metrics) + Customer Support Dashboard (3-panel inbox). Key additions: owner chat intervention on escalated conversations, auto visitor naming, book_meeting hours fix.
+
+### Sprint guardrails
+
+**Must ship first (core v2 loop):**
+- Inbox route at `/dashboard/conversations`
+- Query-param deep link contract: `?selected=<conversationId>`
+- Left list + center thread + right customer context
+- `conversation.activity` timeline from real module executions / stage changes
+- `conversation.replyAsOwner` for escalated conversations only
+
+**Do not build before the inbox works end-to-end:**
+- New chart work
+- Fancy gestures beyond simple mobile back navigation
+- New per-archetype workspace surfaces
+- Cleanup deletions that break existing navigation before the inbox replacement is live
+
+**Execution rule for NC:** prove `/dashboard/conversations` can replace the current operational loop first. Simplification and deletion tasks come after the inbox + redirect contract are working.
+
+**Architecture note:** this sprint does **not** remove workspaces as a product concept. It establishes the inbox as the shared operational layer for conversation-first agents, while preserving the idea of specialized workspaces for output-first, task-first, or document-first agents. Sales is the reference implementation for the conversation-centric path. See `WORKSPACE_ARCHITECTURE.md`.
+
+**Decision rule for NC:** if a task requires interpretation about inbox vs workspace vs analytics responsibilities, consult `WORKSPACE_ARCHITECTURE.md` first, then `GENERALIST_PLATFORM_SPEC.md`. Do not default to "everything becomes inbox" or "everything becomes config-only." Build the operational surface that matches the agent's unit of work.
 
 ## Completed (previous sprints)
 
@@ -20,290 +41,266 @@ Full monorepo, 22 tables, RLS, RAG, 9 modules, channel adapters, widget, dashboa
 #### CAM-003 [x] Sales Agent Optimization Sprint (CAM-007, CAM-101-116)
 Follow-up cron, approve/reject UI, module config, polling, budget parser, lead scoring, prompt optimization, notifications, quote-to-payment flow, auto-stage progression, lead notes/timeline, source attribution, auto-follow-up scheduling, conversation summarization. Migrations 0016-0020. Audited + 13 fixes applied.
 
-## P0 — Finish Open Items
+#### CAM-004 [x] Launch-Ready Polish Sprint (CAM-107, CAM-111, CAM-114, CAM-117-132)
+Onboarding fixes, period comparison, revenue forecast, support resolution+CSAT, knowledge gap UX, marketing stats+drafts, error boundaries, test coverage, a11y audit, conversation filters, dashboard home, settings polish, teach agent UX, widget typing indicator, prompt optimization (support+marketing), performance dashboard, customer insights, smoke test plan. 23 audit fixes applied (ILIKE injection, scoped db racing, empty catches, focus trap, keyboard a11y).
 
-#### CAM-107 [x] Fix onboarding Step 3 module badges + collect profile basics
-Static `ARCHETYPE_MODULE_SLUGS` map replaces `trpc.module.catalog` query; Quick Profile section (tagline/bio/avatar) added; `setupArtifact` restructured to converge all 4 paths + unified Phase 2 profile merge; `tenant.updateProfile` chained on success; 7 API tests + 9 web tests (including Path 2 race condition). 10 i18n keys (en + es).
+## P0 — Foundation (Backend + Migration)
 
-#### CAM-111 [x] Period-over-period sales comparison
-This-week vs last-week comparison on sales overview with delta arrows. `agent.salesComparison` tRPC procedure (single CTE SQL, UTC week boundaries, delta TS logic); `DeltaBadge` component (fully i18n); delta badges on 2 hero cards + new "This Week" 4-cell card; 8 i18n keys (en+es); 4 tests in `agent-sales-comparison.test.ts`. Type-check passes.
+#### NC-201 [x] Add `display_name` column to customers + backfill migration
+**DONE (manually applied).** Migration 0021 applied to Supabase cloud. `displayName` added to Drizzle schema at `packages/db/src/schema/customers.ts:13`. Backfill set "Visitor N" per tenant for unnamed customers.
+
+#### NC-202 [ ] `conversation.activity` tRPC procedure
+New query returning module executions + stage changes for a specific conversation, chronologically sorted. This powers the right panel activity timeline in the inbox.
 
 **Acceptance Criteria:**
-- New tRPC procedure `agent.salesComparison`: this/last week counts for new_leads, won_deals, total_revenue, conversations
-- Week = Monday 00:00 UTC to Sunday 23:59 UTC
-- Delta badges on existing stat cards (green up / red down / gray dash)
-- Zero-division safe (last week = 0 → "+N new")
+- New `conversation.activity` tenantProcedure: input `{ conversationId: uuid }`
+- Returns array of `{ type: 'execution'|'stage_change', timestamp, moduleName?, moduleSlug?, input?, output?, fromStage?, toStage? }`
+- Joins `module_executions` on `conversation_id` + `leads` / `lead_stage_changes` via the lead linked to that conversation
+- Sorted by timestamp ASC
+- At least 3 tests (happy path, empty, mixed types)
+- `pnpm type-check` passes
+
+#### NC-203 [ ] `conversation.replyAsOwner` tRPC mutation
+Allow the tenant owner to send a message into an escalated conversation. The message is delivered to the customer through the appropriate channel adapter.
+
+**Acceptance Criteria:**
+- New `conversation.replyAsOwner` tenantProcedure: input `{ conversationId: uuid, message: string(1-4000) }`
+- Guard: conversation must have `status = 'escalated'` — throw `PRECONDITION_FAILED` otherwise
+- Insert into `messages` table: `role: 'human'`, `metadata: { authorName: <from Clerk user> }`. The schema CHECK constraint is `role IN ('customer', 'artifact', 'human', 'system')` — use `'human'` (NOT `'assistant'`, which doesn't exist in the schema).
+- For webchat: no push needed (customer polls). For WhatsApp: call WhatsApp send API (fire-and-forget with warn logging)
+- Does NOT auto-change conversation status (owner resolves manually)
+- At least 4 tests (happy path, non-escalated guard, message insertion, WhatsApp delivery)
+- `pnpm type-check` passes
+
+**Notes:** Owner name comes from tRPC context (Clerk user). Use existing channel adapter pattern from `message-handler.ts` for WhatsApp delivery.
+
+#### NC-204 [ ] Anonymous customer naming cleanup + display_name read precedence
+Currently webchat customers are created with `name: visitorId` (raw UUID like `visitor_2ec36d4e78cf2a1b`) in `apps/api/src/webhooks/widget.ts:276`. WhatsApp uses `name: profileName ?? waId` in `apps/api/src/adapters/whatsapp.ts:79`. Both pollute `customers.name` with machine identifiers. Fix the creation flow and read path.
+
+**Acceptance Criteria:**
+- **Widget session** (`apps/api/src/webhooks/widget.ts`): stop writing `name: visitorId`. Set `name: null` for anonymous webchat customers. The `externalId` already stores the visitor ID.
+- **WhatsApp adapter** (`apps/api/src/adapters/whatsapp.ts`): keep `name: profileName` when available, but set `name: null` when falling back to `waId` (the phone number is already in `phone` and `externalId`).
+- **Display name assignment**: on customer insert (not upsert-update), if `name` is null, assign `display_name` atomically using a tenant-scoped counter or tenant-scoped DB lock inside the same transaction. Do not use a naive `MAX(...) + 1` without a lock. The requirement is stable human-readable labels without duplicate "Visitor N" collisions under concurrent inserts.
+- **Read precedence** in `conversation.list` and `conversation.byId` (`apps/api/src/routes/conversation.ts`): change `customerName: customers.name` to `customerName: sql<string>\`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')\``. This way the UI always gets a human-readable name.
+- **Add `artifactId` filter** to `conversation.list` input schema: optional UUID, filters via `eq(conversations.artifactId, input.artifactId)`. This is needed by NC-212 ("View conversations" link on agent config page) and by the inbox page to filter by agent. The inbox also reads this from the `artifactId` query param.
+- **Backfill**: update existing customers where `name` matches the pattern `visitor_%` — set `name = null`, `display_name = 'Visitor ' || <seq>`. Can reuse the backfill already applied in migration 0021 (already done for unnamed customers), but also needs to NULL out the polluted `name` field. Write migration 0022.
+- At least 3 tests (webchat anonymous, WhatsApp with profile name, WhatsApp without profile name)
+- `pnpm type-check` passes
+
+**Depends on:** NC-201
+
+## P1 — Inbox Route Contract + 3-Panel UI
+
+#### NC-205 [ ] Inbox layout shell: 3-panel responsive component
+Create the `InboxLayout` component — a 3-column layout that adapts to screen size. This is the structural foundation for the inbox page.
+
+**Acceptance Criteria:**
+- New component `apps/web/src/components/inbox/inbox-layout.tsx`
+- 3 panels: left (320px fixed), center (flex-1), right (340px fixed)
+- Right panel hidden below 1280px with toggle button to show/hide
+- On mobile (< 768px): only one panel visible at a time (list → chat → details), with back navigation
+- Panels separated by `border-charcoal/8` vertical dividers
+- Full viewport height minus header (`h-[calc(100vh-4rem)]`)
+- Panels scroll independently (each `overflow-y-auto`)
+- Export `InboxLayout`, `InboxLeftPanel`, `InboxCenterPanel`, `InboxRightPanel` as named exports
+- This is an operational shell, not a redesign exercise. Reuse current dashboard primitives before creating anything bespoke.
+- `pnpm type-check` passes
+
+#### NC-206 [ ] Inbox route state + left panel conversation list
+Implement the left panel of the inbox — conversation list with filter tabs, search, and proper display names.
+
+**Acceptance Criteria:**
+- New component `apps/web/src/components/inbox/conversation-list.tsx`
+- Inbox page owns selected conversation state and reads `selected` query param on mount
+- Selecting a row updates local state and the URL query param without full navigation
+- Filter tabs at top: All / Active / Escalated / Resolved (horizontal pills, `Button` variant)
+- Search input with 300ms debounce (reuse existing pattern)
+- Each row: display name (from NC-204), summary preview (80 chars, from `conversations.metadata->>'summary'` — already returned by `conversation.list` as `summary`), relative time (`fmtDateTime`), status dot (teal=active, sunset=escalated, dune=resolved), channel icon. Do NOT add a new `lastMessagePreview` query — use the existing `summary` field.
+- Escalated rows: sunset left border (2px)
+- Selected row: teal left border + bg-sand
+- Infinite scroll with "Load more" (reuse existing `conversation.list` infinite query)
+- Click row → sets selected conversation ID (prop callback)
+- i18n keys (en + es) for filter labels, empty state
+- `pnpm type-check` passes
+
+**Depends on:** NC-204, NC-205
+
+#### NC-207 [ ] Center panel: chat thread with module execution badges
+Implement the center panel — message thread with role-colored bubbles and inline module execution indicators.
+
+**Acceptance Criteria:**
+- New component `apps/web/src/components/inbox/chat-thread.tsx`
+- Header: customer display name + status badge + status change buttons (Active/Resolved/Escalated)
+- Message bubbles colored by role: customer (bg-sand), artifact (bg-midnight text-cream), human/owner (bg-teal text-cream with "You" label)
+- Owner messages identified by `role === 'human'` (schema CHECK: customer|artifact|human|system)
+- Module execution badges inline between messages: pill-shaped, icon + description (e.g., "Qualified lead — score 85", "Quote sent — $500"). Source: `conversation.activity` query, interleaved chronologically with messages
+- Timestamps on messages (xs, opacity-50)
+- Auto-scroll to bottom on new messages (with "scroll to bottom" button if scrolled up)
+- Empty state when no conversation selected: "Select a conversation" centered text
+- Reuse `conversation.messages` query (30s poll)
+- Build for legibility first. Do not add typing indicators, optimistic status chips, or presence UI in this task.
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-#### CAM-114 [x] Revenue forecasting card
-`agent.salesForecast` procedure (artifact-scoped `stage_history` + `active_pipeline` CTEs, 90-day window, MIN_SAMPLE=5 fallback); `ForecastCard` component in `SalesOverview`; stats strip Forecast cell uses backend total; 4 i18n keys (en+es); 4 tests in `agent-sales-forecast.test.ts`. Type-check passes.
+**Depends on:** NC-202, NC-205
+
+#### NC-208 [ ] Right panel: customer details + activity timeline + notes
+Implement the right panel — customer info card, activity timeline, and notes section.
 
 **Acceptance Criteria:**
-- `agent.salesForecast` procedure: pipeline value * historical stage conversion rates (90-day window)
-- Fallback rates for < 5 leads: qualifying 20%, proposal 50%, negotiation 70%
-- New card in SalesOverview: "30-day forecast: $X" with stage breakdown
+- New component `apps/web/src/components/inbox/customer-panel.tsx`
+- **Customer info section:** Avatar initial (bg-teal/15), display name, email, phone, channel badge, first seen date, memory facts (key-value pairs)
+- **Activity timeline:** Chronological list from `conversation.activity` — each item shows icon + description + timestamp. Icons by type: CheckCircle (execution), ArrowRight (stage change), AlertTriangle (escalation)
+- **Notes section:** If conversation has a linked lead, show existing notes + "Add note" textarea + submit. Reuse existing `agent.addLeadNote` mutation
+- Collapsible sections (customer info default open, activity default open, notes default open)
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-**Depends on:** CAM-111
+**Depends on:** NC-202, NC-205
 
-## P1 — Support & Marketing Workspace Substance
-
-#### CAM-117 [x] Support workspace: ticket resolution flow
-"Resolve" button + inline CSAT (1-5 stars stored in `conversations.metadata.csat`); `agent.supportResolutionStats` procedure (resolved count, avg CSAT, resolution rate, 30d); `SupportResolutionStats` MetricsGrid section; resolved tickets grayed out with star badge; `rowClassName` added to DataTable primitive; 11 i18n keys (en+es). Type-check passes.
+#### NC-209 [ ] Owner reply input for escalated conversations
+Add the owner reply input at the bottom of the chat thread panel, only visible when conversation is escalated.
 
 **Acceptance Criteria:**
-- "Resolve" button on each open ticket in `registry/support.tsx` — calls existing `conversation.updateStatus` with `status: 'resolved'`
-- After resolve: inline 1-5 star CSAT rating prompt (optional, stored in `conversations.metadata.csat`)
-- New tRPC procedure `agent.supportResolutionStats`: resolved count, avg CSAT, resolution rate (resolved/total) for last 30 days
-- Stats shown as `MetricsGrid` row at top of support workspace
-- Ticket list shows resolved tickets grayed out with CSAT star if rated
+- Reply input: textarea + send button, only rendered when `conversation.status === 'escalated'`
+- Calls `conversation.replyAsOwner` mutation
+- Optimistic: add message to local list immediately, revert on error
+- Toast on error
+- Disable input while sending (isPending state)
+- Info banner above input: "This conversation was escalated. Your reply will be sent to the customer." (i18n)
+- After sending: clear input, scroll to bottom
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-#### CAM-118 [x] Support workspace: knowledge gap inline ingest + improved UX
-Card-feed layout replaces DataTable; `dismissedIntents` useRef + onMutate setData gives true optimistic removal that persists through 30s poll refetches (no invalidate on success); `tokens_out ASC` subquery selects lowest-confidence conversation for sample question; intent normalized via `lower(trim())` in SQL; 8 i18n keys (en+es); 4 tests in `agent-knowledge-gaps.test.ts`. Type-check passes.
-The support workspace already has `agent.supportKnowledgeGaps` procedure and a `SupportKnowledgeGaps` section. Improve it with actionable inline ingest.
+**Depends on:** NC-203, NC-207
+
+#### NC-210 [ ] Deep-link redirect + mobile responsive inbox
+Make the inbox work as the canonical conversation destination on desktop and mobile.
 
 **Acceptance Criteria:**
-- Add "Add Answer" button on each knowledge gap card — opens inline textarea where owner types the answer
-- On submit: calls `knowledge.ingest` with the answer text + the original question as context (title)
-- After successful ingest: remove the gap card from the list (optimistic UI)
-- Add sample question preview on each card (first message from the lowest-confidence conversation)
-- Add count badge: "Asked N times" on each gap card
-- Improve clustering: group by normalized intent (lowercase, trim) instead of raw intent string to reduce duplicates
+- Replace `/dashboard/conversations/[id]/page.tsx` with a redirect component that forwards to `/dashboard/conversations?selected=<id>`
+- Update all internal links that point to `/dashboard/conversations/<id>` to use `/dashboard/conversations?selected=<id>`
+- Mobile (< 768px): show only conversation list by default
+- Tap conversation → slide to chat thread (full screen)
+- Back button in chat header → return to list
+- Customer details: accessible via toggle button in chat header on mobile
+- Smooth CSS transitions between panels (transform translateX, 200ms)
+- Test on 375px width (iPhone SE)
+- `pnpm type-check` passes
+
+**Depends on:** NC-206, NC-207
+
+## P2 — Dashboard Simplification
+
+#### NC-211 [ ] Simplify `/dashboard` home page
+Reduce the current overview page to Botly-style hero metrics + agent cards + compact activity feed.
+
+**Acceptance Criteria:**
+- 3-4 hero metric cards (large numbers): Total Conversations (today), This Week, Pending Approvals, Active Leads. All from existing `dashboardOverview` output — do not invent new metrics.
+- Agent cards row: each agent shows name, type badge, active dot, "Open" link
+- Recent activity feed (last 5 events, compact): one-line per event with icon + description + time
+- Remove: plan usage card (move to settings/billing), intent breakdown (move to analytics), business KPIs grid (redundant), advanced LLM section (move to analytics)
+- Clean, minimal layout — max 1 scroll on desktop
+- No new analytics widgets in this task. This is simplification only.
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-**Notes:**
-The backend procedure and basic UI already exist. This task improves the UX so gaps are actionable without leaving the workspace. Read `apps/web/src/components/agent-workspace/registry/support.tsx` for the current rendering.
+**Depends on:** NC-210
 
-#### CAM-119 [x] Marketing workspace: interest stats + draft content feed
-The marketing workspace is a skeleton. Add substance.
+#### NC-212 [ ] Simplify `/dashboard/agents/[id]` to config-only page
+Replace the complex workspace with a clean configuration page.
 
 **Acceptance Criteria:**
-- New tRPC procedure `agent.marketingStats`: total interests captured (from `capture_interest` executions), top 3 interest categories, draft content count (from `draft_content` executions)
-- `MetricsGrid` row at top of marketing workspace with interests captured, categories, drafts pending
-- `CardFeed` section: "Content Drafts" — shows `draft_content` executions with `status = 'executed'`. Each card shows draft title, preview (80 chars), created date, and Approve/Edit/Discard buttons.
-- All three actions use a new `module.updateDraft` tRPC mutation (NOT `module.approve`/`module.reject` — those are for the pending-approval autonomy flow, which is a different lifecycle).
-- New tRPC mutation `module.updateDraft`: input `{ executionId: string, action: 'approve' | 'edit' | 'discard', output?: Record<string, unknown> }`. Validates execution exists, belongs to tenant, and has `status = 'executed'` + `module_slug = 'draft_content'`.
-  - `action: 'approve'` → sets `output.draft_status = 'approved'` (owner accepted the draft as-is)
-  - `action: 'discard'` → sets `output.draft_status = 'discarded'` (owner rejected the draft)
-  - `action: 'edit'` → requires `output` param, merges updated content into `output` JSONB + sets `output.draft_status = 'approved'`
-- Feed filters: only show drafts where `output.draft_status` is null (unreviewed). Approved/discarded drafts hidden from feed.
-- No changes to `module_executions.status` column — it stays `'executed'`. The draft lifecycle lives entirely in `output` JSONB.
+- Page sections: Agent Identity (name, type, active toggle) → Personality (instructions, greeting, tone) → Modules (list with autonomy selector) → Knowledge (doc count + link to knowledge page) → Recent Activity (last 5 events for this artifact, compact — see backend note below) → Settings (export data, danger zone)
+- **Backend change required:** `dashboardActivityFeed` currently has no input params (tenant-wide only). Add an optional `artifactId?: uuid` input. When provided, add `.where(eq(ownerNotifications.artifactId, input.artifactId))` to the query. This is a one-line filter addition — do NOT create a new procedure.
+- Reuse existing `ModuleSettings` component
+- Reuse existing `AgentSettingsPanel` component (export + danger zone)
+- Personality section: inline editable fields (reuse personality drawer pattern from artifacts page)
+- Remove workspace header (3-panel KPI), remove registry sections (kanban, alerts, etc.)
+- Add "View conversations" link that navigates to `/dashboard/conversations?artifactId=<id>` (filter by agent)
+- Keep a tiny recent activity summary so the page does not feel dead; do not reintroduce workspace-specific dashboards.
+- This task simplifies the current agent page for this sprint. It does NOT eliminate specialized workspaces as a future product concept for non-conversation-first agents (see `WORKSPACE_ARCHITECTURE.md`).
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-**Notes:**
-Follow the pattern from `sales-alerts.tsx` for approve/reject mutations with optimistic UI. Read `packages/ai/src/modules/draft-content.ts` and `capture-interest.ts` for output schemas.
+**Depends on:** NC-210
 
-## P2 — Production Hardening
-
-#### CAM-120 [x] Error boundary + global error handling audit
-`WorkspaceSectionErrorBoundary` class component created; each section in `agents/[id]/page.tsx` wrapped; `retry: 2` added to all 18 polling queries across 6 files; `onError` toast added to 9 mutations; 2 i18n keys (en+es) in `agentWorkspace` + `errorLoading` in `notifications`. Type-check passes.
+#### NC-213 [ ] Promote `/dashboard/analytics` page
+Move performance charts and metrics from old workspace into a proper analytics page.
 
 **Acceptance Criteria:**
-- Add React Error Boundary component wrapping each workspace section (not the whole page — one section crash shouldn't kill the workspace)
-- Error boundary renders inline error card with "Something went wrong" + "Retry" button (calls `reset()`)
-- Audit all `useMutation` calls: ensure every mutation has `onError` handler (at minimum a toast)
-- Audit all `useQuery` calls with `refetchInterval`: ensure `retry: 2` is set (don't hammer a down backend)
-- i18n keys (en + es) for error boundary messages
-- `pnpm type-check` passes
-
-**Notes:**
-Focus on the workspace page (`agents/[id]/page.tsx`) and its registry components. The conversations pages already have `QueryError` handling.
-
-#### CAM-121 [x] Test coverage push for new tRPC procedures
-Added 12 tests in `agent-notifications.test.ts` (ownerNotifications×3, markNotificationRead×3, markAllNotificationsRead×3, unreadNotificationCount×3) and 1 test in `agent-source-breakdown.test.ts`. All type-check passes.
-Add integration tests for procedures added in the sales optimization sprint.
-
-**Acceptance Criteria:**
-- Tests for: `agent.ownerNotifications`, `agent.markNotificationRead`, `agent.markAllNotificationsRead`, `agent.unreadNotificationCount`, `agent.salesSourceBreakdown`
-- Follow existing pattern in `apps/api/src/__tests__/routes/` using `createCallerFactory`
-- Mock `tenantDb.query` via callback interception (see `learning-routes.test.ts`)
-- At least 3 tests per procedure (happy path, empty data, edge case)
-- `pnpm type-check` passes
-
-#### CAM-122 [x] Accessibility audit on new components
-Ensure all components from the sales optimization sprint meet a11y standards.
-`role="dialog"` + `aria-modal` on Sheet; `aria-controls` + `htmlFor`/`id` pairs on ModuleSettings; sr-only unread dot + i18n close on NotificationsPanel; `type="button"` + `min-h-[36px]` + label/textarea association on LeadDetailSheet; `type="button"` + label/input pairs on SalesAlerts reject form; `role="list/listitem"` + `ariaLabel` prop on BarChartCss; win-rate color indicator dot in registry/sales.tsx; 2 i18n keys (en+es); 15 tests in `a11y-audit.test.tsx`. Type-check passes.
-
-**Acceptance Criteria:**
-- Audit these files: `module-settings.tsx`, `notifications-panel.tsx`, `lead-detail-sheet.tsx`, `sales-alerts.tsx` (reject form), `sales-overview.tsx` (source chart)
-- All interactive elements have `aria-label` or visible label
-- All form inputs have associated `<label>` elements
-- Focus order is logical (tab through approve→reject→form fields)
-- Color contrast meets WCAG AA on all text (check dune-on-cream, gold-on-white)
-- Keyboard navigation: Enter/Space activates buttons, Escape closes sheets/modals
-- Touch targets >= 36px (already enforced, verify new additions)
-- `pnpm type-check` passes
-
-## P3 — Dashboard UX & Onboarding Improvements
-
-#### CAM-123 [x] Conversation list redesign — filters + search
-Extended `conversation.list` input schema with `channel`, `search`, `dateRange`, `customerId`; added filter conditions (ILIKE/EXISTS for search, date cutoff, FK equality); filter bar with status/channel/date/search + 300ms debounce in `page.tsx`; 10 i18n keys (en+es); 7 tests in `conversation-list-filters.test.ts` (spy on `.where()` + `PgDialect.sqlToQuery()` to assert bound params, not just Zod acceptance). Type-check passes.
-
-**Acceptance Criteria:**
-- Add filter bar above conversation list in `apps/web/src/app/dashboard/conversations/page.tsx`
-- Filters: status (all/active/resolved), channel (all/web_chat/whatsapp), date range (last 7d/30d/all)
-- Search input: filters by customer name (ILIKE on `conversations.metadata->>'customerName'`) or by EXISTS subquery on `messages.content` (NOT a plain join — must avoid duplicating conversation rows and breaking keyset pagination)
-- New tRPC input params on `conversation.list`: `status`, `channel`, `search`, `dateRange`, `customerId` (optional UUID — stable FK filter for click-through from customer insights CAM-131)
-- Debounced search (300ms)
-- IMPORTANT: use `EXISTS (SELECT 1 FROM messages WHERE messages.conversation_id = conversations.id AND messages.content ILIKE ...)` for message search — never join messages directly into the paginated query
+- Reuse `PerformancePanel` component (response time bars, volume sparkline, module usage)
+- Add intent breakdown section (from current dashboard home)
+- Add sales comparison section (if sales agent active) — reuse `DeltaBadge` + comparison data
+- Add revenue forecast card (if sales agent active)
+- Agent selector dropdown at top (filter analytics by agent or "All")
+- This task moves existing numbers into a dedicated page. Do not invent new metrics or visualizations.
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-**Notes:**
-The existing `conversation.list` procedure already paginates. Extend the input schema with optional filter fields. Use `and()` in the Drizzle `where` clause to compose filters.
+**Depends on:** NC-210
 
-#### CAM-124 [x] Dashboard home page — activity feed + quick stats
-`agent.dashboardOverview` (5 counts: today/week conversations, unread notifications, pending approvals, active leads) + `agent.dashboardActivityFeed` (merged notification+resolved-conversation feed, top 10 sorted by recency); `QuickStatsSection`, `YourAgentsSection`, `ActivityFeedSection` inline components in `apps/web/src/app/dashboard/page.tsx`; 13 i18n keys (en+es); 9 tests in `agent-dashboard.test.ts`. Type-check passes.
+#### NC-214 [ ] Remove old workspace components
+Clean up components no longer used after the inbox transition.
 
 **Acceptance Criteria:**
-- New tRPC procedure `agent.dashboardOverview`: total conversations (today/week), unread notifications count, pending approvals count, active leads count. Scoped to tenant (all artifacts).
-- Activity feed: last 10 events across all artifacts (new lead, conversation resolved, approval needed, deal closed). Reuse `ownerNotifications` data.
-- Quick stat cards using `MetricsGrid` pattern
-- "Your Agents" list with status indicators (active/inactive, based on `artifacts.isActive` boolean) and link to workspace
-- i18n keys (en + es)
+- Delete: `sales/kanban-board.tsx`, `sales/lead-detail-sheet.tsx`, `sales/sales-alerts.tsx`, `sales/sales-payments.tsx`, `sales/after-hours-card.tsx`
+- Delete: `registry/sales.tsx`, `registry/support.tsx`, `registry/marketing.tsx`, `registry/index.ts`
+- Delete: `workspace-header.tsx`, `priority-intents.tsx`
+- Keep: `primitives/*`, `module-settings.tsx`, `agent-settings-panel.tsx`, `agent-activity.tsx`, `workspace-shell.tsx`, `workspace-section-error-boundary.tsx`, `sales/constants.ts`, `performance-panel.tsx`, `notifications-panel.tsx`
+- Verify no imports reference deleted files
+- `pnpm type-check` passes
+- `pnpm build` passes
+
+**Depends on:** NC-211, NC-212, NC-213
+
+## P3 — Polish & Fixes
+
+#### NC-216 [ ] Fix book_meeting business hours validation
+The book_meeting module currently accepts any time without checking business hours. Feed `personality.hours` into the LLM system prompt and add validation in the module.
+
+**Acceptance Criteria:**
+- `packages/ai/src/modules/book-meeting.ts`: add `businessHours` to `configOverrides` schema (optional string)
+- In `handleMessage` orchestration: pass `artifact.personality.hours` as `configOverrides.businessHours` to module executor
+- LLM system prompt addition: "Business hours: {hours}. Only suggest meeting times within these hours."
+- Module output validation: if `proposedTime` falls outside business hours, flag in output (`outsideHours: true`) and include a suggestion within hours
+- At least 3 tests
 - `pnpm type-check` passes
 
-**Depends on:** CAM-108 (notifications exist)
-
-#### CAM-125 [x] Settings page polish — danger zone + data export
-`artifact.deactivate` mutation (soft-delete via `isActive=false`, `TRPCError NOT_FOUND`); `agent.exportData` query (LIMIT+1 truncation on convs/leads/notes); custom `dialog.tsx` (matches `sheet.tsx` pattern, no Radix); `AgentSettingsPanel` component (Export Data card + Danger Zone card with confirmation dialog, `tc('cancel')` via `useTranslations('common')`); dashboard `page.tsx` fixed to `artifacts.data` (activeOnly: true); 13 i18n keys (en+es); 7 tests across `artifact-deactivate.test.ts` (3) + `agent-export-data.test.ts` (4). Type-check passes.
+#### NC-217 [ ] i18n for all new inbox components (en + es)
+Add all translation keys for the inbox UI.
 
 **Acceptance Criteria:**
-- "Danger Zone" section on settings page: "Delete Agent" button (confirmation dialog → calls `artifact.deactivate` which soft-deletes)
-- New tRPC procedure `artifact.deactivate`: sets `artifacts.is_active = false`, does NOT hard delete. Deactivated agents hidden from dashboard list but data preserved. Update agent list query to filter `isActive = true`.
-- "Export Data" button: generates JSON download of all leads + conversations for the artifact (client-side blob download from tRPC query)
-- New tRPC procedure `agent.exportData`: returns leads + conversations + notes as JSON (limit 1000 records, warn if truncated)
-- i18n keys (en + es)
+- New `inbox` section in `en.json` and `es.json`
+- Keys for: filter tabs, empty states, owner reply banner, activity timeline labels, customer panel sections, mobile back button, "Select a conversation" placeholder
+- Verify all hardcoded strings in NC-205..NC-210 are replaced with `t()` calls
 - `pnpm type-check` passes
 
-#### CAM-126 [x] Onboarding wizard — Step 4 (Teach Agent) improvements
-`knowledge.docCount` tRPC procedure (COUNT DISTINCT title, no limit); `TOPICS_BY_ARCHETYPE` constant + archetype-aware topic button grid pre-filling textarea; `role="progressbar"` knowledge progress indicator (teal ≥3 docs, gold 1-2, empty 0); `showSoftWarning = !isLoading && docCount === 0`; `archetype?` prop threaded from `page.tsx`. 13 i18n keys (en+es). 6 tests in `step4-teach-agent.test.tsx`. Type-check passes.
-Step 4 lets owners add knowledge but the UX is minimal.
+**Depends on:** NC-206, NC-207, NC-208, NC-209
+
+#### NC-218 [ ] Accessibility audit on inbox
+Ensure the inbox is fully keyboard-navigable and screen-reader friendly.
 
 **Acceptance Criteria:**
-- Add "Suggested topics" section: based on archetype, show 3-4 prompts like "Add your pricing info", "Describe your services", "Add FAQ answers". Each is a clickable card that pre-fills the textarea.
-- Show knowledge base count badge: "3 documents added" with progress indicator
-- Add URL ingestion field: paste a URL, backend fetches + chunks it (uses existing `knowledge.queueUrl` tRPC procedure)
-- Validate minimum: soft warning if 0 docs added ("Your agent works better with knowledge")
-- i18n keys (en + es)
+- Conversation list: arrow keys to navigate, Enter to select
+- Chat thread: proper `role="log"` on message container, `aria-live="polite"` for new messages
+- Owner reply: proper `<label>` on textarea
+- Right panel sections: proper heading hierarchy (h3)
+- Focus management: selecting a conversation moves focus to chat thread header
+- Touch targets >= 36px on all interactive elements
 - `pnpm type-check` passes
 
-**Notes:**
-Read `apps/web/src/components/onboarding/step4-teach-agent.tsx` for current implementation. URL ingestion uses `knowledge.queueUrl` (async queue + cron processing), NOT a synchronous ingest. Read `apps/api/src/routes/knowledge.ts` for the procedure.
+**Depends on:** NC-210
 
-#### CAM-127 [x] Widget chat — typing indicator + message status
-The widget feels static. Add basic interaction feedback.
-`useChat.ts`: `ChatMessage` extended with `id` + `metadata.status` ('sent'/'delivered'/'error'); `generateId()` (no crypto dep); optimistic message gains `status:'sent'`, transitions to `delivered` on success or `error` on failure (429 still removes); `retryMessage(id)` removes + re-sends. `injectStyles.ts`: one-shot `<style>` injection with `camello-bounce`/`camello-fade-in` keyframes + `.camello-typing-dot`/`.camello-msg-enter` classes. `TypingIndicator.tsx`: animated dot bubble (artifact style). `MessageStatusIcon.tsx`: ✓/✓✓/✗+Retry below customer messages. `ChatWindow.tsx`: `messagesContainerRef` + `handleScroll` + `isScrolledUp` state; auto-scroll only when not scrolled up; scroll-to-bottom pill button; `key={msg.id}` + `camello-msg-enter` on bubbles; `retryMessage` wired. `messages.ts`: `chat.scrollToBottom` + `chat.retry` (en+es). Type-check passes.
+#### NC-219 [ ] Update sidebar navigation
+Rename and reorder sidebar items to match the new structure.
 
 **Acceptance Criteria:**
-- Typing indicator: show animated dots while waiting for AI response (CSS-only animation, reuse `chat-page.module.css` pattern)
-- Message status: sent (single check), delivered (double check), error (red X with retry). Track via message `metadata.status`.
-- Auto-scroll to bottom on new message (with "scroll to bottom" button if user has scrolled up)
-- Smooth message appear animation (fade-in + slide-up, CSS transition)
-- Changes in `apps/widget/src/` only (widget is self-contained IIFE)
+- Nav items: Home (overview), Inbox (conversations), Agents (artifacts/config), Analytics, Knowledge, Settings (billing + profile)
+- Remove "Help" and "Docs" (stubs) or keep as external links
+- Inbox item shows a count badge from `dashboardOverview.pendingApprovalsCount` (already exists — counts `module_executions` with `status = 'pending'`). This is the most actionable inbox signal. Do NOT add a new backend field for this.
+- i18n keys (en + es) for renamed items
 - `pnpm type-check` passes
-
-**Notes:**
-The widget is a Vite IIFE bundle (`apps/widget/`). It communicates via HTTP to `/api/widget/*`. The typing indicator is purely client-side (show while fetch is pending). Read `apps/widget/src/App.tsx` for current structure.
-
-#### CAM-128 [x] Support prompt optimization — empathy + escalation intelligence
-`packages/ai/src/archetypes/support.ts`: replaced both `prompts.en` and `prompts.es` with 5-section structured prompts (EMPATHY FRAMEWORK, ESCALATION INTELLIGENCE, DE-ESCALATION TECHNIQUES, KNOWLEDGE GAP HANDLING, NEVER DO). Type-check passes.
-
-**Acceptance Criteria:**
-- Update `packages/ai/src/archetypes/support.ts` prompts (en + es)
-- Empathy framework: acknowledge frustration → validate concern → provide solution → confirm resolution
-- Escalation intelligence: recognize when the agent should escalate (repeated failures, anger signals, complex technical issues, billing disputes)
-- De-escalation techniques: for angry customers, slow down, avoid defensive language, offer concrete next steps
-- Knowledge gap handling: when unsure, say so honestly + offer to connect with human rather than guessing
-- "Never do" rules: no dismissive language, no "I'm just an AI", no false promises about resolution time
-- Keep under ~25 lines per locale
-- `pnpm type-check` passes
-
-#### CAM-129 [x] Marketing prompt optimization — engagement + content strategy
-`packages/ai/src/archetypes/marketing.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (INTEREST CAPTURE, CONTENT TONE MATCHING, LEAD WARMING, CAMPAIGN AWARENESS, NEVER DO). Both locales ≤25 lines. Type-check passes.
-
-**Acceptance Criteria:**
-- Update `packages/ai/src/archetypes/marketing.ts` prompts (en + es)
-- Interest capture: recognize buying signals, event interest, product curiosity → capture structured data
-- Content tone matching: mirror the brand voice from knowledge base (professional, casual, technical)
-- Lead warming: for returning visitors, reference previous interests ("Last time you asked about X...")
-- Campaign awareness: if knowledge base mentions promotions/events, proactively mention them
-- "Never do" rules: no spam, no pushy upsells, no fake urgency, no data collection without context
-- Keep under ~25 lines per locale
-- `pnpm type-check` passes
-
-## P4 — Analytics & Insights
-
-#### CAM-130 [x] Agent performance dashboard — response time + satisfaction trends
-`agent.performanceMetrics` procedure (3-query strategy: `artifact_metrics_daily` for resolution numerator, `conversations` for response time + fallback counts, `module_executions` for all-time module usage). `performance-panel.tsx` with `BarChartCss` (14d response time) + `Sparkline` (30d volume + resolution rate) + module usage chart; added to sales/support/marketing registries. 10 i18n keys (en+es). 8 tests in `agent-routes.test.ts`. Type-check passes.
-Add a dedicated analytics tab/section to the workspace.
-
-**Acceptance Criteria:**
-- New tRPC procedure `agent.performanceMetrics`: avg response time (last 7d, 30d), conversation volume trend (daily counts for last 30d), resolution rate trend, module execution counts by slug
-- New component `apps/web/src/components/agent-workspace/performance-panel.tsx`
-- Response time chart: `BarChartCss` showing daily avg response time (last 14 days)
-- Volume trend: `Sparkline` showing daily conversation count (last 30 days)
-- Module usage breakdown: horizontal bar chart showing which modules fire most
-- Add as a section in all workspace registries (sales, support, marketing)
-- i18n keys (en + es)
-- `pnpm type-check` passes
-
-**Notes:**
-Data comes from `conversations` (created_at, resolved_at for response time), `module_executions` (counts by slug), and `artifact_metrics_daily` (pre-aggregated daily stats). Prefer `artifact_metrics_daily` when available to avoid expensive queries.
-
-#### CAM-131 [x] Customer insights — returning visitor tracking
-`agent.customerInsights` procedure (raw SQL: customers JOIN conversations, HAVING COUNT > 1 for returning-only, correlated subquery on customers.memory JSONB for last topic, ORDER BY conv count DESC LIMIT 10); `onRowClick` prop added to `DataTable` primitive; `ReturningCustomers` component registered in `salesSections`; row click → `router.push` to `/dashboard/conversations?customerId=`; name cell retains `Link` for a11y + right-click; 4 tests in `agent-customer-insights.test.ts`; 5 i18n keys (en+es). Type-check passes.
-
-Show which customers come back and what they ask about over time.
-
-**Acceptance Criteria:**
-- New tRPC procedure `agent.customerInsights`: top 10 returning customers (by conversation count), with last visit date, total conversations, last topic
-- Uses `customers` table (join on `customers.id` → `conversations.customer_id`). Customer memory is stored in `customers.memory` JSONB column — extract last topic from there. Do NOT reference a `customer_memories` table (it does not exist).
-- New `DataTable` section in sales workspace: "Returning Customers" with name, visits, last seen, last topic
-- Click row → navigates to conversation list with `?customerId=<id>` query param. Add `customerId` as optional filter to `conversation.list` tRPC input (filter via `conversations.customer_id = customerId`). This is a stable FK filter, not a name search.
-- i18n keys (en + es)
-- `pnpm type-check` passes
-
-**Depends on:** CAM-123 (conversation filters for click-through)
-
-## P5 — Pre-Launch
-
-#### CAM-132 [x] E2E smoke test plan
-Created `SMOKE_TEST.md` in project root: 78 test cases across 15 phases (sign-up through widget embed), each with preconditions/steps/expected result, 🌱/🌾 empty-vs-seed labeling, execution checklist table, and seed data guide. Type-check passes.
-Generate a comprehensive manual smoke test checklist covering the full user journey. This is the final gate before real users.
-
-**Acceptance Criteria:**
-- Create `SMOKE_TEST.md` in project root
-- Organized by user journey phase:
-  1. **Sign up & Onboarding:** Clerk sign-up → org creation → Step 1-6 wizard (describe business, meet agent, teach agent, connect channel, test chat). Verify module badges show only archetype modules (CAM-107). Verify profile fields populate `/chat/[slug]` card.
-  2. **Knowledge Base:** Add text knowledge → verify RAG retrieval in chat. Queue URL ingestion (CAM-126) → verify chunked + embedded. Check knowledge gap detection surfaces low-confidence questions (CAM-118).
-  3. **Public Chat (`/chat/[slug]`):** Business card renders (avatar, tagline, bio, social, hours). Quick actions work. Chat sends/receives. Typing indicator shows (CAM-127). Abuse limits trigger (20msg/min burst, 50msg/conversation, 100msg/day). Session counter increments.
-  4. **Sales Workspace:** Leads appear in kanban after chat qualifies. Lead scoring shows numeric score (CAM-105). Stage auto-advances on re-qualification (CAM-110). Stale lead alerts fire. Source attribution bar chart populates (CAM-113). Week-over-week comparison shows deltas (CAM-111). Revenue forecast card renders (CAM-114). Sparklines populate.
-  5. **Approvals & Notifications:** `send_quote` triggers approval card. Approve → payment record created (CAM-109). Reject with reason → toast + card removed. Bell icon shows unread count. Notification panel shows chronological feed. Mark all read works. `stage_advanced` notification fires on auto-progression.
-  6. **Lead Detail:** Click lead → sheet opens. Timeline shows messages + notes + stage changes + summaries. Add note → appears in timeline. Close reason dialog works (won/lost).
-  7. **Follow-ups:** Warm/hot lead → queued follow-up created (CAM-115). Cron processes follow-up (CAM-007). No duplicate follow-ups (unique index CAM-020).
-  8. **Support Workspace:** Tickets list. Resolve button → CSAT prompt (CAM-117). Resolution stats populate. Knowledge gaps show with inline ingest (CAM-118).
-  9. **Marketing Workspace:** Interest stats populate (CAM-119). Content drafts feed with approve/edit/discard.
-  10. **Conversations Page:** List with summaries (CAM-116). Filters work: status, channel, date range, search (CAM-123). Pagination stable with search active.
-  11. **Dashboard Home:** Activity feed shows recent events (CAM-124). Quick stats cards. Agent list with status.
-  12. **Settings:** Profile page (tagline, bio, avatar, social, QR). Module settings (autonomy, config overrides) (CAM-102). Billing page (plan display, upgrade flow). Danger zone: deactivate agent (CAM-125). Export data download.
-  13. **Error Handling:** Kill API → error boundaries render retry cards (CAM-120). Mutations show error toasts. Polling retries with backoff.
-  14. **i18n:** Switch locale to Spanish → all dashboard text translates. Chat page respects artifact language. Relative timestamps localize.
-  15. **Widget Embed:** Copy snippet → paste in external HTML → widget loads. Chat works end-to-end through widget.
-- Each test case has: description, preconditions, steps, expected result
-- Mark tests that require seed data vs. tests that can run on empty state
-- `pnpm type-check` passes (no code changes, just the markdown file)
-
-**Depends on:** All other CAM tasks in this sprint
-
-**Notes:**
-This is the checklist Mateo will walk through manually after the sprint audit is clean. It should be exhaustive enough that passing all tests means the product is ready for first users.
 
 ## Manual / Blocked — Not for NC
 

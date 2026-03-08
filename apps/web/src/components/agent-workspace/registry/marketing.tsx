@@ -240,6 +240,7 @@ function MarketingDrafts({ artifactId }: { artifactId: string }) {
             {/* Edit textarea */}
             {isEditing && (
               <textarea
+                aria-label={t('draftEditPlaceholder')}
                 className="w-full rounded border border-charcoal/20 bg-white p-2 text-sm text-charcoal placeholder:text-dune min-h-[80px] resize-y"
                 rows={4}
                 placeholder={t('draftEditPlaceholder')}

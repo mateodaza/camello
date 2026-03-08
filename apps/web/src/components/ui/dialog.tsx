@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 
 interface DialogProps {
@@ -12,12 +12,28 @@ interface DialogProps {
 }
 
 export function Dialog({ open, onClose, className, 'aria-labelledby': ariaLabelledby, children }: DialogProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') { onClose(); return; }
+    if (e.key !== 'Tab' || !panelRef.current) return;
+    const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+      'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    document.addEventListener('keydown', handleKeyDown);
+    // Auto-focus the panel so focus is inside the dialog
+    panelRef.current?.focus();
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, handleKeyDown]);
 
   if (!open) return null;
 
@@ -27,10 +43,12 @@ export function Dialog({ open, onClose, className, 'aria-labelledby': ariaLabell
       <div className="absolute inset-0 bg-midnight/40" onClick={onClose} />
       {/* panel */}
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={ariaLabelledby}
-        className={cn('relative w-full max-w-md rounded-xl bg-cream shadow-xl', className)}
+        tabIndex={-1}
+        className={cn('relative w-full max-w-md rounded-xl bg-cream shadow-xl outline-none', className)}
       >
         {children}
       </div>

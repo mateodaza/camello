@@ -161,8 +161,8 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
           numericScore,
           budget: input.budget ?? null,
         },
-      }).catch(() => {
-        // Swallow — notification failure must never block lead qualification
+      }).catch((err: unknown) => {
+        console.warn('[qualify-lead] hot_lead notification failed:', err instanceof Error ? err.message : String(err));
       });
     }
 
@@ -181,7 +181,9 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
           from: advancedFrom,
           to: resolvedStage,
         },
-      }).catch(() => {});
+      }).catch((err: unknown) => {
+        console.warn('[qualify-lead] stage_advanced notification failed:', err instanceof Error ? err.message : String(err));
+      });
     }
 
     // Auto-schedule follow-up for warm/hot leads (fire-and-forget, non-blocking)
@@ -200,10 +202,12 @@ const qualifyLeadModule: ModuleDefinition<Input, Output> = {
             artifactId: ctx.artifactId,
             conversationId: ctx.conversationId,
             scheduledAt: new Date(Date.now() + delayMs),
-          }).catch(() => {}); // fire-and-forget — never blocks qualification
+          }).catch((err: unknown) => {
+            console.warn('[qualify-lead] followup scheduling failed:', err instanceof Error ? err.message : String(err));
+          });
         }
-      } catch {
-        // Swallow — scheduling failure must never block lead qualification
+      } catch (err) {
+        console.warn('[qualify-lead] followup check failed:', err instanceof Error ? err.message : String(err));
       }
     }
 
