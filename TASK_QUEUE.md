@@ -158,8 +158,8 @@ Extended `conversation.list` input schema with `channel`, `search`, `dateRange`,
 **Notes:**
 The existing `conversation.list` procedure already paginates. Extend the input schema with optional filter fields. Use `and()` in the Drizzle `where` clause to compose filters.
 
-#### CAM-124 [ ] Dashboard home page — activity feed + quick stats
-The `/dashboard` page is bare. Add a useful landing view.
+#### CAM-124 [x] Dashboard home page — activity feed + quick stats
+`agent.dashboardOverview` (5 counts: today/week conversations, unread notifications, pending approvals, active leads) + `agent.dashboardActivityFeed` (merged notification+resolved-conversation feed, top 10 sorted by recency); `QuickStatsSection`, `YourAgentsSection`, `ActivityFeedSection` inline components in `apps/web/src/app/dashboard/page.tsx`; 13 i18n keys (en+es); 9 tests in `agent-dashboard.test.ts`. Type-check passes.
 
 **Acceptance Criteria:**
 - New tRPC procedure `agent.dashboardOverview`: total conversations (today/week), unread notifications count, pending approvals count, active leads count. Scoped to tenant (all artifacts).

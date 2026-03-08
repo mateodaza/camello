@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { eq, and, desc, sql, gte, inArray, isNull, isNotNull, asc, lt, lte } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, inArray, isNull, isNotNull, asc, lt, lte, not } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
 import {
   artifacts,
@@ -2002,6 +2002,135 @@ export const agentRouter = router({
         const totalForecast = stageRows.reduce((sum, s) => sum + s.forecastValue, 0);
 
         return { totalForecast, stages: stageRows };
+      });
+    }),
+
+  // =========================================================================
+  // dashboardOverview — 5 quick-stat counts for the home page
+  // =========================================================================
+
+  dashboardOverview: tenantProcedure
+    .query(async ({ ctx }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const now = new Date();
+        const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        const dayOfWeek = now.getUTCDay();
+        const daysToMonday = (dayOfWeek + 6) % 7;
+        const startOfWeek = new Date(startOfToday.getTime() - daysToMonday * 24 * 60 * 60 * 1000);
+
+        const [todayRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(conversations)
+          .where(and(eq(conversations.tenantId, ctx.tenantId), gte(conversations.createdAt, startOfToday)));
+
+        const [weekRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(conversations)
+          .where(and(eq(conversations.tenantId, ctx.tenantId), gte(conversations.createdAt, startOfWeek)));
+
+        const [unreadRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(ownerNotifications)
+          .where(and(eq(ownerNotifications.tenantId, ctx.tenantId), isNull(ownerNotifications.readAt)));
+
+        const [pendingRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(moduleExecutions)
+          .where(and(eq(moduleExecutions.tenantId, ctx.tenantId), eq(moduleExecutions.status, 'pending')));
+
+        const [activeLeadsRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(leads)
+          .where(and(
+            eq(leads.tenantId, ctx.tenantId),
+            not(inArray(leads.stage, ['closed_won', 'closed_lost'])),
+          ));
+
+        return {
+          todayConversations: todayRow?.count ?? 0,
+          weekConversations: weekRow?.count ?? 0,
+          unreadNotificationsCount: unreadRow?.count ?? 0,
+          pendingApprovalsCount: pendingRow?.count ?? 0,
+          activeLeadsCount: activeLeadsRow?.count ?? 0,
+        };
+      });
+    }),
+
+  // =========================================================================
+  // dashboardActivityFeed — last 10 cross-artifact events for the home page
+  // =========================================================================
+
+  dashboardActivityFeed: tenantProcedure
+    .query(async ({ ctx }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const notifRows = await db
+          .select({
+            id: ownerNotifications.id,
+            type: ownerNotifications.type,
+            title: ownerNotifications.title,
+            body: ownerNotifications.body,
+            artifactId: ownerNotifications.artifactId,
+            artifactName: artifacts.name,
+            createdAt: ownerNotifications.createdAt,
+          })
+          .from(ownerNotifications)
+          .innerJoin(artifacts, eq(ownerNotifications.artifactId, artifacts.id))
+          .where(and(
+            eq(ownerNotifications.tenantId, ctx.tenantId),
+            inArray(ownerNotifications.type, ['hot_lead', 'approval_needed', 'deal_closed']),
+          ))
+          .orderBy(desc(ownerNotifications.createdAt))
+          .limit(20);
+
+        const convRows = await db
+          .select({
+            id: conversations.id,
+            artifactId: conversations.artifactId,
+            artifactName: artifacts.name,
+            resolvedAt: conversations.resolvedAt,
+          })
+          .from(conversations)
+          .innerJoin(artifacts, eq(conversations.artifactId, artifacts.id))
+          .where(and(
+            eq(conversations.tenantId, ctx.tenantId),
+            isNotNull(conversations.resolvedAt),
+          ))
+          .orderBy(desc(conversations.resolvedAt))
+          .limit(20);
+
+        type FeedEventType = 'new_lead' | 'conversation_resolved' | 'approval_needed' | 'deal_closed';
+
+        const notifEvents = notifRows.map((row) => {
+          let eventType: FeedEventType;
+          if (row.type === 'hot_lead') eventType = 'new_lead';
+          else if (row.type === 'approval_needed') eventType = 'approval_needed';
+          else eventType = 'deal_closed';
+          return {
+            id: row.id,
+            eventType,
+            title: row.title,
+            body: row.body,
+            artifactId: row.artifactId,
+            artifactName: row.artifactName,
+            createdAt: row.createdAt,
+          };
+        });
+
+        const convEvents = convRows.map((row) => ({
+          id: `conv_${row.id}`,
+          eventType: 'conversation_resolved' as const,
+          title: 'Conversation Resolved',
+          body: '',
+          artifactId: row.artifactId,
+          artifactName: row.artifactName,
+          createdAt: row.resolvedAt as Date,
+        }));
+
+        const allEvents = [...notifEvents, ...convEvents]
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 10);
+
+        return { events: allEvents };
       });
     }),
 

@@ -68,7 +68,21 @@
     "shareLink": "Enlace de Chat Público",
     "copyLink": "Copiar",
     "linkCopied": "¡Copiado!",
-    "openLink": "Abrir"
+    "openLink": "Abrir",
+    "quickStats": "Estadísticas Rápidas",
+    "todayConversations": "Conversaciones Hoy",
+    "weekConversations": "Esta Semana",
+    "unreadNotifications": "Notificaciones Sin Leer",
+    "pendingApprovals": "Aprobaciones Pendientes",
+    "activeLeads": "Leads Activos",
+    "yourAgents": "Tus Agentes",
+    "noAgents": "Sin agentes aún.",
+    "activityFeed": "Actividad Reciente",
+    "noActivity": "Sin actividad reciente.",
+    "event_new_lead": "Nuevo Lead",
+    "event_conversation_resolved": "Conversación Resuelta",
+    "event_approval_needed": "Aprobación Requerida",
+    "event_deal_closed": "Trato Cerrado"
   },
   "conversations": {
     "pageTitle": "Conversaciones",

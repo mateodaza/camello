@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatCard, Metric, UsageBar } from '@/components/stat-card';
 import { QueryError } from '@/components/query-error';
+import { MetricsGrid } from '@/components/agent-workspace/primitives/metrics-grid';
 import { PLAN_LIMITS, COST_BUDGET_DEFAULTS, PLAN_PRICES } from '@camello/shared/constants';
 import type { PlanTier } from '@camello/shared/types';
 
@@ -22,6 +23,9 @@ export default function DashboardOverview() {
   const tenant = trpc.tenant.me.useQuery();
   const overview = trpc.analytics.overview.useQuery({ from: '2024-01-01', to: localDateStr() });
   const artifacts = trpc.artifact.list.useQuery({});
+  const dashboardOverview = trpc.agent.dashboardOverview.useQuery();
+  const activityFeed = trpc.agent.dashboardActivityFeed.useQuery(undefined, { refetchInterval: 30_000 });
+  const allArtifacts = trpc.artifact.list.useQuery({ activeOnly: false });
   const monthlyUsage = trpc.analytics.monthlyUsage.useQuery();
   const intents = trpc.analytics.intentBreakdown.useQuery();
 
@@ -66,6 +70,15 @@ export default function DashboardOverview() {
 
       {overview.isError && <QueryError error={overview.error} onRetry={() => overview.refetch()} />}
       {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}
+
+      {/* ===== Quick Stats ===== */}
+      <QuickStatsSection data={dashboardOverview.data} t={t} />
+
+      {/* ===== Your Agents ===== */}
+      <YourAgentsSection agents={allArtifacts.data} t={t} />
+
+      {/* ===== Activity Feed ===== */}
+      <ActivityFeedSection events={activityFeed.data?.events} locale={locale} t={t} />
 
       {/* ===== Plan Usage ===== */}
       {tenant.data && (
@@ -134,6 +147,152 @@ export default function DashboardOverview() {
         </Card>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Quick stats section
+// ---------------------------------------------------------------------------
+
+type DashboardOverviewData = {
+  todayConversations: number;
+  weekConversations: number;
+  unreadNotificationsCount: number;
+  pendingApprovalsCount: number;
+  activeLeadsCount: number;
+};
+
+function QuickStatsSection({
+  data,
+  t,
+}: {
+  data: DashboardOverviewData | undefined;
+  t: ReturnType<typeof useTranslations<'dashboard'>>;
+}) {
+  const metrics = [
+    { label: t('todayConversations'), value: data?.todayConversations ?? 0 },
+    { label: t('weekConversations'), value: data?.weekConversations ?? 0 },
+    { label: t('unreadNotifications'), value: data?.unreadNotificationsCount ?? 0 },
+    { label: t('pendingApprovals'), value: data?.pendingApprovalsCount ?? 0 },
+    { label: t('activeLeads'), value: data?.activeLeadsCount ?? 0 },
+  ];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('quickStats')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <MetricsGrid metrics={metrics} />
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Your agents section
+// ---------------------------------------------------------------------------
+
+type ArtifactListItem = { id: string; name: string; isActive: boolean };
+
+function YourAgentsSection({
+  agents,
+  t,
+}: {
+  agents: ArtifactListItem[] | undefined;
+  t: ReturnType<typeof useTranslations<'dashboard'>>;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('yourAgents')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {!agents || agents.length === 0 ? (
+          <p className="text-sm text-dune">{t('noAgents')}</p>
+        ) : (
+          <ul className="space-y-2">
+            {agents.map((agent) => (
+              <li key={agent.id}>
+                <Link
+                  href={`/dashboard/agents/${agent.id}`}
+                  className="flex items-center gap-2 text-sm hover:underline"
+                >
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${agent.isActive ? 'bg-teal' : 'bg-dune'}`}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate font-medium text-charcoal">{agent.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Activity feed section
+// ---------------------------------------------------------------------------
+
+type FeedEvent = {
+  id: string;
+  eventType: 'new_lead' | 'conversation_resolved' | 'approval_needed' | 'deal_closed';
+  title: string;
+  body: string;
+  artifactId: string;
+  artifactName: string;
+  createdAt: Date;
+};
+
+const EVENT_TYPE_COLORS: Record<FeedEvent['eventType'], string> = {
+  new_lead: 'bg-teal',
+  conversation_resolved: 'bg-gold',
+  approval_needed: 'bg-sunset',
+  deal_closed: 'bg-charcoal',
+};
+
+function ActivityFeedSection({
+  events,
+  locale,
+  t,
+}: {
+  events: FeedEvent[] | undefined;
+  locale: string;
+  t: ReturnType<typeof useTranslations<'dashboard'>>;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('activityFeed')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {!events || events.length === 0 ? (
+          <p className="text-sm text-dune">{t('noActivity')}</p>
+        ) : (
+          <ul className="space-y-3">
+            {events.map((event) => (
+              <li key={event.id} className="flex items-start gap-3 text-sm">
+                <span
+                  className={`mt-1 h-2 w-2 shrink-0 rounded-full ${EVENT_TYPE_COLORS[event.eventType]}`}
+                  aria-hidden="true"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-charcoal">
+                    {t(`event_${event.eventType}` as Parameters<typeof t>[0])}
+                  </p>
+                  <p className="text-dune truncate">{event.artifactName}</p>
+                </div>
+                <span className="shrink-0 text-dune whitespace-nowrap">
+                  {fmtDateTime(event.createdAt, locale)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

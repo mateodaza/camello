@@ -68,7 +68,21 @@
     "shareLink": "Public Chat Link",
     "copyLink": "Copy",
     "linkCopied": "Copied!",
-    "openLink": "Open"
+    "openLink": "Open",
+    "quickStats": "Quick Stats",
+    "todayConversations": "Conversations Today",
+    "weekConversations": "This Week",
+    "unreadNotifications": "Unread Notifications",
+    "pendingApprovals": "Pending Approvals",
+    "activeLeads": "Active Leads",
+    "yourAgents": "Your Agents",
+    "noAgents": "No agents yet.",
+    "activityFeed": "Recent Activity",
+    "noActivity": "No recent activity.",
+    "event_new_lead": "New Lead",
+    "event_conversation_resolved": "Conversation Resolved",
+    "event_approval_needed": "Approval Needed",
+    "event_deal_closed": "Deal Closed"
   },
   "conversations": {
     "pageTitle": "Conversations",
