@@ -93,7 +93,8 @@ Currently webchat customers are created with `name: visitorId` (raw UUID like `v
 
 ## P1 — Inbox Route Contract + 3-Panel UI
 
-#### NC-205 [ ] Inbox layout shell: 3-panel responsive component
+#### NC-205 [x] Inbox layout shell: 3-panel responsive component
+**DONE.** Created `apps/web/src/components/inbox/inbox-layout.tsx` with `InboxLayout` (3-panel responsive shell), `InboxLeftPanel`, `InboxCenterPanel`, `InboxRightPanel`, and `useInboxPanel` hook. Mobile uses `mobilePanel` state exclusively; tablet toggle uses `rightOpen` exclusively; xl+ always shows all 3 panels. Type-check passes.
 Create the `InboxLayout` component — a 3-column layout that adapts to screen size. This is the structural foundation for the inbox page.
 
 **Acceptance Criteria:**
