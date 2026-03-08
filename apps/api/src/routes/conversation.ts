@@ -126,9 +126,11 @@ export const conversationRouter = router({
             customerChannel: customers.channel,
             customerFirstSeenAt: customers.firstSeenAt,
             customerMemory: customers.memory,
+            leadId: leads.id,
           })
           .from(conversations)
           .leftJoin(customers, eq(conversations.customerId, customers.id))
+          .leftJoin(leads, and(eq(leads.conversationId, conversations.id), eq(leads.tenantId, ctx.tenantId)))
           .where(and(eq(conversations.id, input.id), eq(conversations.tenantId, ctx.tenantId)))
           .limit(1);
         return rows[0] ?? null;

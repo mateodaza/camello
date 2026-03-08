@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { InboxLayout, InboxLeftPanel, InboxCenterPanel, InboxRightPanel } from '@/components/inbox/inbox-layout';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { ChatThread } from '@/components/inbox/chat-thread';
+import { CustomerPanel } from '@/components/inbox/customer-panel';
 
 export default function ConversationsPage() {
   const searchParams = useSearchParams();
@@ -46,7 +47,7 @@ export default function ConversationsPage() {
       }
       right={
         <InboxRightPanel>
-          {null}
+          <CustomerPanel conversationId={selectedId} />
         </InboxRightPanel>
       }
     />

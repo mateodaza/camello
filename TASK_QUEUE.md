@@ -149,7 +149,8 @@ Implement the center panel — message thread with role-colored bubbles and inli
 
 **Depends on:** NC-202, NC-205
 
-#### NC-208 [ ] Right panel: customer details + activity timeline + notes
+#### NC-208 [x] Right panel: customer details + activity timeline + notes
+**DONE.** `conversation.byId` extended with LEFT JOIN on `leads` to expose `leadId: string | null`. New `customer-panel.tsx`: `CustomerPanel` (null guard) + `CustomerPanelInner` — 3 collapsible sections (customer info with avatar/email/phone/channel/first-seen/memory facts, activity timeline with CheckCircle/ArrowRight/AlertTriangle icons, notes with `agent.leadNotes` + `agent.addLeadNote`). Wired into `conversations/page.tsx`. 19 i18n keys (en+es). Type-check passes.
 Implement the right panel — customer info card, activity timeline, and notes section.
 
 **Acceptance Criteria:**
