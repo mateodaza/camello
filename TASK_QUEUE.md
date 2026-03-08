@@ -129,8 +129,9 @@ Implement the left panel of the inbox — conversation list with filter tabs, se
 
 **Depends on:** NC-204, NC-205
 
-#### NC-207 [ ] Center panel: chat thread with module execution badges
+#### NC-207 [x] Center panel: chat thread with module execution badges
 Implement the center panel — message thread with role-colored bubbles and inline module execution indicators.
+**DONE.** Created `apps/web/src/components/inbox/chat-thread.tsx` with role-colored bubbles (customer/artifact/human/system), inline execution + stage-change badges, auto-scroll, scroll-to-bottom button, status header with change buttons. Wired into `conversations/page.tsx`. 24 i18n keys added (en+es). Type-check passes.
 
 **Acceptance Criteria:**
 - New component `apps/web/src/components/inbox/chat-thread.tsx`

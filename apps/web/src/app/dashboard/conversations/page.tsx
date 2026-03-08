@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { InboxLayout, InboxLeftPanel, InboxCenterPanel, InboxRightPanel } from '@/components/inbox/inbox-layout';
 import { ConversationList } from '@/components/inbox/conversation-list';
+import { ChatThread } from '@/components/inbox/chat-thread';
 
 export default function ConversationsPage() {
   const searchParams = useSearchParams();
@@ -40,10 +41,7 @@ export default function ConversationsPage() {
       }
       center={
         <InboxCenterPanel>
-          {/* NC-207: chat thread */}
-          <div className="flex h-full items-center justify-center text-dune text-sm">
-            Select a conversation
-          </div>
+          <ChatThread conversationId={selectedId} />
         </InboxCenterPanel>
       }
       right={
