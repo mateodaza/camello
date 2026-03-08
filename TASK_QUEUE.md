@@ -225,8 +225,8 @@ The widget is a Vite IIFE bundle (`apps/widget/`). It communicates via HTTP to `
 - Keep under ~25 lines per locale
 - `pnpm type-check` passes
 
-#### CAM-129 [ ] Marketing prompt optimization — engagement + content strategy
-The marketing archetype prompts are basic. Improve them like we did for sales (CAM-106).
+#### CAM-129 [x] Marketing prompt optimization — engagement + content strategy
+`packages/ai/src/archetypes/marketing.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (INTEREST CAPTURE, CONTENT TONE MATCHING, LEAD WARMING, CAMPAIGN AWARENESS, NEVER DO). Both locales ≤25 lines. Type-check passes.
 
 **Acceptance Criteria:**
 - Update `packages/ai/src/archetypes/marketing.ts` prompts (en + es)

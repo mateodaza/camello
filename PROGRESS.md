@@ -13,6 +13,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| CAM-129 | Marketing prompt optimization — engagement + content strategy | Mar 8 | `packages/ai/src/archetypes/marketing.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (INTEREST CAPTURE, CONTENT TONE MATCHING, LEAD WARMING, CAMPAIGN AWARENESS, NEVER DO). Both locales ≤25 lines. Type-check passes. |
 | CAM-128 | Support prompt optimization — empathy + escalation intelligence | Mar 8 | `packages/ai/src/archetypes/support.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (EMPATHY FRAMEWORK, ESCALATION INTELLIGENCE, DE-ESCALATION TECHNIQUES, KNOWLEDGE GAP HANDLING, NEVER DO). Both locales ≤25 lines. Type-check passes. |
 | CAM-127 | Widget chat — typing indicator + message status | Mar 8 | `useChat.ts`: `ChatMessage` extended with `id`+`metadata.status`; `retryMessage` hook; 429 removes, other errors set `status:'error'`. New: `utils/injectStyles.ts` (CSS keyframes injected once), `TypingIndicator.tsx` (animated dots), `MessageStatusIcon.tsx` (✓/✓✓/retry). `ChatWindow.tsx`: scroll tracking+button, `camello-msg-enter` fade-in, new components wired. `messages.ts`: 2 new i18n keys (en+es). Type-check passes. |
 | CAM-126 | Onboarding wizard — Step 4 (Teach Agent) improvements | Mar 8 | `apps/api/src/routes/knowledge.ts`: `docCount` procedure (COUNT DISTINCT title). `Step4TeachAgent.tsx`: `archetype?` prop, `TOPICS_BY_ARCHETYPE` constant, `docCount` query, topic button grid, `role="progressbar"` indicator, soft warning. `apps/web/src/app/onboarding/page.tsx`: `archetype={suggestion?.agentType}` prop. 13 i18n keys (en+es). 6 tests in `step4-teach-agent.test.tsx`. Type-check passes. |
@@ -815,3 +816,4 @@
 - **CAM-126** — 2026-03-08 — `6becbf4` — Session: 20260307-231133-camello
 - **CAM-127** — 2026-03-08 — `21e6be8` — Session: 20260307-231133-camello
 - **CAM-128** — 2026-03-08 — `9c65885` — Session: 20260307-231133-camello
+- **CAM-129** — 2026-03-08 — `62fff7a` — Session: 20260307-231133-camello
