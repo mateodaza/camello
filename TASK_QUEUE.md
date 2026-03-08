@@ -252,8 +252,9 @@ Move performance charts and metrics from old workspace into a proper analytics p
 
 **Depends on:** NC-210
 
-#### NC-214 [ ] Remove old workspace components
+#### NC-214 [x] Remove old workspace components
 Clean up components no longer used after the inbox transition.
+**DONE.** Deleted 11 component files (kanban-board, lead-detail-sheet, sales-alerts, sales-payments, after-hours-card, registry/sales+support+marketing+index, workspace-header, priority-intents) and `sales-timeline.test.ts`. Inlined `DeltaBadge`+`ForecastCard` into `analytics/page.tsx`. Removed stale test blocks from `agent-workspace.test.ts` and `a11y-audit.test.tsx`. Type-check + build pass.
 
 **Acceptance Criteria:**
 - Delete: `sales/kanban-board.tsx`, `sales/lead-detail-sheet.tsx`, `sales/sales-alerts.tsx`, `sales/sales-payments.tsx`, `sales/after-hours-card.tsx`

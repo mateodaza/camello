@@ -124,58 +124,6 @@ vi.mock('@/lib/trpc', () => ({
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
 
-import { sectionRegistry } from '@/components/agent-workspace/registry';
-import { getScoreColor } from '@/components/agent-workspace/workspace-header';
-
-// ---------------------------------------------------------------------------
-// Pure Logic Tests
-// ---------------------------------------------------------------------------
-
-describe('sectionRegistry', () => {
-  it('returns sales sections for "sales" type', () => {
-    expect(sectionRegistry.sales).toBeDefined();
-    expect(sectionRegistry.sales.length).toBe(1); // SalesWorkspace owns all sections
-  });
-
-  it('returns support sections for "support" type (4 sections incl. knowledge gaps)', () => {
-    expect(sectionRegistry.support).toBeDefined();
-    expect(sectionRegistry.support.length).toBe(4);
-  });
-
-  it('returns marketing sections for "marketing" type', () => {
-    expect(sectionRegistry.marketing).toBeDefined();
-    expect(sectionRegistry.marketing.length).toBe(3);
-  });
-
-  it('returns empty array for "custom" type', () => {
-    expect(sectionRegistry.custom).toEqual([]);
-  });
-
-  it('returns undefined for unknown type', () => {
-    expect(sectionRegistry['unknown_type']).toBeUndefined();
-  });
-});
-
-describe('getScoreColor', () => {
-  it('returns teal for score >= 80', () => {
-    expect(getScoreColor(80)).toBe('text-teal');
-    expect(getScoreColor(100)).toBe('text-teal');
-    expect(getScoreColor(95)).toBe('text-teal');
-  });
-
-  it('returns gold for score >= 50 and < 80', () => {
-    expect(getScoreColor(50)).toBe('text-gold');
-    expect(getScoreColor(79)).toBe('text-gold');
-    expect(getScoreColor(65)).toBe('text-gold');
-  });
-
-  it('returns sunset for score < 50', () => {
-    expect(getScoreColor(49)).toBe('text-sunset');
-    expect(getScoreColor(0)).toBe('text-sunset');
-    expect(getScoreColor(25)).toBe('text-sunset');
-  });
-});
-
 // ---------------------------------------------------------------------------
 // Render Tests — DataTable
 // ---------------------------------------------------------------------------
@@ -336,50 +284,6 @@ describe('AlertList', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Render Tests — PriorityIntents
-// ---------------------------------------------------------------------------
-
-describe('PriorityIntents', () => {
-  beforeEach(() => {
-    queryMocks.clear();
-    mutationMocks.clear();
-  });
-
-  it('renders nothing when data is empty array', async () => {
-    setQueryMock('agent.highPriorityIntents', []);
-
-    const { PriorityIntents } = await import('@/components/agent-workspace/priority-intents');
-    const { container } = render(createElement(PriorityIntents, { artifactId: 'test-id' }));
-
-    expect(container.innerHTML).toBe('');
-  });
-
-  it('renders nothing when loading', async () => {
-    setQueryMock('agent.highPriorityIntents', undefined, { isLoading: true });
-
-    const { PriorityIntents } = await import('@/components/agent-workspace/priority-intents');
-    const { container } = render(createElement(PriorityIntents, { artifactId: 'test-id' }));
-
-    expect(container.innerHTML).toBe('');
-  });
-
-  it('renders QueryError when query fails', async () => {
-    setQueryMock('agent.highPriorityIntents', undefined, {
-      isLoading: false,
-      isError: true,
-      error: { message: 'Network error', data: { code: 'INTERNAL_SERVER_ERROR' } },
-    });
-
-    const { PriorityIntents } = await import('@/components/agent-workspace/priority-intents');
-    const { container } = render(createElement(PriorityIntents, { artifactId: 'test-id' }));
-
-    // Should render something (not empty) — the inline QueryError
-    expect(container.innerHTML).not.toBe('');
-    expect(screen.getByText('error.internalServer')).toBeInTheDocument();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Render Tests — Workspace Page
 // ---------------------------------------------------------------------------
 
@@ -396,7 +300,7 @@ describe('AgentWorkspacePage', () => {
     const { container } = render(createElement(mod.default));
 
     const skeletons = container.querySelectorAll('.animate-pulse');
-    expect(skeletons.length).toBeGreaterThanOrEqual(5);
+    expect(skeletons.length).toBeGreaterThanOrEqual(4);
   });
 
   it('shows QueryError when primary query fails', async () => {
@@ -434,19 +338,11 @@ describe('AgentWorkspacePage', () => {
       },
     });
 
-    // Mock secondary queries (sales sections + activity + priority intents)
-    setQueryMock('agent.salesPipeline', []);
-    setQueryMock('agent.salesFunnel', []);
-    setQueryMock('agent.salesLeads', []);
-    setQueryMock('agent.salesQuotes', []);
-    setQueryMock('agent.highPriorityIntents', []);
-    setQueryMock('agent.activityFeed', []);
-
     const mod = await import('@/app/dashboard/agents/[id]/page');
     render(createElement(mod.default));
 
     expect(screen.getByText('Test Sales Agent')).toBeInTheDocument();
-    expect(screen.getByText('Qualify Lead')).toBeInTheDocument();
+    expect(screen.getByText('configIdentityTitle')).toBeInTheDocument();
   });
 });
 
@@ -491,235 +387,3 @@ describe('MetricsGrid', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Render Tests — SalesAlerts
-// ---------------------------------------------------------------------------
-
-describe('SalesAlerts', () => {
-  beforeEach(() => {
-    queryMocks.clear();
-    mutationMocks.clear();
-    utilsSpies.clear();
-  });
-
-  const emptyAlertsData = {
-    pendingApprovals: [],
-    staleLeads: [],
-    highValueEarly: [],
-  };
-
-  const onePendingApproval = {
-    pendingApprovals: [
-      {
-        id: 'exec-1',
-        moduleSlug: 'send_quote',
-        conversationId: 'conv-1',
-        createdAt: new Date('2026-01-01'),
-        input: { total: 1500, currency: 'USD' },
-      },
-    ],
-    staleLeads: [],
-    highValueEarly: [],
-  };
-
-  it('renders null when data has no alerts', async () => {
-    setQueryMock('agent.salesAlerts', emptyAlertsData);
-    setMutationMock('module.approve');
-    setMutationMock('module.reject');
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    const { container } = render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    expect(container.innerHTML).toBe('');
-  });
-
-  it('renders approve + reject buttons for pending approval', async () => {
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve');
-    setMutationMock('module.reject');
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    expect(screen.getByText('approve')).toBeInTheDocument();
-    expect(screen.getByText('reject')).toBeInTheDocument();
-  });
-
-  it('approve button calls mutation with correct executionId', async () => {
-    const approveMutate = vi.fn();
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve', { mutate: approveMutate });
-    setMutationMock('module.reject');
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    fireEvent.click(screen.getByText('approve'));
-    expect(approveMutate).toHaveBeenCalledWith({ executionId: 'exec-1' });
-  });
-
-  it('reject button shows inline form with 4 reason options', async () => {
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve');
-    setMutationMock('module.reject');
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    fireEvent.click(screen.getByText('reject'));
-
-    // The inline form should appear with a select
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select).toBeInTheDocument();
-    expect(select.options.length).toBe(4);
-
-    // Confirm button appears
-    expect(screen.getByText('rejectConfirm')).toBeInTheDocument();
-  });
-
-  it('confirm reject maps UI reason wrong_info to backend incorrect_data', async () => {
-    const rejectMutate = vi.fn();
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve');
-    setMutationMock('module.reject', { mutate: rejectMutate });
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    fireEvent.click(screen.getByText('reject'));
-
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'wrong_info' } });
-
-    fireEvent.click(screen.getByText('rejectConfirm'));
-
-    expect(rejectMutate).toHaveBeenCalledWith({
-      executionId: 'exec-1',
-      reason: 'incorrect_data',
-      freeText: undefined,
-    });
-  });
-
-  it('other reason maps to false_positive; confirm disabled until text entered', async () => {
-    const rejectMutate = vi.fn();
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve');
-    setMutationMock('module.reject', { mutate: rejectMutate });
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    fireEvent.click(screen.getByText('reject'));
-
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'other' } });
-
-    const confirmBtn = screen.getByText('rejectConfirm').closest('button') as HTMLButtonElement;
-    expect(confirmBtn.disabled).toBe(true);
-
-    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
-    fireEvent.change(textarea, { target: { value: 'custom reason' } });
-
-    expect(confirmBtn.disabled).toBe(false);
-
-    fireEvent.click(confirmBtn);
-    expect(rejectMutate).toHaveBeenCalledWith({
-      executionId: 'exec-1',
-      reason: 'false_positive',
-      freeText: 'custom reason',
-    });
-  });
-
-  it('buttons are disabled while mutation isPending', async () => {
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve', { isPending: true });
-    setMutationMock('module.reject');
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    const approveBtn = screen.getByText('approve').closest('button') as HTMLButtonElement;
-    const rejectBtn = screen.getByText('reject').closest('button') as HTMLButtonElement;
-
-    expect(approveBtn.disabled).toBe(true);
-    expect(rejectBtn.disabled).toBe(true);
-  });
-
-  it('cancel closes inline form', async () => {
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve');
-    setMutationMock('module.reject');
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    fireEvent.click(screen.getByText('reject'));
-    expect(screen.getByText('rejectConfirm')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('cancel'));
-    expect(screen.queryByText('rejectConfirm')).toBeNull();
-  });
-
-  it('input preview renders for send_quote', async () => {
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve');
-    setMutationMock('module.reject');
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, {
-      artifactId: 'art-1',
-      onLeadClick: vi.fn(),
-    }));
-
-    expect(screen.getByText('USD 1500')).toBeInTheDocument();
-  });
-
-  it('approve button optimistically calls setData with updater that removes the card', async () => {
-    setQueryMock('agent.salesAlerts', onePendingApproval);
-    setMutationMock('module.approve');
-    setMutationMock('module.reject');
-
-    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
-    render(createElement(SalesAlerts as any, { artifactId: 'art-1', onLeadClick: vi.fn() }));
-
-    fireEvent.click(screen.getByText('approve'));
-
-    // onMutate is async; await the microtask that fires after `await cancel()`
-    const setDataSpy = getUtilsSpy('agent.salesAlerts.setData');
-    await waitFor(() => expect(setDataSpy).toHaveBeenCalled());
-
-    // Assert called with correct input key
-    expect(setDataSpy).toHaveBeenCalledWith({ artifactId: 'art-1' }, expect.any(Function));
-
-    // Verify the updater function removes the approved card
-    const updater = setDataSpy.mock.calls[0][1] as (
-      old: typeof onePendingApproval,
-    ) => typeof onePendingApproval;
-    const result = updater(onePendingApproval);
-    expect(result.pendingApprovals).toHaveLength(0);
-  });
-});
