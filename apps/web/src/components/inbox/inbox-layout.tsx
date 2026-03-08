@@ -38,22 +38,26 @@ export function InboxLayout({ left, center, right }: InboxLayoutProps) {
 
   return (
     <InboxPanelContext.Provider value={ctx}>
-      <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-cream">
+      <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden bg-cream">
 
-        {/* LEFT — 320px */}
+        {/* LEFT — mobile: absolute full-screen with translateX; desktop: static 320px */}
         <div className={cn(
-          "flex-col w-80 shrink-0 border-r border-charcoal/8",
-          mobilePanel === 'list' ? "flex" : "hidden",
-          "md:flex",
+          "absolute inset-0 flex flex-col transition-transform duration-200",
+          mobilePanel === 'list' ? "translate-x-0" : "-translate-x-full",
+          "md:static md:inset-auto md:flex md:flex-col md:w-80 md:shrink-0 md:translate-x-0 md:border-r md:border-charcoal/8",
         )}>
           {left}
         </div>
 
-        {/* CENTER — flex-1 */}
+        {/* CENTER — mobile: absolute full-screen with translateX; desktop: static flex-1 */}
         <div className={cn(
-          "relative flex-col flex-1 min-w-0",
-          mobilePanel === 'chat' ? "flex" : "hidden",
-          "md:flex",
+          "absolute inset-0 flex flex-col transition-transform duration-200",
+          mobilePanel === 'chat'
+            ? "translate-x-0"
+            : mobilePanel === 'list'
+              ? "translate-x-full"
+              : "-translate-x-full",
+          "md:static md:inset-auto md:flex md:flex-col md:flex-1 md:min-w-0 md:translate-x-0 md:relative",
         )}>
           {/* Toggle button: tablet only (md to xl-1). Never shown on mobile. */}
           <button
@@ -67,12 +71,12 @@ export function InboxLayout({ left, center, right }: InboxLayoutProps) {
           {center}
         </div>
 
-        {/* RIGHT — 340px */}
+        {/* RIGHT — mobile: absolute full-screen; desktop: 340px */}
         <div className={cn(
-          "flex-col w-[340px] shrink-0 border-l border-charcoal/8",
-          mobilePanel === 'details' ? "flex" : "hidden",
+          "absolute inset-0 flex flex-col transition-transform duration-200",
+          mobilePanel === 'details' ? "translate-x-0" : "translate-x-full",
           rightOpen ? "md:flex" : "md:hidden",
-          "xl:flex",
+          "xl:flex md:static md:inset-auto md:w-[340px] md:shrink-0 md:translate-x-0 md:border-l md:border-charcoal/8",
         )}>
           {right}
         </div>

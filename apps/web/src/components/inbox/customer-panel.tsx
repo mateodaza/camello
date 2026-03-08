@@ -8,6 +8,7 @@ import {
   Monitor,
   MessageCircle,
   ChevronDown,
+  ArrowLeft,
   ArrowRight,
   CheckCircle,
   AlertTriangle,
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fmtDate, fmtTimeAgo, humanize, fmtMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useInboxPanel } from './inbox-layout';
 
 interface CustomerPanelProps {
   conversationId: string | null;
@@ -118,6 +120,7 @@ export function CustomerPanel({ conversationId }: CustomerPanelProps) {
 function CustomerPanelInner({ conversationId }: { conversationId: string }) {
   const t = useTranslations('inbox');
   const utils = trpc.useUtils();
+  const { goToChat } = useInboxPanel();
 
   const conv = trpc.conversation.byId.useQuery(
     { id: conversationId },
@@ -172,6 +175,18 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
 
   return (
     <div className="flex flex-col overflow-y-auto">
+      {/* Mobile back-to-chat row */}
+      <div className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-charcoal/8 shrink-0">
+        <button
+          type="button"
+          className="flex items-center gap-1 text-sm text-dune hover:text-charcoal"
+          onClick={goToChat}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('detailsBackToChat')}
+        </button>
+      </div>
+
       {/* ── Section A: Customer Info ─────────────────────────────────── */}
       <CollapsibleSection
         title={t('customerInfoSection')}

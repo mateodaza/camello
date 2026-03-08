@@ -109,7 +109,7 @@ export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps
             {notifications.map((n) => {
               const meta = (n.metadata ?? {}) as Record<string, unknown>;
               const href = meta.conversationId
-                ? `/dashboard/conversations/${meta.conversationId}`
+                ? `/dashboard/conversations?selected=${meta.conversationId}`
                 : null;
               const isUnread = !n.readAt;
               const typeKey = (n.type as NotifType);

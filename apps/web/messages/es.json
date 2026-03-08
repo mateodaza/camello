@@ -897,7 +897,10 @@
     "notesAdding": "Agregando...",
     "notesAuthorYou": "Tú",
     "notesAuthorSystem": "Sistema",
-    "conversationNotFound": "Conversación no encontrada"
+    "conversationNotFound": "Conversación no encontrada",
+    "chatBackToList": "Volver",
+    "chatToggleDetails": "Detalles",
+    "detailsBackToChat": "Volver al chat"
   },
   "notifications": {
     "panelTitle": "Notificaciones del Agente",

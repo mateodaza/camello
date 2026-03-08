@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { QueryError } from '@/components/query-error';
 import { fmtTimeAgo, truncate } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useInboxPanel } from './inbox-layout';
 
 interface ConversationListProps {
   selectedId: string | null;
@@ -18,6 +19,7 @@ interface ConversationListProps {
 
 export function ConversationList({ selectedId, onSelect, artifactId }: ConversationListProps) {
   const t = useTranslations('inbox');
+  const { goToChat } = useInboxPanel();
 
   const [statusFilter, setStatusFilter] = useState<'active' | 'escalated' | 'resolved' | undefined>(undefined);
   const [searchInput, setSearchInput] = useState('');
@@ -106,7 +108,7 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
               <button
                 key={c.id}
                 type="button"
-                onClick={() => onSelect(c.id)}
+                onClick={() => { onSelect(c.id); goToChat(); }}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-3 min-h-[48px] text-left border-l-2 transition-colors',
                   c.status === 'escalated'

@@ -1,13 +1,14 @@
 'use client';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { Zap, ArrowRight, ChevronDown, MessageSquare } from 'lucide-react';
+import { Zap, ArrowRight, ArrowLeft, ChevronDown, MessageSquare, PanelRight } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QueryError } from '@/components/query-error';
 import { fmtTimeAgo, fmtMoney, humanize } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useInboxPanel } from './inbox-layout';
 
 interface ChatThreadProps {
   conversationId: string | null;
@@ -90,6 +91,7 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
 
 function ChatThreadInner({ conversationId }: { conversationId: string }) {
   const t = useTranslations('inbox');
+  const { goToList, goToDetails } = useInboxPanel();
 
   const conv = trpc.conversation.byId.useQuery(
     { id: conversationId },
@@ -160,8 +162,19 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
   return (
     <div className="flex flex-col h-full">
       {/* HEADER */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-charcoal/8 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-charcoal/8 shrink-0">
+        {/* Group 1 — mobile back button */}
+        <button
+          type="button"
+          className="md:hidden flex items-center justify-center h-9 w-9 rounded-md hover:bg-sand shrink-0"
+          aria-label={t('chatBackToList')}
+          onClick={goToList}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+
+        {/* Group 2 — name + status badge */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           {conv.isLoading ? (
             <>
               <Skeleton className="h-4 w-32" />
@@ -185,19 +198,33 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
             </>
           )}
         </div>
+
+        {/* Group 3 — right actions */}
         <div className="flex items-center gap-1 shrink-0">
-          {statusKeys.map((s) => (
-            <Button
-              key={s}
-              size="sm"
-              type="button"
-              variant={conv.data?.status === s ? 'default' : 'ghost'}
-              disabled={statusMut.isPending}
-              onClick={() => statusMut.mutate({ id: conversationId, status: s })}
-            >
-              {t(STATUS_LABELS[s])}
-            </Button>
-          ))}
+          {/* Status-change buttons: desktop only — hidden on mobile to prevent 375px overflow */}
+          <div className="hidden md:flex items-center gap-1">
+            {statusKeys.map((s) => (
+              <Button
+                key={s}
+                size="sm"
+                type="button"
+                variant={conv.data?.status === s ? 'default' : 'ghost'}
+                disabled={statusMut.isPending}
+                onClick={() => statusMut.mutate({ id: conversationId, status: s })}
+              >
+                {t(STATUS_LABELS[s])}
+              </Button>
+            ))}
+          </div>
+          {/* Details toggle: mobile only */}
+          <button
+            type="button"
+            className="md:hidden flex items-center justify-center h-9 w-9 rounded-md hover:bg-sand"
+            aria-label={t('chatToggleDetails')}
+            onClick={goToDetails}
+          >
+            <PanelRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
 

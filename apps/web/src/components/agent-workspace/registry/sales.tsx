@@ -494,7 +494,7 @@ function SalesPipeline({
                 />
                 <div>
                   {row.conversationId ? (
-                    <Link href={`/dashboard/conversations/${row.conversationId}`} className="font-medium text-charcoal hover:text-teal hover:underline">
+                    <Link href={`/dashboard/conversations?selected=${row.conversationId}`} className="font-medium text-charcoal hover:text-teal hover:underline">
                       {row.customerName ?? row.customerEmail ?? '—'}
                     </Link>
                   ) : (

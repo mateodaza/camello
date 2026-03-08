@@ -897,7 +897,10 @@
     "notesAdding": "Adding...",
     "notesAuthorYou": "You",
     "notesAuthorSystem": "System",
-    "conversationNotFound": "Conversation not found"
+    "conversationNotFound": "Conversation not found",
+    "chatBackToList": "Back",
+    "chatToggleDetails": "Details",
+    "detailsBackToChat": "Back to chat"
   },
   "notifications": {
     "panelTitle": "Agent Notifications",

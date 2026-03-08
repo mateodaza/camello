@@ -450,7 +450,7 @@ function IntentSection({
                   <div className="flex items-center gap-3">
                     <span className="text-dune">{fmtDateTime(r.createdAt, locale)}</span>
                     <Link
-                      href={`/dashboard/conversations/${r.conversationId}`}
+                      href={`/dashboard/conversations?selected=${r.conversationId}`}
                       className="text-teal hover:underline"
                     >
                       {t('viewConversation')}

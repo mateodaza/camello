@@ -180,7 +180,8 @@ Add the owner reply input at the bottom of the chat thread panel, only visible w
 
 **Depends on:** NC-203, NC-207
 
-#### NC-210 [ ] Deep-link redirect + mobile responsive inbox
+#### NC-210 [x] Deep-link redirect + mobile responsive inbox
+**DONE.** `[id]/page.tsx` → server-component redirect to `?selected=<id>`. `inbox-layout.tsx` → translateX CSS transitions (200ms), desktop via `md:static`. `conversation-list.tsx` → row click calls `goToChat()`. `chat-thread.tsx` → mobile back + details buttons added; status buttons wrapped `hidden md:flex` (375px overflow fix). `customer-panel.tsx` → mobile back-to-chat row. 4 internal links updated. 3 i18n keys (en+es). Type-check passes.
 Make the inbox work as the canonical conversation destination on desktop and mobile.
 
 **Acceptance Criteria:**

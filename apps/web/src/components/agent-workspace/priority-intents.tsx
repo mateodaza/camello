@@ -74,7 +74,7 @@ export function PriorityIntents({ artifactId }: { artifactId: string }) {
               </div>
               {item.latestConversationId && (
                 <Link
-                  href={`/dashboard/conversations/${item.latestConversationId}`}
+                  href={`/dashboard/conversations?selected=${item.latestConversationId}`}
                   className="text-xs font-medium text-teal hover:underline"
                 >
                   {t('viewConversation')}
