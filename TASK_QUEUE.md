@@ -201,7 +201,8 @@ Make the inbox work as the canonical conversation destination on desktop and mob
 
 ## P2 — Dashboard Simplification
 
-#### NC-211 [ ] Simplify `/dashboard` home page
+#### NC-211 [x] Simplify `/dashboard` home page
+**DONE.** Removed 4 sections (plan usage, intent breakdown, business KPIs, advanced LLM) + 3 queries. Hero metrics grid (4 StatCards from dashboardOverview), agent grid with type badge + Open link, activity feed sliced to 5 compact rows. 5 i18n keys (en+es). Type-check passes.
 Reduce the current overview page to Botly-style hero metrics + agent cards + compact activity feed.
 
 **Acceptance Criteria:**

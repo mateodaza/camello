@@ -82,7 +82,12 @@
     "event_new_lead": "Nuevo Lead",
     "event_conversation_resolved": "Conversación Resuelta",
     "event_approval_needed": "Aprobación Requerida",
-    "event_deal_closed": "Trato Cerrado"
+    "event_deal_closed": "Trato Cerrado",
+    "agentOpen": "Abrir",
+    "agentType_sales": "Ventas",
+    "agentType_support": "Soporte",
+    "agentType_marketing": "Marketing",
+    "agentType_custom": "Personalizado"
   },
   "conversations": {
     "pageTitle": "Conversaciones",
