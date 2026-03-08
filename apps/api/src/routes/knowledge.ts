@@ -169,6 +169,17 @@ export const knowledgeRouter = router({
       });
     }),
 
+  docCount: tenantProcedure
+    .query(async ({ ctx }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .select({ count: sql<number>`COUNT(DISTINCT ${knowledgeDocs.title})::int` })
+          .from(knowledgeDocs)
+          .where(eq(knowledgeDocs.tenantId, ctx.tenantId));
+        return rows[0]?.count ?? 0;
+      });
+    }),
+
   queueUrl: tenantProcedure
     .input(z.object({ url: z.string().url().max(2000) }))
     .mutation(async ({ ctx, input }) => {

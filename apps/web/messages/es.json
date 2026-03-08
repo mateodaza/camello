@@ -681,7 +681,20 @@
     "missingConfig": "Falta la configuración del agente.",
     "goBackDescription": "Volver a la descripción del negocio",
     "skipSetup": "Saltar configuración",
-    "skipSetupDescription": "Puedes configurar todo después desde el panel."
+    "skipSetupDescription": "Puedes configurar todo después desde el panel.",
+    "suggestedTopics": "Temas sugeridos",
+    "docsAdded": "{count} documentos agregados",
+    "noDocsYet": "Sin documentos aún",
+    "softWarning": "Tu agente funciona mejor con conocimiento. Agrega datos o importa desde tu sitio web.",
+    "topicPricing": "Agrega lista de precios",
+    "topicServices": "Describe tus servicios",
+    "topicFaq": "Agrega respuestas a preguntas frecuentes",
+    "topicHours": "Horario y contacto",
+    "topicBrandStory": "Historia de marca",
+    "topicPromotions": "Promociones actuales",
+    "topicIdealCustomer": "Tu cliente ideal",
+    "topicTroubleshooting": "Guías de resolución de problemas",
+    "topicPolicies": "Agrega tus políticas"
   },
   "landing": {
     "nav": {

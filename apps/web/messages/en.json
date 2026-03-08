@@ -681,7 +681,20 @@
     "missingConfig": "Missing agent configuration.",
     "goBackDescription": "Go back to business description",
     "skipSetup": "Skip setup",
-    "skipSetupDescription": "You can configure everything later from the dashboard."
+    "skipSetupDescription": "You can configure everything later from the dashboard.",
+    "suggestedTopics": "Suggested topics",
+    "docsAdded": "{count} documents added",
+    "noDocsYet": "No documents added yet",
+    "softWarning": "Your agent works better with knowledge. Add some facts above or import from your website.",
+    "topicPricing": "Add pricing info",
+    "topicServices": "Describe your services",
+    "topicFaq": "Add FAQ answers",
+    "topicHours": "Business hours & contact",
+    "topicBrandStory": "Brand story",
+    "topicPromotions": "Current promotions",
+    "topicIdealCustomer": "Your ideal customer",
+    "topicTroubleshooting": "Troubleshooting guides",
+    "topicPolicies": "Add your policies"
   },
   "landing": {
     "nav": {

@@ -182,7 +182,8 @@ The existing `conversation.list` procedure already paginates. Extend the input s
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-#### CAM-126 [ ] Onboarding wizard — Step 4 (Teach Agent) improvements
+#### CAM-126 [x] Onboarding wizard — Step 4 (Teach Agent) improvements
+`knowledge.docCount` tRPC procedure (COUNT DISTINCT title, no limit); `TOPICS_BY_ARCHETYPE` constant + archetype-aware topic button grid pre-filling textarea; `role="progressbar"` knowledge progress indicator (teal ≥3 docs, gold 1-2, empty 0); `showSoftWarning = !isLoading && docCount === 0`; `archetype?` prop threaded from `page.tsx`. 13 i18n keys (en+es). 6 tests in `step4-teach-agent.test.tsx`. Type-check passes.
 Step 4 lets owners add knowledge but the UX is minimal.
 
 **Acceptance Criteria:**

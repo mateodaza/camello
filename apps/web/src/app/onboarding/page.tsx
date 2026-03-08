@@ -195,6 +195,7 @@ export default function OnboardingPage() {
           agentName={suggestion?.agentName ?? 'your agent'}
           businessDescription={businessDescription}
           alreadySeeded={businessDescriptionSeeded}
+          archetype={suggestion?.agentType}
           onSeeded={() => {
             setBusinessDescriptionSeeded(true);
             if (tenantId) {
