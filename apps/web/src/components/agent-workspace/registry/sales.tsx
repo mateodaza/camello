@@ -130,17 +130,17 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
 
   const pipeline = trpc.agent.salesPipeline.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
   const funnel = trpc.agent.salesFunnel.useQuery({ artifactId });
   const sourceBreakdown = trpc.agent.salesSourceBreakdown.useQuery({ artifactId });
   const comparison = trpc.agent.salesComparison.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
   const salesForecast = trpc.agent.salesForecast.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   const stages = pipeline.data?.stages ?? [];
@@ -441,7 +441,7 @@ function SalesPipeline({
       stage: (stage || undefined) as Stage | undefined,
       score: (score || undefined) as typeof SCORES[number] | undefined,
     },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   const updateStage = trpc.agent.updateLeadStage.useMutation({
@@ -451,6 +451,7 @@ function SalesPipeline({
       utils.agent.salesFunnel.invalidate();
       addToast(t('stageUpdated'), 'success');
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   const tableData = query.data ?? [];
@@ -667,7 +668,7 @@ export function SalesWorkspace({ artifactId }: { artifactId: string }) {
   // Shared queries
   const leadsQuery = trpc.agent.salesLeads.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   const kanbanLeads = useMemo<KanbanLead[]>(() =>
@@ -691,6 +692,7 @@ export function SalesWorkspace({ artifactId }: { artifactId: string }) {
       utils.agent.salesFunnel.invalidate();
       addToast(t('stageUpdated'), 'success');
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   const handleStageChange = useCallback((leadId: string, stage: Stage, closeReason?: string) => {

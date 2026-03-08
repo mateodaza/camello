@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Bell, ClipboardList, Flame, Trophy, Clock, AlertTriangle, DollarSign, TrendingUp, X } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Sheet, SheetHeader, SheetTitle, SheetContent } from '@/components/ui/sheet';
+import { useToast } from '@/hooks/use-toast';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,10 +60,11 @@ export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps
   const t = useTranslations('notifications');
   const locale = useLocale();
   const utils = trpc.useUtils();
+  const { addToast } = useToast();
 
   const { data } = trpc.agent.ownerNotifications.useQuery(
     { artifactId, limit: 30, offset: 0 },
-    { refetchInterval: 15_000, refetchIntervalInBackground: false, enabled: open },
+    { refetchInterval: 15_000, refetchIntervalInBackground: false, enabled: open, retry: 2 },
   );
 
   const markRead = trpc.agent.markNotificationRead.useMutation({
@@ -70,6 +72,7 @@ export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps
       void utils.agent.ownerNotifications.invalidate({ artifactId });
       void utils.agent.unreadNotificationCount.invalidate({ artifactId });
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   const markAllRead = trpc.agent.markAllNotificationsRead.useMutation({
@@ -77,6 +80,7 @@ export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps
       void utils.agent.ownerNotifications.invalidate({ artifactId });
       void utils.agent.unreadNotificationCount.invalidate({ artifactId });
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   const notifications = data?.notifications ?? [];
@@ -179,7 +183,7 @@ export function NotificationsBell({ artifactId }: NotificationsBellProps) {
 
   const { data } = trpc.agent.unreadNotificationCount.useQuery(
     { artifactId },
-    { refetchInterval: 15_000, refetchIntervalInBackground: false },
+    { refetchInterval: 15_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   const count = data?.count ?? 0;

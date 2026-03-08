@@ -426,7 +426,9 @@
     "validDays": "Valid days",
     "slaMinutes": "SLA minutes",
     "saveSettings": "Save",
-    "settingsSaved": "Settings saved"
+    "settingsSaved": "Settings saved",
+    "errorBoundaryTitle": "Something went wrong",
+    "errorBoundaryRetry": "Retry"
   },
   "knowledge": {
     "pageTitle": "Knowledge",
@@ -793,6 +795,7 @@
     "typeDealClosed": "Deal closed",
     "typeLeadStale": "Lead going cold",
     "typeEscalation": "Escalation",
-    "typeBudgetWarning": "Budget warning"
+    "typeBudgetWarning": "Budget warning",
+    "errorLoading": "Failed to load. Try again."
   }
 }

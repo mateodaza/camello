@@ -426,7 +426,9 @@
     "validDays": "Días de validez",
     "slaMinutes": "Minutos de SLA",
     "saveSettings": "Guardar",
-    "settingsSaved": "Configuración guardada"
+    "settingsSaved": "Configuración guardada",
+    "errorBoundaryTitle": "Algo salió mal",
+    "errorBoundaryRetry": "Reintentar"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",
@@ -793,6 +795,7 @@
     "typeDealClosed": "Trato cerrado",
     "typeLeadStale": "Lead enfriándose",
     "typeEscalation": "Escalación",
-    "typeBudgetWarning": "Alerta de presupuesto"
+    "typeBudgetWarning": "Alerta de presupuesto",
+    "errorLoading": "Error al cargar. Inténtalo de nuevo."
   }
 }

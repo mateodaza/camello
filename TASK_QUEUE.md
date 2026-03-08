@@ -101,8 +101,8 @@ Follow the pattern from `sales-alerts.tsx` for approve/reject mutations with opt
 
 ## P2 — Production Hardening
 
-#### CAM-120 [ ] Error boundary + global error handling audit
-Catch uncaught errors gracefully across the dashboard.
+#### CAM-120 [x] Error boundary + global error handling audit
+`WorkspaceSectionErrorBoundary` class component created; each section in `agents/[id]/page.tsx` wrapped; `retry: 2` added to all 18 polling queries across 6 files; `onError` toast added to 9 mutations; 2 i18n keys (en+es) in `agentWorkspace` + `errorLoading` in `notifications`. Type-check passes.
 
 **Acceptance Criteria:**
 - Add React Error Boundary component wrapping each workspace section (not the whole page — one section crash shouldn't kill the workspace)

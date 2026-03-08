@@ -98,7 +98,7 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
 
   const query = trpc.agent.salesAlerts.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
   const data = query.data;
 

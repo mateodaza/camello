@@ -68,6 +68,7 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
       addToast(t('leadNoteAdded'), 'success');
       setNoteText('');
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   const { lead, customer, attribution, interactions, executions, notes, messages, stageChanges,

@@ -12,6 +12,7 @@ import { AgentActivity } from '@/components/agent-workspace/agent-activity';
 import { sectionRegistry } from '@/components/agent-workspace/registry';
 import { ModuleSettings } from '@/components/agent-workspace/module-settings';
 import { NotificationsBell } from '@/components/agent-workspace/notifications-panel';
+import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
 
 export default function AgentWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +20,7 @@ export default function AgentWorkspacePage() {
 
   const workspace = trpc.agent.workspace.useQuery(
     { artifactId: id },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   if (workspace.isLoading) {
@@ -76,26 +77,34 @@ export default function AgentWorkspacePage() {
       />
 
       {/* Module settings — collapsible, shown for all agent types */}
-      <ModuleSettings
-        artifactId={id}
-        boundModules={data.boundModules.map((m) => ({
-          id: m.id,
-          moduleId: m.moduleId,
-          slug: m.slug,
-          name: m.name,
-          autonomyLevel: m.autonomyLevel,
-          configOverrides: (m.configOverrides ?? {}) as Record<string, unknown>,
-        }))}
-      />
+      <WorkspaceSectionErrorBoundary key="module-settings">
+        <ModuleSettings
+          artifactId={id}
+          boundModules={data.boundModules.map((m) => ({
+            id: m.id,
+            moduleId: m.moduleId,
+            slug: m.slug,
+            name: m.name,
+            autonomyLevel: m.autonomyLevel,
+            configOverrides: (m.configOverrides ?? {}) as Record<string, unknown>,
+          }))}
+        />
+      </WorkspaceSectionErrorBoundary>
 
       {/* Type-specific sections from registry */}
       {sections.map((Section, i) => (
-        <Section key={i} artifactId={id} />
+        <WorkspaceSectionErrorBoundary key={`section-${i}`}>
+          <Section artifactId={id} />
+        </WorkspaceSectionErrorBoundary>
       ))}
 
       {/* Shared sections: priority intents + activity */}
-      <PriorityIntents artifactId={id} />
-      <AgentActivity artifactId={id} />
+      <WorkspaceSectionErrorBoundary key="priority-intents">
+        <PriorityIntents artifactId={id} />
+      </WorkspaceSectionErrorBoundary>
+      <WorkspaceSectionErrorBoundary key="agent-activity">
+        <AgentActivity artifactId={id} />
+      </WorkspaceSectionErrorBoundary>
     </WorkspaceShell>
   );
 }

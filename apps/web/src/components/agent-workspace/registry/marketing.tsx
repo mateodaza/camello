@@ -31,7 +31,7 @@ function MarketingStats({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const query = trpc.agent.marketingStats.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
   const data = query.data;
   const topCategories = data?.topCategories ?? [];
@@ -66,7 +66,7 @@ function MarketingOverview({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const query = trpc.agent.marketingInterestMap.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
   const data = query.data ?? [];
 
@@ -105,7 +105,7 @@ function MarketingEngagement({ artifactId }: { artifactId: string }) {
 
   const query = trpc.agent.marketingEngagement.useQuery(
     { artifactId, limit: 20, offset: 0 },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   return (
@@ -151,7 +151,7 @@ function MarketingDrafts({ artifactId }: { artifactId: string }) {
 
   const query = trpc.agent.marketingDrafts.useQuery(
     { artifactId, limit: 20, offset: 0 },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   const visibleDrafts = (query.data ?? []).filter((d) => !dismissedIds.current.has(d.id));

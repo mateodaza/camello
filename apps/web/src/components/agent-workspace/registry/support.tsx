@@ -27,7 +27,7 @@ function SupportOverview({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const query = trpc.agent.supportMetrics.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
   const data = query.data;
 
@@ -53,7 +53,7 @@ function SupportResolutionStats({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const query = trpc.agent.supportResolutionStats.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
   const data = query.data;
 
@@ -84,7 +84,7 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
       status: (status || undefined) as typeof STATUSES[number] | undefined,
       priority: (priority || undefined) as typeof PRIORITIES[number] | undefined,
     },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   const updateStatus = trpc.agent.updateTicketStatus.useMutation({
@@ -93,6 +93,7 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
       utils.agent.supportMetrics.invalidate();
       addToast(t('ticketUpdated'), 'success');
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   const resolveConversation = trpc.conversation.updateStatus.useMutation({
@@ -102,6 +103,7 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
       utils.agent.supportResolutionStats.invalidate();
       addToast(t('ticketResolved'), 'success');
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   const storeCsatRating = trpc.agent.storeCsatRating.useMutation({
@@ -111,6 +113,7 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
       utils.agent.supportTickets.invalidate();
       addToast(t('csatSaved'), 'success');
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   type TicketRow = NonNullable<typeof query.data>[number];
@@ -238,7 +241,7 @@ function SupportEscalations({ artifactId }: { artifactId: string }) {
 
   const query = trpc.agent.supportEscalations.useQuery(
     { artifactId, limit: 20, offset: 0 },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   const acknowledge = trpc.agent.acknowledgeEscalation.useMutation({
@@ -247,6 +250,7 @@ function SupportEscalations({ artifactId }: { artifactId: string }) {
       utils.agent.supportMetrics.invalidate();
       addToast(t('escalationAcknowledged'), 'success');
     },
+    onError: () => addToast(t('errorLoading'), 'error'),
   });
 
   return (
@@ -281,7 +285,7 @@ function SupportKnowledgeGaps({ artifactId }: { artifactId: string }) {
 
   const query = trpc.agent.supportKnowledgeGaps.useQuery(
     { artifactId },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
   );
 
   const visibleGaps = query.data?.filter((g) => !dismissedIntents.current.has(g.intent));
