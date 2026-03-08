@@ -291,7 +291,8 @@ The book_meeting module currently accepts any time without checking business hou
 
 **Depends on:** NC-206, NC-207, NC-208, NC-209
 
-#### NC-218 [ ] Accessibility audit on inbox
+#### NC-218 [x] Accessibility audit on inbox
+**DONE.** Keyboard nav (roving tabIndex + ArrowUp/Down/Home/End) on conversation list; `role="listbox/option"` + `aria-selected`; `role="log"` + `aria-live="polite"` + `aria-relevant="additions"` on chat scroll container; focus moves to header on conversation change; `<label>` on owner-reply textarea + notes textarea; `CollapsibleSection` upgraded to `<h3>` wrapper + `aria-expanded` + `aria-controls` + always-in-DOM `hidden` content; touch targets ≥36px on all size="sm" buttons + search input h-9; 3 i18n keys (en + es). Type-check passes.
 Ensure the inbox is fully keyboard-navigable and screen-reader friendly.
 
 **Acceptance Criteria:**

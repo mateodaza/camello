@@ -933,7 +933,10 @@
     "ownerReplySending": "Enviando...",
     "ownerReplySendError": "No se pudo enviar la respuesta. Inténtalo de nuevo.",
     "detailsPanelShow": "Mostrar panel de detalles",
-    "detailsPanelHide": "Ocultar panel de detalles"
+    "detailsPanelHide": "Ocultar panel de detalles",
+    "conversationListLabel": "Conversaciones",
+    "chatLogLabel": "Mensajes del chat",
+    "ownerReplyLabel": "Responder al cliente"
   },
   "notifications": {
     "panelTitle": "Notificaciones del Agente",

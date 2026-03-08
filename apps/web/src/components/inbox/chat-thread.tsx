@@ -185,6 +185,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
   }
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
 
   useEffect(() => {
@@ -192,6 +193,10 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [timeline, isScrolledUp]);
+
+  useEffect(() => {
+    headerRef.current?.focus();
+  }, [conversationId]);
 
   function onScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
@@ -204,7 +209,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
   return (
     <div className="flex flex-col h-full">
       {/* HEADER */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-charcoal/8 shrink-0">
+      <div ref={headerRef} tabIndex={-1} className="flex items-center gap-3 px-4 py-3 border-b border-charcoal/8 shrink-0 focus:outline-none">
         {/* Group 1 — mobile back button */}
         <button
           type="button"
@@ -251,6 +256,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
                 size="sm"
                 type="button"
                 variant={conv.data?.status === s ? 'default' : 'ghost'}
+                className="min-h-[36px]"
                 disabled={statusMut.isPending}
                 onClick={() => statusMut.mutate({ id: conversationId, status: s })}
               >
@@ -293,6 +299,10 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
       {!msgs.isLoading && !act.isLoading && !msgs.isError && (
         <div
           ref={scrollRef}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label={t('chatLogLabel')}
           onScroll={onScroll}
           className="relative flex-1 overflow-y-auto px-4 py-4 space-y-2"
         >
@@ -389,7 +399,11 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
             {t('ownerReplyBanner')}
           </p>
           <div className="flex gap-2 items-end">
+            <label htmlFor="owner-reply-input" className="sr-only">
+              {t('ownerReplyLabel')}
+            </label>
             <textarea
+              id="owner-reply-input"
               className="flex-1 resize-none rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm text-charcoal placeholder:text-dune focus:outline-none focus:ring-2 focus:ring-teal/30 disabled:opacity-50 min-h-[72px]"
               placeholder={t('ownerReplyPlaceholder')}
               value={replyText}
@@ -405,7 +419,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
               size="sm"
               onClick={handleSend}
               disabled={replyMut.isPending || replyText.trim().length === 0}
-              className="shrink-0 self-end"
+              className="shrink-0 self-end min-h-[36px]"
             >
               {replyMut.isPending ? t('ownerReplySending') : t('ownerReplySend')}
             </Button>

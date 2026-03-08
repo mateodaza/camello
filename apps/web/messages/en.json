@@ -933,7 +933,10 @@
     "ownerReplySending": "Sending...",
     "ownerReplySendError": "Failed to send reply. Please try again.",
     "detailsPanelShow": "Show details panel",
-    "detailsPanelHide": "Hide details panel"
+    "detailsPanelHide": "Hide details panel",
+    "conversationListLabel": "Conversations",
+    "chatLogLabel": "Chat messages",
+    "ownerReplyLabel": "Reply to customer"
   },
   "notifications": {
     "panelTitle": "Agent Notifications",

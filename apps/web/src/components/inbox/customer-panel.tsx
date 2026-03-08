@@ -83,11 +83,13 @@ function activityLabel(
 // ── Collapsible section wrapper ───────────────────────────────────────────────
 
 function CollapsibleSection({
+  id,
   title,
   open,
   onToggle,
   children,
 }: {
+  id: string;
   title: string;
   open: boolean;
   onToggle: () => void;
@@ -95,17 +97,22 @@ function CollapsibleSection({
 }) {
   return (
     <div className="border-b border-charcoal/8">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-sand/40"
-      >
-        <span className="text-xs font-semibold uppercase tracking-wide text-dune">{title}</span>
-        <ChevronDown
-          className={cn('h-4 w-4 text-dune transition-transform', open && 'rotate-180')}
-        />
-      </button>
-      {open && <div className="px-4 pb-4">{children}</div>}
+      <h3 className="m-0">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={`section-${id}`}
+          onClick={onToggle}
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-sand/40"
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide text-dune">{title}</span>
+          <ChevronDown
+            aria-hidden="true"
+            className={cn('h-4 w-4 text-dune transition-transform', open && 'rotate-180')}
+          />
+        </button>
+      </h3>
+      <div id={`section-${id}`} hidden={!open} className="px-4 pb-4">{children}</div>
     </div>
   );
 }
@@ -189,6 +196,7 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
 
       {/* ── Section A: Customer Info ─────────────────────────────────── */}
       <CollapsibleSection
+        id="customer-info"
         title={t('customerInfoSection')}
         open={infoOpen}
         onToggle={() => setInfoOpen((v) => !v)}
@@ -259,6 +267,7 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
 
       {/* ── Section B: Activity Timeline ─────────────────────────────── */}
       <CollapsibleSection
+        id="activity-timeline"
         title={t('activitySection')}
         open={timelineOpen}
         onToggle={() => setTimelineOpen((v) => !v)}
@@ -285,6 +294,7 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
 
       {/* ── Section C: Notes ─────────────────────────────────────────── */}
       <CollapsibleSection
+        id="notes"
         title={t('notesSection')}
         open={notesOpen}
         onToggle={() => setNotesOpen((v) => !v)}
@@ -313,7 +323,11 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
 
             {/* Add note form */}
             <div className="space-y-2">
+              <label htmlFor="note-textarea" className="sr-only">
+                {t('notesPlaceholder')}
+              </label>
               <textarea
+                id="note-textarea"
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder={t('notesPlaceholder')}
@@ -324,6 +338,7 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
               <Button
                 size="sm"
                 type="button"
+                className="min-h-[36px]"
                 disabled={addNoteMut.isPending || !noteText.trim()}
                 onClick={() =>
                   addNoteMut.mutate({
