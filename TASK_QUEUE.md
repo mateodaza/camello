@@ -142,8 +142,8 @@ Ensure all components from the sales optimization sprint meet a11y standards.
 
 ## P3 — Dashboard UX & Onboarding Improvements
 
-#### CAM-123 [ ] Conversation list redesign — filters + search
-The conversation list is a flat chronological dump. Add filtering and search.
+#### CAM-123 [x] Conversation list redesign — filters + search
+Extended `conversation.list` input schema with `channel`, `search`, `dateRange`, `customerId`; added filter conditions (ILIKE/EXISTS for search, date cutoff, FK equality); filter bar with status/channel/date/search + 300ms debounce in `page.tsx`; 10 i18n keys (en+es); 7 tests in `conversation-list-filters.test.ts` (spy on `.where()` + `PgDialect.sqlToQuery()` to assert bound params, not just Zod acceptance). Type-check passes.
 
 **Acceptance Criteria:**
 - Add filter bar above conversation list in `apps/web/src/app/dashboard/conversations/page.tsx`

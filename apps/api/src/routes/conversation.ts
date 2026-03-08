@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, or } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { conversations, messages, customers, tenants } from '@camello/db';
 import {
@@ -14,6 +14,10 @@ export const conversationRouter = router({
     .input(
       z.object({
         status: z.enum(['active', 'resolved', 'escalated']).optional(),
+        channel: z.enum(['web_chat', 'whatsapp']).optional(),
+        search: z.string().max(200).optional(),
+        dateRange: z.enum(['7d', '30d', 'all']).optional(),
+        customerId: z.string().uuid().optional(),
         limit: z.number().int().min(1).max(100).default(50),
         cursor: z.string().uuid().optional(),
       }).default({}),
@@ -25,6 +29,30 @@ export const conversationRouter = router({
           sql`NOT (${conversations.metadata} @> '{"sandbox": true}'::jsonb)`,
         ];
         if (input.status) conditions.push(eq(conversations.status, input.status));
+        if (input.channel) {
+          conditions.push(eq(conversations.channel, input.channel));
+        }
+        if (input.customerId) {
+          conditions.push(eq(conversations.customerId, input.customerId));
+        }
+        if (input.dateRange && input.dateRange !== 'all') {
+          const days = input.dateRange === '7d' ? 7 : 30;
+          const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+          conditions.push(sql`${conversations.createdAt} >= ${cutoff}`);
+        }
+        if (input.search) {
+          const pattern = `%${input.search}%`;
+          conditions.push(
+            or(
+              sql`(${conversations.metadata}->>'customerName') ILIKE ${pattern}`,
+              sql`EXISTS (
+                SELECT 1 FROM messages
+                WHERE messages.conversation_id = ${conversations.id}
+                AND messages.content ILIKE ${pattern}
+              )`,
+            )!,
+          );
+        }
 
         // Keyset pagination: if cursor provided, fetch that row's updatedAt
         // then filter to rows older than it (or same time but smaller id).

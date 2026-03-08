@@ -89,7 +89,18 @@
     "customerMemory": "Memoria",
     "noMemory": "Sin información del cliente aún",
     "firstSeen": "Primera visita",
-    "factCount": "{count} datos"
+    "factCount": "{count} datos",
+    "filterStatusAll": "Todos",
+    "filterStatusActive": "Activos",
+    "filterStatusResolved": "Resueltos",
+    "filterStatusEscalated": "Escalados",
+    "filterChannelAll": "Todos los canales",
+    "filterChannelWebChat": "Chat web",
+    "filterChannelWhatsApp": "WhatsApp",
+    "filterDateAll": "Todo el tiempo",
+    "filterDate7d": "Últimos 7 días",
+    "filterDate30d": "Últimos 30 días",
+    "searchPlaceholder": "Buscar por nombre o mensaje..."
   },
   "artifacts": {
     "pageTitle": "Agentes",
