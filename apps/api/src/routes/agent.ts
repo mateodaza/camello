@@ -1295,24 +1295,45 @@ export const agentRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
-        // Intents with no RAG hits — resolution_type will be null or 'no_knowledge'
-        // Group by intent to find common gaps
-        return db
-          .select({
-            intent: interactionLogs.intent,
-            count: sql<number>`count(*)::int`,
-            lastSeen: sql<string>`max(${interactionLogs.createdAt})::text`,
-          })
-          .from(interactionLogs)
-          .where(and(
-            eq(interactionLogs.artifactId, input.artifactId),
-            eq(interactionLogs.tenantId, ctx.tenantId),
-            isNull(interactionLogs.resolutionType),
-            gte(interactionLogs.createdAt, sql`now() - interval '30 days'`),
-          ))
-          .groupBy(interactionLogs.intent)
-          .orderBy(desc(sql`count(*)`))
-          .limit(input.limit);
+        type GapRow = { intent: string; count: number; last_seen: string; sample_question: string | null };
+        const result = await db.execute(sql`
+          SELECT
+            lower(trim(il.intent))           AS intent,
+            count(*)::int                    AS count,
+            max(il.created_at)::text         AS last_seen,
+            (
+              SELECT m.content
+              FROM messages m
+              WHERE m.conversation_id = (
+                  SELECT il2.conversation_id
+                  FROM interaction_logs il2
+                  WHERE lower(trim(il2.intent)) = lower(trim(il.intent))
+                    AND il2.artifact_id = ${input.artifactId}
+                    AND il2.tenant_id = ${ctx.tenantId}
+                    AND il2.resolution_type IS NULL
+                  ORDER BY il2.tokens_out ASC NULLS LAST
+                  LIMIT 1
+                )
+                AND m.role = 'customer'
+                AND m.tenant_id = ${ctx.tenantId}
+              ORDER BY m.created_at ASC
+              LIMIT 1
+            ) AS sample_question
+          FROM interaction_logs il
+          WHERE il.artifact_id = ${input.artifactId}
+            AND il.tenant_id = ${ctx.tenantId}
+            AND il.resolution_type IS NULL
+            AND il.created_at >= now() - interval '30 days'
+          GROUP BY lower(trim(il.intent))
+          ORDER BY count DESC
+          LIMIT ${input.limit}
+        `);
+        return (result.rows as GapRow[]).map((r) => ({
+          intent: r.intent,
+          count: r.count,
+          lastSeen: r.last_seen,
+          sampleQuestion: r.sample_question ?? null,
+        }));
       });
     }),
 

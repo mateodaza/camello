@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
 import { trpc } from '@/lib/trpc';
@@ -274,36 +273,141 @@ function SupportEscalations({ artifactId }: { artifactId: string }) {
 
 function SupportKnowledgeGaps({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
-  const locale = useLocale();
+  const [answeringGap, setAnsweringGap] = useState<string | null>(null);
+  const [answerText, setAnswerText] = useState('');
+  const dismissedIntents = useRef<Set<string>>(new Set());
+  const utils = trpc.useUtils();
+  const { addToast } = useToast();
 
   const query = trpc.agent.supportKnowledgeGaps.useQuery(
     { artifactId },
     { refetchInterval: 30_000, refetchIntervalInBackground: false },
   );
 
+  const visibleGaps = query.data?.filter((g) => !dismissedIntents.current.has(g.intent));
+
+  const ingestMutation = trpc.knowledge.ingest.useMutation({
+    onMutate: async ({ metadata }) => {
+      const intent = (metadata as Record<string, unknown>)?.gapIntent as string | undefined;
+      if (!intent) return;
+      dismissedIntents.current.add(intent);
+      await utils.agent.supportKnowledgeGaps.cancel({ artifactId });
+      const prev = utils.agent.supportKnowledgeGaps.getData({ artifactId });
+      utils.agent.supportKnowledgeGaps.setData({ artifactId }, (old) =>
+        old ? old.filter((g) => g.intent !== intent) : old,
+      );
+      return { prev };
+    },
+    onSuccess: () => {
+      // NOTE: No invalidate here — polling will refresh cache naturally.
+      // dismissedIntents.current ensures the gap stays hidden even after poll refetches.
+      setAnsweringGap(null);
+      setAnswerText('');
+      addToast(t('gapAnswerIngested'), 'success');
+    },
+    onError: (_err, vars, ctx) => {
+      const intent = (vars.metadata as Record<string, unknown>)?.gapIntent as string | undefined;
+      if (intent) dismissedIntents.current.delete(intent);
+      if (ctx?.prev) utils.agent.supportKnowledgeGaps.setData({ artifactId }, ctx.prev);
+      addToast(t('errorLoading'), 'error');
+    },
+  });
+
+  if (query.isLoading) {
+    return (
+      <div className="rounded-lg border border-charcoal/10 bg-cream p-4">
+        <div className="h-4 w-32 animate-pulse rounded bg-charcoal/10" />
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <div className="rounded-lg border border-charcoal/10 bg-cream p-4 space-y-2">
+        <p className="text-sm text-sunset">{t('errorLoading')}</p>
+        <button
+          type="button"
+          className="text-xs text-teal hover:underline min-h-[36px]"
+          onClick={() => query.refetch()}
+        >
+          {t('errorLoading')}
+        </button>
+      </div>
+    );
+  }
+
+  if (!visibleGaps || visibleGaps.length === 0) {
+    return (
+      <div className="rounded-lg border border-charcoal/10 bg-cream p-4 space-y-1">
+        <p className="text-sm font-semibold text-charcoal">{t('gapEmptyTitle')}</p>
+        <p className="text-xs text-dune">{t('gapEmptyDesc')}</p>
+      </div>
+    );
+  }
+
   return (
-    <DataTable
-      title={t('supportKnowledgeGaps')}
-      columns={[
-        { key: 'intent', label: t('columnIntent'), render: (row) => (
-          <Badge variant="default">{row.intent}</Badge>
-        )},
-        { key: 'count', label: t('columnOccurrences'), render: (row) => row.count },
-        { key: 'lastSeen', label: t('columnLastSeen'), render: (row) => fmtDate(row.lastSeen, locale) },
-        { key: 'action', label: '', render: () => (
-          <Link href="/dashboard/knowledge" className="text-xs font-medium text-teal hover:underline">
-            {t('supportAddToKnowledge')}
-          </Link>
-        )},
-      ]}
-      data={query.data}
-      isLoading={query.isLoading}
-      isError={query.isError}
-      error={query.error ?? undefined}
-      onRetry={() => query.refetch()}
-      emptyTitle={t('supportEmptyTitle')}
-      emptyDescription={t('supportEmptyDesc')}
-    />
+    <div className="space-y-3">
+      {visibleGaps.map((gap) => (
+        <div key={gap.intent} className="rounded-lg border border-charcoal/10 bg-cream p-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-charcoal">{gap.intent}</span>
+            <Badge variant="default">{t('gapAskedCount', { count: gap.count })}</Badge>
+          </div>
+          {gap.sampleQuestion && (
+            <div className="space-y-0.5">
+              <p className="text-xs text-dune">{t('gapSampleQuestion')}</p>
+              <p className="text-sm text-charcoal">
+                {gap.sampleQuestion.length > 120
+                  ? `${gap.sampleQuestion.slice(0, 120)}…`
+                  : gap.sampleQuestion}
+              </p>
+            </div>
+          )}
+          {answeringGap !== gap.intent ? (
+            <button
+              type="button"
+              className="text-xs font-medium text-teal hover:underline min-h-[36px]"
+              onClick={() => { setAnsweringGap(gap.intent); setAnswerText(''); }}
+            >
+              {t('gapAddAnswer')}
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <textarea
+                className="w-full rounded border border-charcoal/20 bg-white p-2 text-sm text-charcoal placeholder:text-dune min-h-[80px] resize-y"
+                value={answerText}
+                onChange={(e) => setAnswerText(e.target.value)}
+                placeholder={t('gapAnswerPlaceholder')}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded bg-teal px-3 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 min-h-[36px]"
+                  disabled={ingestMutation.isPending || !answerText.trim()}
+                  onClick={() => {
+                    ingestMutation.mutate({
+                      content: answerText,
+                      title: gap.sampleQuestion ?? gap.intent,
+                      sourceType: 'upload',
+                      metadata: { gapIntent: gap.intent },
+                    });
+                  }}
+                >
+                  {t('gapSubmitAnswer')}
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-charcoal/20 px-3 text-xs font-medium text-charcoal hover:bg-charcoal/5 min-h-[36px]"
+                  onClick={() => setAnsweringGap(null)}
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

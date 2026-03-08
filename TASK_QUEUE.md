@@ -62,7 +62,8 @@ This-week vs last-week comparison on sales overview with delta arrows. `agent.sa
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-#### CAM-118 [ ] Support workspace: knowledge gap inline ingest + improved UX
+#### CAM-118 [x] Support workspace: knowledge gap inline ingest + improved UX
+Card-feed layout replaces DataTable; `dismissedIntents` useRef + onMutate setData gives true optimistic removal that persists through 30s poll refetches (no invalidate on success); `tokens_out ASC` subquery selects lowest-confidence conversation for sample question; intent normalized via `lower(trim())` in SQL; 8 i18n keys (en+es); 4 tests in `agent-knowledge-gaps.test.ts`. Type-check passes.
 The support workspace already has `agent.supportKnowledgeGaps` procedure and a `SupportKnowledgeGaps` section. Improve it with actionable inline ingest.
 
 **Acceptance Criteria:**
