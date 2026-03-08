@@ -25,7 +25,6 @@ export default function DashboardOverview() {
   const artifacts = trpc.artifact.list.useQuery({});
   const dashboardOverview = trpc.agent.dashboardOverview.useQuery();
   const activityFeed = trpc.agent.dashboardActivityFeed.useQuery(undefined, { refetchInterval: 30_000 });
-  const allArtifacts = trpc.artifact.list.useQuery({ activeOnly: false });
   const monthlyUsage = trpc.analytics.monthlyUsage.useQuery();
   const intents = trpc.analytics.intentBreakdown.useQuery();
 
@@ -75,7 +74,7 @@ export default function DashboardOverview() {
       <QuickStatsSection data={dashboardOverview.data} t={t} />
 
       {/* ===== Your Agents ===== */}
-      <YourAgentsSection agents={allArtifacts.data} t={t} />
+      <YourAgentsSection agents={artifacts.data} t={t} />
 
       {/* ===== Activity Feed ===== */}
       <ActivityFeedSection events={activityFeed.data?.events} locale={locale} t={t} />

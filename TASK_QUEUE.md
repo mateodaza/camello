@@ -171,8 +171,8 @@ The existing `conversation.list` procedure already paginates. Extend the input s
 
 **Depends on:** CAM-108 (notifications exist)
 
-#### CAM-125 [ ] Settings page polish — danger zone + data export
-The settings pages need a few more features before launch.
+#### CAM-125 [x] Settings page polish — danger zone + data export
+`artifact.deactivate` mutation (soft-delete via `isActive=false`, `TRPCError NOT_FOUND`); `agent.exportData` query (LIMIT+1 truncation on convs/leads/notes); custom `dialog.tsx` (matches `sheet.tsx` pattern, no Radix); `AgentSettingsPanel` component (Export Data card + Danger Zone card with confirmation dialog, `tc('cancel')` via `useTranslations('common')`); dashboard `page.tsx` fixed to `artifacts.data` (activeOnly: true); 13 i18n keys (en+es); 7 tests across `artifact-deactivate.test.ts` (3) + `agent-export-data.test.ts` (4). Type-check passes.
 
 **Acceptance Criteria:**
 - "Danger Zone" section on settings page: "Delete Agent" button (confirmation dialog → calls `artifact.deactivate` which soft-deletes)

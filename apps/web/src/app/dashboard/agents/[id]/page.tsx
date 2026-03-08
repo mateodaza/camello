@@ -13,6 +13,7 @@ import { sectionRegistry } from '@/components/agent-workspace/registry';
 import { ModuleSettings } from '@/components/agent-workspace/module-settings';
 import { NotificationsBell } from '@/components/agent-workspace/notifications-panel';
 import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
+import { AgentSettingsPanel } from '@/components/agent-workspace/agent-settings-panel';
 
 export default function AgentWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -104,6 +105,9 @@ export default function AgentWorkspacePage() {
       </WorkspaceSectionErrorBoundary>
       <WorkspaceSectionErrorBoundary key="agent-activity">
         <AgentActivity artifactId={id} />
+      </WorkspaceSectionErrorBoundary>
+      <WorkspaceSectionErrorBoundary key="settings-panel">
+        <AgentSettingsPanel artifactId={id} />
       </WorkspaceSectionErrorBoundary>
     </WorkspaceShell>
   );

@@ -2134,4 +2134,58 @@ export const agentRouter = router({
       });
     }),
 
+  exportData: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const LIMIT = 1000;
+
+        // Step 1: Conversations (LIMIT + 1 to detect truncation)
+        const convRows = await db
+          .select()
+          .from(conversations)
+          .where(and(eq(conversations.artifactId, input.artifactId), eq(conversations.tenantId, ctx.tenantId)))
+          .orderBy(desc(conversations.createdAt))
+          .limit(LIMIT + 1);
+        const truncatedConvs = convRows.length > LIMIT;
+        const exportedConvs = convRows.slice(0, LIMIT);
+
+        // Step 2: Leads (via inArray on exported conv IDs, only if convs non-empty)
+        let exportedLeads: typeof leads.$inferSelect[] = [];
+        let truncatedLeads = false;
+        if (exportedConvs.length > 0) {
+          const leadRows = await db
+            .select()
+            .from(leads)
+            .where(and(eq(leads.tenantId, ctx.tenantId), inArray(leads.conversationId, exportedConvs.map((c) => c.id))))
+            .orderBy(desc(leads.createdAt))
+            .limit(LIMIT + 1);
+          truncatedLeads = leadRows.length > LIMIT;
+          exportedLeads = leadRows.slice(0, LIMIT);
+        }
+
+        // Step 3: Notes (via inArray on exported lead IDs, LIMIT+1 for truncation check)
+        let exportedNotes: typeof leadNotes.$inferSelect[] = [];
+        let truncatedNotes = false;
+        if (exportedLeads.length > 0) {
+          const noteRows = await db
+            .select()
+            .from(leadNotes)
+            .where(and(eq(leadNotes.tenantId, ctx.tenantId), inArray(leadNotes.leadId, exportedLeads.map((l) => l.id))))
+            .orderBy(desc(leadNotes.createdAt))
+            .limit(LIMIT + 1);
+          truncatedNotes = noteRows.length > LIMIT;
+          exportedNotes = noteRows.slice(0, LIMIT);
+        }
+
+        return {
+          leads: exportedLeads,
+          conversations: exportedConvs,
+          notes: exportedNotes,
+          truncated: truncatedConvs || truncatedLeads || truncatedNotes,
+          exportedAt: new Date(),
+        };
+      });
+    }),
+
 });

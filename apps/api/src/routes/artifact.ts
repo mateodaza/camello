@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { artifacts, artifactModules, modules, tenants } from '@camello/db';
 import { enforceUniqueArtifactType } from '../lib/enforce-unique-artifact-type.js';
@@ -142,6 +143,22 @@ export const artifactRouter = router({
           .where(and(eq(artifacts.id, input.id), eq(artifacts.tenantId, ctx.tenantId)))
           .returning({ id: artifacts.id });
         return rows[0] ?? null;
+      });
+    }),
+
+  deactivate: tenantProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .update(artifacts)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(and(eq(artifacts.id, input.id), eq(artifacts.tenantId, ctx.tenantId)))
+          .returning();
+        if (!rows[0]) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Artifact not found' });
+        }
+        return rows[0];
       });
     }),
 

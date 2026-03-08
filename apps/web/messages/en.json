@@ -453,7 +453,20 @@
     "saveSettings": "Save",
     "settingsSaved": "Settings saved",
     "errorBoundaryTitle": "Something went wrong",
-    "errorBoundaryRetry": "Retry"
+    "errorBoundaryRetry": "Retry",
+    "dangerZoneTitle": "Danger Zone",
+    "dangerZoneDescription": "Destructive actions that cannot be undone.",
+    "deleteAgentButton": "Delete Agent",
+    "deleteAgentConfirmTitle": "Deactivate Agent?",
+    "deleteAgentConfirmBody": "This will deactivate your agent. All data is preserved, but the agent will stop responding to new conversations.",
+    "deleteAgentConfirm": "Yes, Deactivate",
+    "deleteAgentSuccess": "Agent deactivated",
+    "exportDataTitle": "Export Data",
+    "exportDataDescription": "Download all leads, conversations, and notes for this agent as a JSON file.",
+    "exportDataButton": "Export Data",
+    "exportDataExporting": "Exporting...",
+    "exportDataSuccess": "Data exported successfully",
+    "exportDataTruncated": "Export truncated to 1,000 records per type. Download may not include all data."
   },
   "knowledge": {
     "pageTitle": "Knowledge",

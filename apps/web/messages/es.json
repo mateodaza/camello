@@ -453,7 +453,20 @@
     "saveSettings": "Guardar",
     "settingsSaved": "Configuración guardada",
     "errorBoundaryTitle": "Algo salió mal",
-    "errorBoundaryRetry": "Reintentar"
+    "errorBoundaryRetry": "Reintentar",
+    "dangerZoneTitle": "Zona de Peligro",
+    "dangerZoneDescription": "Acciones destructivas que no se pueden deshacer.",
+    "deleteAgentButton": "Eliminar Agente",
+    "deleteAgentConfirmTitle": "¿Desactivar Agente?",
+    "deleteAgentConfirmBody": "Esto desactivará tu agente. Todos los datos se conservan, pero el agente dejará de responder a nuevas conversaciones.",
+    "deleteAgentConfirm": "Sí, Desactivar",
+    "deleteAgentSuccess": "Agente desactivado",
+    "exportDataTitle": "Exportar Datos",
+    "exportDataDescription": "Descarga todos los leads, conversaciones y notas de este agente en formato JSON.",
+    "exportDataButton": "Exportar Datos",
+    "exportDataExporting": "Exportando...",
+    "exportDataSuccess": "Datos exportados correctamente",
+    "exportDataTruncated": "Exportación limitada a 1,000 registros por tipo. La descarga puede no incluir todos los datos."
   },
   "knowledge": {
     "pageTitle": "Conocimiento",
