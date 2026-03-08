@@ -165,7 +165,8 @@ Implement the right panel — customer info card, activity timeline, and notes s
 
 **Depends on:** NC-202, NC-205
 
-#### NC-209 [ ] Owner reply input for escalated conversations
+#### NC-209 [x] Owner reply input for escalated conversations
+**DONE.** Added escalated-only reply textarea + send button to `chat-thread.tsx`. Calls `replyAsOwner` mutation. Optimistic message via `optimisticMessages` state merged in `useMemo`. Toast on error via `useToast`. Disable while pending. Info banner, Cmd+Enter shortcut, clear + scroll-to-bottom on success. 5 i18n keys (en+es).
 Add the owner reply input at the bottom of the chat thread panel, only visible when conversation is escalated.
 
 **Acceptance Criteria:**

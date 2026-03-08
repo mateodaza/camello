@@ -900,7 +900,12 @@
     "conversationNotFound": "Conversation not found",
     "chatBackToList": "Back",
     "chatToggleDetails": "Details",
-    "detailsBackToChat": "Back to chat"
+    "detailsBackToChat": "Back to chat",
+    "ownerReplyBanner": "This conversation was escalated. Your reply will be sent to the customer.",
+    "ownerReplyPlaceholder": "Reply to customer...",
+    "ownerReplySend": "Send",
+    "ownerReplySending": "Sending...",
+    "ownerReplySendError": "Failed to send reply. Please try again."
   },
   "notifications": {
     "panelTitle": "Agent Notifications",

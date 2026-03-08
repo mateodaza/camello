@@ -9,6 +9,7 @@ import { QueryError } from '@/components/query-error';
 import { fmtTimeAgo, fmtMoney, humanize } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useInboxPanel } from './inbox-layout';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatThreadProps {
   conversationId: string | null;
@@ -92,6 +93,7 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
 function ChatThreadInner({ conversationId }: { conversationId: string }) {
   const t = useTranslations('inbox');
   const { goToList, goToDetails } = useInboxPanel();
+  const { addToast } = useToast();
 
   const conv = trpc.conversation.byId.useQuery(
     { id: conversationId },
@@ -107,6 +109,9 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
   );
 
   const statusMut = trpc.conversation.updateStatus.useMutation();
+  const replyMut = trpc.conversation.replyAsOwner.useMutation();
+  const [replyText, setReplyText] = useState('');
+  const [optimisticMessages, setOptimisticMessages] = useState<Extract<TimelineItem, { kind: 'message' }>[]>([]);
 
   const timeline = useMemo<TimelineItem[]>(() => {
     const msgItems: TimelineItem[] = [...(msgs.data ?? [])].reverse().map((m) => ({
@@ -135,12 +140,49 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
           },
     );
 
-    return [...msgItems, ...actItems].sort((x, y) => {
+    const mergedMsgItems = [...msgItems, ...optimisticMessages];
+
+    return [...mergedMsgItems, ...actItems].sort((x, y) => {
       const tx = x.kind === 'message' ? x.createdAt.getTime() : x.timestamp.getTime();
       const ty = y.kind === 'message' ? y.createdAt.getTime() : y.timestamp.getTime();
       return tx - ty;
     });
-  }, [msgs.data, act.data]);
+  }, [msgs.data, act.data, optimisticMessages]);
+
+  function handleSend() {
+    const text = replyText.trim();
+    if (!text || replyMut.isPending) return;
+
+    const tempId = `optimistic-${Date.now()}`;
+    const optimisticItem: Extract<TimelineItem, { kind: 'message' }> = {
+      kind: 'message',
+      id: tempId,
+      role: 'human',
+      content: text,
+      createdAt: new Date(),
+      metadata: null,
+    };
+    setOptimisticMessages((prev) => [...prev, optimisticItem]);
+    setReplyText('');
+
+    replyMut.mutate(
+      { conversationId, message: text },
+      {
+        onSuccess: () => {
+          setOptimisticMessages((prev) => prev.filter((m) => m.id !== tempId));
+          void msgs.refetch();
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+        },
+        onError: () => {
+          setOptimisticMessages((prev) => prev.filter((m) => m.id !== tempId));
+          setReplyText(text);
+          addToast(t('ownerReplySendError'), 'error');
+        },
+      },
+    );
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -337,6 +379,37 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
           >
             <ChevronDown className="h-4 w-4" aria-hidden="true" />
           </button>
+        </div>
+      )}
+
+      {/* OWNER REPLY INPUT — only shown for escalated conversations */}
+      {status === 'escalated' && (
+        <div className="shrink-0 border-t border-charcoal/8 px-4 py-3 flex flex-col gap-2">
+          <p className="text-xs text-sunset bg-sunset/8 rounded-md px-3 py-2">
+            {t('ownerReplyBanner')}
+          </p>
+          <div className="flex gap-2 items-end">
+            <textarea
+              className="flex-1 resize-none rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm text-charcoal placeholder:text-dune focus:outline-none focus:ring-2 focus:ring-teal/30 disabled:opacity-50 min-h-[72px]"
+              placeholder={t('ownerReplyPlaceholder')}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              disabled={replyMut.isPending}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend();
+              }}
+              rows={3}
+            />
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSend}
+              disabled={replyMut.isPending || replyText.trim().length === 0}
+              className="shrink-0 self-end"
+            >
+              {replyMut.isPending ? t('ownerReplySending') : t('ownerReplySend')}
+            </Button>
+          </div>
         </div>
       )}
     </div>
