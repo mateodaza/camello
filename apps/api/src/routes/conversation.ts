@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { eq, and, desc, sql, or } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, or } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { conversations, messages, customers, tenants } from '@camello/db';
+import { conversations, messages, customers, tenants, moduleExecutions, leads, leadStageChanges, modules } from '@camello/db';
 import {
   extractFactsRegex,
   mergeMemoryFacts,
@@ -287,5 +287,83 @@ export const conversationRouter = router({
       }
 
       return result;
+    }),
+
+  activity: tenantProcedure
+    .input(z.object({ conversationId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        // Query 1: module executions with module name
+        const executions = await db
+          .select({
+            moduleSlug: moduleExecutions.moduleSlug,
+            moduleName: modules.name,
+            input: moduleExecutions.input,
+            output: moduleExecutions.output,
+            createdAt: moduleExecutions.createdAt,
+          })
+          .from(moduleExecutions)
+          .leftJoin(modules, eq(moduleExecutions.moduleId, modules.id))
+          .where(and(
+            eq(moduleExecutions.conversationId, input.conversationId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+          ))
+          .orderBy(asc(moduleExecutions.createdAt));
+
+        // Query 2: find lead linked to this conversation
+        const leadRows = await db
+          .select({ id: leads.id })
+          .from(leads)
+          .where(and(
+            eq(leads.conversationId, input.conversationId),
+            eq(leads.tenantId, ctx.tenantId),
+          ))
+          .limit(1);
+
+        // Query 3 (conditional): stage changes for the lead
+        const stageChanges = leadRows[0]
+          ? await db
+              .select({
+                fromStage: leadStageChanges.fromStage,
+                toStage: leadStageChanges.toStage,
+                createdAt: leadStageChanges.createdAt,
+              })
+              .from(leadStageChanges)
+              .where(and(
+                eq(leadStageChanges.leadId, leadRows[0].id),
+                eq(leadStageChanges.tenantId, ctx.tenantId),
+              ))
+              .orderBy(asc(leadStageChanges.createdAt))
+          : [];
+
+        // Merge and sort ASC
+        const items: {
+          type: 'execution' | 'stage_change';
+          timestamp: Date;
+          moduleName?: string;
+          moduleSlug?: string;
+          input?: unknown;
+          output?: unknown;
+          fromStage?: string;
+          toStage?: string;
+        }[] = [
+          ...executions.map((e) => ({
+            type: 'execution' as const,
+            timestamp: e.createdAt,
+            moduleName: e.moduleName ?? undefined,
+            moduleSlug: e.moduleSlug,
+            input: e.input,
+            output: e.output ?? undefined,
+          })),
+          ...stageChanges.map((s) => ({
+            type: 'stage_change' as const,
+            timestamp: s.createdAt,
+            fromStage: s.fromStage,
+            toStage: s.toStage,
+          })),
+        ];
+        items.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        return items;
+      });
     }),
 });

@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-202 | `conversation.activity` tRPC procedure | Mar 8 | `apps/api/src/routes/conversation.ts`: `activity` tenantProcedure — 3 sequential DB queries inside single `tenantDb.query()` call: (1) module executions leftJoin modules for name, (2) lead lookup by conversationId, (3) stage changes by leadId. JS-merged array sorted ASC by timestamp. `apps/api/src/__tests__/routes/conversation-activity.test.ts`: 4 tests (happy path mixed sort, empty, executions-only, stage-changes-only). Type-check passes. |
 
 ---
 
@@ -835,3 +836,4 @@
 - **CAM-130** — 2026-03-08 — `188b024` — Session: 20260307-231133-camello — ⚠ Committed after soft review rejections cap; local verification passed.
 - **CAM-131** — 2026-03-08 — `422e24b` — Session: 20260307-231133-camello
 - **CAM-132** — 2026-03-08 — `35d6e08` — Session: 20260307-231133-camello
+- **NC-202** — 2026-03-08 — `d839edf` — Session: 20260308-164450-camello

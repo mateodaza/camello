@@ -49,8 +49,9 @@ Onboarding fixes, period comparison, revenue forecast, support resolution+CSAT, 
 #### NC-201 [x] Add `display_name` column to customers + backfill migration
 **DONE (manually applied).** Migration 0021 applied to Supabase cloud. `displayName` added to Drizzle schema at `packages/db/src/schema/customers.ts:13`. Backfill set "Visitor N" per tenant for unnamed customers.
 
-#### NC-202 [ ] `conversation.activity` tRPC procedure
+#### NC-202 [x] `conversation.activity` tRPC procedure
 New query returning module executions + stage changes for a specific conversation, chronologically sorted. This powers the right panel activity timeline in the inbox.
+**DONE.** Added `activity` procedure to `conversationRouter` (3 sequential DB queries: module executions leftJoin modules, lead lookup, stage changes; JS-merged and sorted ASC). 4 tests in `conversation-activity.test.ts`. Type-check passes.
 
 **Acceptance Criteria:**
 - New `conversation.activity` tenantProcedure: input `{ conversationId: uuid }`
