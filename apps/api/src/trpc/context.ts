@@ -8,6 +8,8 @@ export interface Context {
   userId: string | null;
   /** Clerk organization ID (e.g. "org_xxx"). Null if no org selected. */
   orgId: string | null;
+  /** Resolved full name of the authenticated user. Null if lookup failed or unauthenticated. */
+  userFullName?: string | null;
   /** Clerk organization ID mapped to tenant UUID. Null if no org selected. */
   tenantId: string | null;
   /** Tenant-scoped DB helper. Null if no tenant context. */
@@ -72,6 +74,7 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
 
   let userId: string | null = null;
   let orgId: string | null = null;
+  let userFullName: string | null = null;
   let tenantId: string | null = null;
   let tenantDb: TenantDb | null = null;
 
@@ -84,6 +87,14 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
         const { userId: clerkUserId, orgId: clerkOrgId } = requestState.toAuth();
         userId = clerkUserId;
         orgId = clerkOrgId ?? null;
+
+        try {
+          const user = await clerk.users.getUser(clerkUserId);
+          userFullName = user.fullName ?? user.firstName ?? null;
+        } catch {
+          // Name lookup failed — userFullName stays null.
+          // replyAsOwner will throw INTERNAL_SERVER_ERROR explicitly (no silent fallback).
+        }
 
         if (clerkOrgId) {
           const resolved = await resolveOrgTenantId(clerkOrgId);
@@ -99,5 +110,5 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
     // Protected procedures will reject via middleware.
   }
 
-  return { req, userId, orgId, tenantId, tenantDb };
+  return { req, userId, orgId, userFullName, tenantId, tenantDb };
 }

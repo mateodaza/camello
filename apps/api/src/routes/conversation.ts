@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { eq, and, desc, asc, sql, or } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { conversations, messages, customers, tenants, moduleExecutions, leads, leadStageChanges, modules } from '@camello/db';
+import { conversations, messages, customers, tenants, moduleExecutions, leads, leadStageChanges, modules, tenantMembers, channelConfigs } from '@camello/db';
+import { whatsappAdapter } from '../adapters/whatsapp.js';
 import {
   extractFactsRegex,
   mergeMemoryFacts,
@@ -293,6 +295,124 @@ export const conversationRouter = router({
       }
 
       return result;
+    }),
+
+  replyAsOwner: tenantProcedure
+    .input(z.object({
+      conversationId: z.string().uuid(),
+      message: z.string().min(1).max(4000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Step 1 — Authorization: check tenant_members for role = 'owner'
+      const memberRows = await ctx.tenantDb.query(async (db) => {
+        return db
+          .select({ role: tenantMembers.role })
+          .from(tenantMembers)
+          .where(and(
+            eq(tenantMembers.tenantId, ctx.tenantId),
+            eq(tenantMembers.userId, ctx.userId!),
+            eq(tenantMembers.role, 'owner'),
+          ))
+          .limit(1);
+      });
+      if (memberRows.length === 0) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only the tenant owner can send owner replies.',
+        });
+      }
+
+      // Step 2 — Resolve author name from context (populated in createContext, no extra API call)
+      if (!ctx.userFullName) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Owner name could not be resolved.',
+        });
+      }
+      const authorName = ctx.userFullName;
+
+      // Step 3 — Fetch conversation + customer externalId (needed for WhatsApp waId)
+      const conv = await ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .select({
+            id: conversations.id,
+            status: conversations.status,
+            channel: conversations.channel,
+            customerExternalId: customers.externalId,
+          })
+          .from(conversations)
+          .leftJoin(customers, eq(conversations.customerId, customers.id))
+          .where(and(
+            eq(conversations.id, input.conversationId),
+            eq(conversations.tenantId, ctx.tenantId),
+          ))
+          .limit(1);
+        return rows[0] ?? null;
+      });
+
+      // Step 4 — Guard: conversation must exist and be escalated
+      if (!conv) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Conversation not found.' });
+      }
+      if (conv.status !== 'escalated') {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Only escalated conversations can receive owner replies.',
+        });
+      }
+
+      // Step 5 — Insert message: role='human', metadata.authorName
+      const inserted = await ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .insert(messages)
+          .values({
+            tenantId: ctx.tenantId,
+            conversationId: input.conversationId,
+            role: 'human',
+            content: input.message,
+            metadata: { authorName },
+          })
+          .returning();
+        return rows[0];
+      });
+
+      // Step 6 — WhatsApp fire-and-forget delivery (webchat polls, no push needed)
+      if (conv.channel === 'whatsapp' && conv.customerExternalId) {
+        const tenantId = ctx.tenantId;
+        const { tenantDb } = ctx;
+        const waId = conv.customerExternalId;
+        const text = input.message;
+        void (async () => {
+          try {
+            const configRows = await tenantDb.query(async (db) => {
+              return db
+                .select({
+                  credentials: channelConfigs.credentials,
+                  phoneNumber: channelConfigs.phoneNumber,
+                })
+                .from(channelConfigs)
+                .where(and(
+                  eq(channelConfigs.tenantId, tenantId),
+                  eq(channelConfigs.channelType, 'whatsapp'),
+                ))
+                .limit(1);
+            });
+            const config = configRows[0];
+            if (!config) {
+              console.warn('[replyAsOwner] WhatsApp channel config not found for tenant', tenantId);
+              return;
+            }
+            await whatsappAdapter.sendText(waId, text, {
+              credentials: config.credentials as Record<string, unknown>,
+              phoneNumber: config.phoneNumber ?? undefined,
+            });
+          } catch (err) {
+            console.warn('[replyAsOwner] WhatsApp delivery failed:', err);
+          }
+        })();
+      }
+
+      return inserted;
     }),
 
   activity: tenantProcedure

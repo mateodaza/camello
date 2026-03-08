@@ -61,7 +61,8 @@ New query returning module executions + stage changes for a specific conversatio
 - At least 3 tests (happy path, empty, mixed types)
 - `pnpm type-check` passes
 
-#### NC-203 [ ] `conversation.replyAsOwner` tRPC mutation
+#### NC-203 [x] `conversation.replyAsOwner` tRPC mutation
+**DONE.** `replyAsOwner` tenantProcedure added to `conversationRouter`. Authorization via `tenant_members.role = 'owner'` DB query (not Clerk JWT). `userFullName` added to `Context` interface + populated in `createContext` via `clerk.users.getUser()`. Inserts `role: 'human'` message with `metadata.authorName`. WhatsApp fire-and-forget delivery via async IIFE + `whatsappAdapter.sendText`. 5 tests in `conversation-reply-as-owner.test.ts`. Type-check passes.
 Allow the tenant owner to send a message into an escalated conversation. The message is delivered to the customer through the appropriate channel adapter.
 
 **Acceptance Criteria:**
