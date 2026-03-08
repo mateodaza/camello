@@ -13,6 +13,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| CAM-130 | Agent performance dashboard — response time + satisfaction trends | Mar 8 | `apps/api/src/routes/agent.ts`: `performanceMetrics` procedure (3-query: rollup from `artifact_metrics_daily`, response time + fallback from `conversations`, all-time module counts from `module_executions`; weighted avg scalar, zero-filled 14d/30d arrays). New `performance-panel.tsx` (`BarChartCss` response time 14d + `Sparkline` volume/resolution 30d + module usage chart); appended to `salesSections`, `supportSections`, `marketingSections`. 10 i18n keys (en+es). 8 tests in `agent-routes.test.ts`. Type-check passes. |
 | CAM-129 | Marketing prompt optimization — engagement + content strategy | Mar 8 | `packages/ai/src/archetypes/marketing.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (INTEREST CAPTURE, CONTENT TONE MATCHING, LEAD WARMING, CAMPAIGN AWARENESS, NEVER DO). Both locales ≤25 lines. Type-check passes. |
 | CAM-128 | Support prompt optimization — empathy + escalation intelligence | Mar 8 | `packages/ai/src/archetypes/support.ts`: replaced `prompts.en` and `prompts.es` with 5-section structured prompts (EMPATHY FRAMEWORK, ESCALATION INTELLIGENCE, DE-ESCALATION TECHNIQUES, KNOWLEDGE GAP HANDLING, NEVER DO). Both locales ≤25 lines. Type-check passes. |
 | CAM-127 | Widget chat — typing indicator + message status | Mar 8 | `useChat.ts`: `ChatMessage` extended with `id`+`metadata.status`; `retryMessage` hook; 429 removes, other errors set `status:'error'`. New: `utils/injectStyles.ts` (CSS keyframes injected once), `TypingIndicator.tsx` (animated dots), `MessageStatusIcon.tsx` (✓/✓✓/retry). `ChatWindow.tsx`: scroll tracking+button, `camello-msg-enter` fade-in, new components wired. `messages.ts`: 2 new i18n keys (en+es). Type-check passes. |
@@ -817,3 +818,4 @@
 - **CAM-127** — 2026-03-08 — `21e6be8` — Session: 20260307-231133-camello
 - **CAM-128** — 2026-03-08 — `9c65885` — Session: 20260307-231133-camello
 - **CAM-129** — 2026-03-08 — `62fff7a` — Session: 20260307-231133-camello
+- **CAM-130** — 2026-03-08 — `188b024` — Session: 20260307-231133-camello — ⚠ Committed after soft review rejections cap; local verification passed.

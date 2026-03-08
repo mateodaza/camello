@@ -466,7 +466,17 @@
     "exportDataButton": "Export Data",
     "exportDataExporting": "Exporting...",
     "exportDataSuccess": "Data exported successfully",
-    "exportDataTruncated": "Export truncated to 1,000 records per type. Download may not include all data."
+    "exportDataTruncated": "Export truncated to 1,000 records per type. Download may not include all data.",
+    "performanceTitle": "Agent Performance",
+    "performanceResponseTime": "Response Time",
+    "performanceResponseTime7d": "7-day avg",
+    "performanceResponseTime30d": "30-day avg",
+    "performanceDailyVolume": "Daily volume (30d)",
+    "performanceResolutionRate": "Resolution Rate (30d)",
+    "performanceModuleUsageTitle": "Module Usage",
+    "performanceModuleUsage": "Executions (all time)",
+    "performanceNoData": "No performance data yet",
+    "retry": "Retry"
   },
   "knowledge": {
     "pageTitle": "Knowledge",

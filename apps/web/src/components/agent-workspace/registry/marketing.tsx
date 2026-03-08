@@ -315,4 +315,6 @@ function MarketingDrafts({ artifactId }: { artifactId: string }) {
   );
 }
 
-export const marketingSections = [MarketingStats, MarketingOverview, MarketingEngagement, MarketingDrafts];
+import { AgentPerformance } from '../performance-panel';
+
+export const marketingSections = [MarketingStats, MarketingOverview, MarketingEngagement, MarketingDrafts, AgentPerformance];

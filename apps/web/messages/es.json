@@ -466,7 +466,17 @@
     "exportDataButton": "Exportar Datos",
     "exportDataExporting": "Exportando...",
     "exportDataSuccess": "Datos exportados correctamente",
-    "exportDataTruncated": "Exportación limitada a 1,000 registros por tipo. La descarga puede no incluir todos los datos."
+    "exportDataTruncated": "Exportación limitada a 1,000 registros por tipo. La descarga puede no incluir todos los datos.",
+    "performanceTitle": "Rendimiento del Agente",
+    "performanceResponseTime": "Tiempo de Respuesta",
+    "performanceResponseTime7d": "Prom. 7 días",
+    "performanceResponseTime30d": "Prom. 30 días",
+    "performanceDailyVolume": "Volumen diario (30d)",
+    "performanceResolutionRate": "Tasa de Resolución (30d)",
+    "performanceModuleUsageTitle": "Uso de Módulos",
+    "performanceModuleUsage": "Ejecuciones (total)",
+    "performanceNoData": "Aún no hay datos de rendimiento",
+    "retry": "Reintentar"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",

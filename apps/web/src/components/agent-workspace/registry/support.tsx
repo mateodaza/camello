@@ -415,4 +415,6 @@ function SupportKnowledgeGaps({ artifactId }: { artifactId: string }) {
   );
 }
 
-export const supportSections = [SupportOverview, SupportResolutionStats, SupportTickets, SupportEscalations, SupportKnowledgeGaps];
+import { AgentPerformance } from '../performance-panel';
+
+export const supportSections = [SupportOverview, SupportResolutionStats, SupportTickets, SupportEscalations, SupportKnowledgeGaps, AgentPerformance];

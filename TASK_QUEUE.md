@@ -240,7 +240,8 @@ The widget is a Vite IIFE bundle (`apps/widget/`). It communicates via HTTP to `
 
 ## P4 — Analytics & Insights
 
-#### CAM-130 [ ] Agent performance dashboard — response time + satisfaction trends
+#### CAM-130 [x] Agent performance dashboard — response time + satisfaction trends
+`agent.performanceMetrics` procedure (3-query strategy: `artifact_metrics_daily` for resolution numerator, `conversations` for response time + fallback counts, `module_executions` for all-time module usage). `performance-panel.tsx` with `BarChartCss` (14d response time) + `Sparkline` (30d volume + resolution rate) + module usage chart; added to sales/support/marketing registries. 10 i18n keys (en+es). 8 tests in `agent-routes.test.ts`. Type-check passes.
 Add a dedicated analytics tab/section to the workspace.
 
 **Acceptance Criteria:**

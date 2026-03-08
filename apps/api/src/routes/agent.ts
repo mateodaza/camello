@@ -18,6 +18,7 @@ import {
   ownerNotifications,
   leadNotes,
   leadStageChanges,
+  artifactMetricsDaily,
 } from '@camello/db';
 import { paymentStatusSchema } from '@camello/shared/schemas';
 
@@ -2184,6 +2185,144 @@ export const agentRouter = router({
           notes: exportedNotes,
           truncated: truncatedConvs || truncatedLeads || truncatedNotes,
           exportedAt: new Date(),
+        };
+      });
+    }),
+
+  // =========================================================================
+  // performanceMetrics — agent performance dashboard (response time, volume, resolution rate, module usage)
+  // =========================================================================
+
+  performanceMetrics: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        function lastNDays(n: number): string[] {
+          const days: string[] = [];
+          for (let i = n - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setUTCDate(d.getUTCDate() - i);
+            days.push(d.toISOString().slice(0, 10));
+          }
+          return days;
+        }
+
+        // Query 1: rollupRows from artifact_metrics_daily (primary for daily resolution counts)
+        const rollupRows = await db
+          .select({
+            date: sql<string>`${artifactMetricsDaily.metricDate}::text`,
+            resolutionsCount: artifactMetricsDaily.resolutionsCount,
+          })
+          .from(artifactMetricsDaily)
+          .where(and(
+            eq(artifactMetricsDaily.artifactId, input.artifactId),
+            eq(artifactMetricsDaily.tenantId, ctx.tenantId),
+            gte(artifactMetricsDaily.metricDate, sql`(now() - interval '30 days')::date`),
+          ))
+          .orderBy(asc(artifactMetricsDaily.metricDate));
+
+        // Query 2: convRows from conversations (supplement for response time; fallback for missing rollup days)
+        const convRows = await db
+          .select({
+            date: sql<string>`date_trunc('day', ${conversations.createdAt} AT TIME ZONE 'UTC')::date::text`,
+            total: sql<number>`COUNT(*)::int`,
+            resolved: sql<number>`COUNT(${conversations.resolvedAt})::int`,
+            avgResponseMs: sql<number>`COALESCE(AVG(
+              CASE WHEN ${conversations.resolvedAt} IS NOT NULL
+                THEN EXTRACT(EPOCH FROM (${conversations.resolvedAt} - ${conversations.createdAt})) * 1000
+              END
+            ), 0)`,
+          })
+          .from(conversations)
+          .where(and(
+            eq(conversations.artifactId, input.artifactId),
+            eq(conversations.tenantId, ctx.tenantId),
+            gte(conversations.createdAt, sql`now() - interval '30 days'`),
+          ))
+          .groupBy(sql`date_trunc('day', ${conversations.createdAt} AT TIME ZONE 'UTC')::date`)
+          .orderBy(asc(sql`date_trunc('day', ${conversations.createdAt} AT TIME ZONE 'UTC')::date`));
+
+        // Query 3: moduleCountRows from module_executions (ALL-TIME, no date filter)
+        const moduleCountRows = await db
+          .select({
+            moduleSlug: moduleExecutions.moduleSlug,
+            count: sql<number>`COUNT(*)::int`,
+          })
+          .from(moduleExecutions)
+          .where(and(
+            eq(moduleExecutions.artifactId, input.artifactId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+            eq(moduleExecutions.status, 'executed'),
+          ))
+          .groupBy(moduleExecutions.moduleSlug)
+          .orderBy(desc(sql`COUNT(*)`));
+
+        // Build lookup maps
+        const rollupMap = new Map(rollupRows.map(r => [r.date, r]));
+        const convMap   = new Map(convRows.map(r => [r.date, r]));
+
+        const days14 = lastNDays(14);
+        const days30 = lastNDays(30);
+
+        // Daily response time chart (14d) — always from convMap
+        const dailyResponseTime = days14.map(date => ({
+          date,
+          avgMs: Math.round(convMap.get(date)?.avgResponseMs ?? 0),
+        }));
+
+        // Scalar response times — weighted average using unrounded float from convMap
+        const window7 = days14.slice(-7);
+        const totalResolved7 = window7.reduce((s, d) => s + (convMap.get(d)?.resolved ?? 0), 0);
+        const weightedSumMs7 = window7.reduce((s, d) => {
+          const e = convMap.get(d);
+          return s + (e ? e.avgResponseMs * e.resolved : 0);
+        }, 0);
+        const avgResponseTime7d = totalResolved7 > 0
+          ? Math.round(weightedSumMs7 / totalResolved7)
+          : 0;
+
+        const totalResolved30 = days30.reduce((s, d) => s + (convMap.get(d)?.resolved ?? 0), 0);
+        const weightedSumMs30 = days30.reduce((s, d) => {
+          const e = convMap.get(d);
+          return s + (e ? e.avgResponseMs * e.resolved : 0);
+        }, 0);
+        const avgResponseTime30d = totalResolved30 > 0
+          ? Math.round(weightedSumMs30 / totalResolved30)
+          : 0;
+
+        // Daily conversation volume (always from convMap.total — rollup has no total count column)
+        const dailyConversationVolume = days30.map(date => ({
+          date,
+          count: convMap.get(date)?.total ?? 0,
+        }));
+
+        // Daily resolution rate (numerator prefers rollup; denominator always from convMap.total)
+        const dailyResolutionRate = days30.map(date => {
+          const total = convMap.get(date)?.total ?? 0;
+          // [INTERPRETED]: rollup has no total conversation count column — use convMap.total as denominator
+          // Prefer rollup resolutions_count; fall back to convMap.resolved when no rollup row
+          const resolutions = rollupMap.has(date)
+            ? (rollupMap.get(date)!.resolutionsCount)
+            : (convMap.get(date)?.resolved ?? 0);
+          return {
+            date,
+            rate: total > 0 ? Math.round((resolutions / total) * 100) : 0,
+          };
+        });
+
+        // Module counts
+        const moduleExecutionCounts = moduleCountRows.map(r => ({
+          slug:  r.moduleSlug,
+          count: r.count,
+        }));
+
+        return {
+          avgResponseTime7d,
+          avgResponseTime30d,
+          dailyResponseTime,
+          dailyConversationVolume,
+          dailyResolutionRate,
+          moduleExecutionCounts,
         };
       });
     }),

@@ -735,4 +735,6 @@ export function SalesWorkspace({ artifactId }: { artifactId: string }) {
   );
 }
 
-export const salesSections = [SalesWorkspace];
+import { AgentPerformance } from '../performance-panel';
+
+export const salesSections = [SalesWorkspace, AgentPerformance];
