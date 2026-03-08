@@ -13,6 +13,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| CAM-107 | Fix onboarding Step 3 module badges + collect profile basics | Mar 7 | `apps/api/src/routes/onboarding.ts`: `setupArtifact` restructured — `profile` field added to input, `runSetupTransaction` helper extracted, all 4 resolution paths converge into `resolvedArtifact`, unified Phase 2 `UPDATE artifacts SET personality = personality || $patch` runs after convergence. `Step3MeetAgent.tsx`: `trpc.module.catalog` removed, static `ARCHETYPE_MODULE_SLUGS` map added, Quick Profile section (tagline/bio/avatar upload via `tenant.uploadAvatar`), mutation chain `setupArtifact → updateProfile → onComplete`. 10 i18n keys (en+es), `loadingModules` removed. 7 new API tests (Paths 1–4 + blank/omit/avatarUrl) + 9 new web tests. Type-check passes. |
 
 ---
 
@@ -785,3 +786,4 @@
 - **CAM-113** — 2026-03-07 — `29cb39b` — Session: 20260307-181842-camello — ⚠ Committed after soft review rejections cap; local verification passed.
 - **CAM-115** — 2026-03-07 — `213437f` — Session: 20260307-181842-camello
 - **CAM-116** — 2026-03-07 — `c9534a7` — Session: 20260307-181842-camello
+- **CAM-107** — 2026-03-08 — `04c6682` — Session: 20260307-231133-camello

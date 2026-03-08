@@ -5,6 +5,7 @@ import { generateObject } from 'ai';
 import { createLLMClient, ARCHETYPE_DEFAULT_TONES } from '@camello/ai';
 import { MODEL_MAP } from '@camello/shared/constants';
 import { artifacts, tenants, customers } from '@camello/db';
+import type { TenantTransaction } from '@camello/db';
 import type { ArtifactType } from '@camello/shared/types';
 import { router, authedProcedure, tenantProcedure } from '../trpc/init.js';
 import { provisionTenant } from '../services/tenant-provisioning.js';
@@ -58,6 +59,96 @@ export const DEFAULT_SERVICES_SUGGESTION: BusinessModelSuggestion = {
   industry: 'professional services',
   confidence: 0.5,
 };
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+type SetupInput = {
+  name: string;
+  type: 'sales' | 'support' | 'marketing' | 'custom';
+  personality: Record<string, unknown>;
+  constraints: Record<string, unknown>;
+  profile?: {
+    tagline?: string;
+    bio?: string;
+    avatarUrl?: string;
+  };
+};
+
+async function runSetupTransaction(
+  tx: TenantTransaction,
+  ctx: { tenantId: string },
+  input: SetupInput,
+): Promise<typeof artifacts.$inferSelect> {
+  // Advisory lock: serialize concurrent setupArtifact for same tenant+type
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock(hashtext(${ctx.tenantId}), hashtext(${input.type}))`,
+  );
+
+  // Re-check inside transaction: another request may have won the race
+  const [tenantRow] = await tx
+    .select({ defaultArtifactId: tenants.defaultArtifactId, settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, ctx.tenantId))
+    .limit(1);
+
+  if (tenantRow?.defaultArtifactId) {
+    const [art] = await tx
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, tenantRow.defaultArtifactId))
+      .limit(1);
+    if (art) return art;
+  }
+
+  const [existingByType] = await tx
+    .select()
+    .from(artifacts)
+    .where(and(eq(artifacts.tenantId, ctx.tenantId), eq(artifacts.type, input.type)))
+    .limit(1);
+
+  if (existingByType) {
+    await tx
+      .update(tenants)
+      .set({ defaultArtifactId: existingByType.id, updatedAt: new Date() })
+      .where(eq(tenants.id, ctx.tenantId));
+    return existingByType;
+  }
+
+  const locale = ((tenantRow?.settings as Record<string, unknown>)?.preferredLocale === 'es' ? 'es' : 'en') as 'en' | 'es';
+  const archetypeType = input.type as ArtifactType;
+
+  const p = input.personality as Record<string, unknown>;
+  if (!p.tone) {
+    const defaultTone = ARCHETYPE_DEFAULT_TONES[archetypeType][locale];
+    if (defaultTone) p.tone = defaultTone;
+  }
+  if (!p.language) {
+    p.language = locale;
+  }
+
+  const [artifact] = await tx
+    .insert(artifacts)
+    .values({
+      tenantId: ctx.tenantId,
+      name: input.name,
+      type: input.type,
+      personality: p,
+      constraints: input.constraints,
+      escalation: { escalate_on: ['human_requested', 'complaint'] },
+    })
+    .returning();
+
+  await applyArchetypeDefaults(tx, artifact.id, ctx.tenantId, archetypeType);
+
+  await tx
+    .update(tenants)
+    .set({ defaultArtifactId: artifact.id, updatedAt: new Date() })
+    .where(eq(tenants.id, ctx.tenantId));
+
+  return artifact;
+}
 
 // ---------------------------------------------------------------------------
 // Router
@@ -156,9 +247,28 @@ Directrices:
       constraints: z.record(z.unknown()).default({}),
       // moduleIds kept optional for backward compat — ignored by backend
       moduleIds: z.array(z.string().uuid()).default([]),
+      profile: z.object({
+        tagline: z.string().max(50).optional(),
+        bio: z.string().max(150).optional(),
+        avatarUrl: z.string().url().optional(),
+      }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Fast-path idempotency: if tenant already has a default artifact, return it
+      // Compute profile patch once — only fields with actual values
+      const profilePatch: Record<string, unknown> | null = (() => {
+        if (!input.profile) return null;
+        const p: Record<string, unknown> = {};
+        if (input.profile.tagline?.trim()) p.tagline = input.profile.tagline.trim();
+        if (input.profile.bio?.trim())     p.bio = input.profile.bio.trim();
+        if (input.profile.avatarUrl)       p.avatarUrl = input.profile.avatarUrl;
+        return Object.keys(p).length > 0 ? p : null;
+      })();
+
+      // -----------------------------------------------------------------------
+      // Phase 1: Resolve which artifact to use (all 4 paths converge here)
+      // -----------------------------------------------------------------------
+      let resolvedArtifact: typeof artifacts.$inferSelect;
+
       const [existing] = await ctx.tenantDb.query(async (db) => {
         return db
           .select({ defaultArtifactId: tenants.defaultArtifactId })
@@ -166,7 +276,9 @@ Directrices:
           .where(eq(tenants.id, ctx.tenantId))
           .limit(1);
       });
+
       if (existing?.defaultArtifactId) {
+        // Path 1: pre-tx fast-path
         const [art] = await ctx.tenantDb.query(async (db) => {
           return db
             .select()
@@ -174,84 +286,42 @@ Directrices:
             .where(eq(artifacts.id, existing.defaultArtifactId!))
             .limit(1);
         });
-        if (art) return art;
+        if (art) {
+          resolvedArtifact = art;
+        } else {
+          resolvedArtifact = await ctx.tenantDb.transaction(async (tx) =>
+            runSetupTransaction(tx, ctx, input),
+          );
+        }
+      } else {
+        resolvedArtifact = await ctx.tenantDb.transaction(async (tx) =>
+          runSetupTransaction(tx, ctx, input),
+        );
       }
 
-      return ctx.tenantDb.transaction(async (tx) => {
-        // Advisory lock: serialize concurrent setupArtifact for same tenant+type
-        await tx.execute(
-          sql`SELECT pg_advisory_xact_lock(hashtext(${ctx.tenantId}), hashtext(${input.type}))`,
-        );
+      // -----------------------------------------------------------------------
+      // Phase 2: Unified profile merge into artifacts.personality (ALL paths)
+      // -----------------------------------------------------------------------
+      if (profilePatch) {
+        await ctx.tenantDb.query(async (db) => {
+          return db
+            .update(artifacts)
+            .set({
+              personality: sql`personality || ${JSON.stringify(profilePatch)}::jsonb`,
+              updatedAt: new Date(),
+            })
+            .where(eq(artifacts.id, resolvedArtifact.id));
+        });
+        resolvedArtifact = {
+          ...resolvedArtifact,
+          personality: {
+            ...(resolvedArtifact.personality as Record<string, unknown>),
+            ...profilePatch,
+          },
+        };
+      }
 
-        // Re-check inside transaction: another request may have won the race
-        const [tenantRow] = await tx
-          .select({ defaultArtifactId: tenants.defaultArtifactId, settings: tenants.settings })
-          .from(tenants)
-          .where(eq(tenants.id, ctx.tenantId))
-          .limit(1);
-
-        if (tenantRow?.defaultArtifactId) {
-          const [art] = await tx
-            .select()
-            .from(artifacts)
-            .where(eq(artifacts.id, tenantRow.defaultArtifactId))
-            .limit(1);
-          if (art) return art;
-        }
-
-        // Check if an artifact of this type already exists (idempotent adopt)
-        const [existingByType] = await tx
-          .select()
-          .from(artifacts)
-          .where(and(eq(artifacts.tenantId, ctx.tenantId), eq(artifacts.type, input.type)))
-          .limit(1);
-
-        if (existingByType) {
-          await tx
-            .update(tenants)
-            .set({ defaultArtifactId: existingByType.id, updatedAt: new Date() })
-            .where(eq(tenants.id, ctx.tenantId));
-          return existingByType;
-        }
-
-        // Resolve locale for archetype defaults
-        const locale = ((tenantRow?.settings as Record<string, unknown>)?.preferredLocale === 'es' ? 'es' : 'en') as 'en' | 'es';
-        const archetypeType = input.type as ArtifactType;
-
-        // Apply archetype defaults to personality if not already set by LLM suggestion
-        const p = input.personality as Record<string, unknown>;
-        if (!p.tone) {
-          const defaultTone = ARCHETYPE_DEFAULT_TONES[archetypeType][locale];
-          if (defaultTone) p.tone = defaultTone;
-        }
-        if (!p.language) {
-          p.language = locale;
-        }
-
-        // 1. Create artifact
-        const [artifact] = await tx
-          .insert(artifacts)
-          .values({
-            tenantId: ctx.tenantId,
-            name: input.name,
-            type: input.type,
-            personality: p,
-            constraints: input.constraints,
-            escalation: { escalate_on: ['human_requested', 'complaint'] },
-          })
-          .returning();
-
-        // 2. Auto-bind archetype-specific modules (ignores client-sent moduleIds)
-        await applyArchetypeDefaults(tx, artifact.id, ctx.tenantId, archetypeType);
-
-        // 3. Set as default artifact for the tenant
-        await tx
-          .update(tenants)
-          .set({ defaultArtifactId: artifact.id, updatedAt: new Date() })
-          .where(eq(tenants.id, ctx.tenantId));
-
-        return artifact;
-      });
+      return resolvedArtifact;
     }),
 
   /**

@@ -308,6 +308,350 @@ describe('onboarding router', () => {
         'support',
       );
     });
+
+    it('profile merges into artifacts.personality on Path 4 (new artifact)', async () => {
+      const fakeArtifact = { id: 'art-new', name: 'Sales Bot', type: 'sales', personality: {} };
+      const updateCalls: Any[] = [];
+      let callCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        if (callCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          });
+        }
+        if (callCount === 2) {
+          let txSelectCount = 0;
+          const tx = {
+            execute: vi.fn().mockResolvedValue(undefined),
+            select: vi.fn(() => ({
+              from: vi.fn(() => ({
+                where: vi.fn(() => ({
+                  limit: vi.fn(() => {
+                    txSelectCount++;
+                    if (txSelectCount === 1) return [{ defaultArtifactId: null, settings: {} }];
+                    return [];
+                  }),
+                })),
+              })),
+            })),
+            insert: vi.fn(() => ({ values: () => ({ returning: () => [fakeArtifact] }) })),
+            update: vi.fn(() => ({
+              set: (data: Any) => { updateCalls.push({ phase: 'tx', data }); return { where: () => {} }; },
+            })),
+          };
+          return fn(tx);
+        }
+        // callCount === 3: Phase 2 profile merge UPDATE
+        return fn({
+          update: vi.fn(() => ({
+            set: (data: Any) => { updateCalls.push({ phase: 'profile', data }); return { where: () => {} }; },
+          })),
+        });
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      const result = await caller.setupArtifact({
+        name: 'Sales Bot',
+        type: 'sales',
+        profile: { tagline: 'We close deals', bio: 'Your sales assistant' },
+      });
+
+      const profileUpdate = updateCalls.find((c: Any) => c.phase === 'profile');
+      expect(profileUpdate).toBeDefined();
+      expect((result.personality as Any).tagline).toBe('We close deals');
+      expect((result.personality as Any).bio).toBe('Your sales assistant');
+    });
+
+    it('profile merges into artifacts.personality on Path 1 (pre-tx fast-path)', async () => {
+      const existingArtifact = {
+        id: 'art-existing',
+        name: 'Existing Bot',
+        type: 'sales',
+        personality: { tone: 'confident' },
+      };
+      const updateCalls: Any[] = [];
+      let callCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        if (callCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: 'art-existing' }] }) }) }),
+          });
+        }
+        if (callCount === 2) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [existingArtifact] }) }) }),
+          });
+        }
+        // callCount === 3: Phase 2 profile merge UPDATE
+        return fn({
+          update: vi.fn(() => ({
+            set: (data: Any) => { updateCalls.push(data); return { where: () => {} }; },
+          })),
+        });
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      const result = await caller.setupArtifact({
+        name: 'Existing Bot',
+        type: 'sales',
+        profile: { tagline: 'Fast path tagline' },
+      });
+
+      expect(updateCalls).toHaveLength(1);
+      expect(mocks.applyArchetypeDefaults).not.toHaveBeenCalled();
+      expect((result.personality as Any).tagline).toBe('Fast path tagline');
+      expect((result.personality as Any).tone).toBe('confident');
+    });
+
+    it('profile merges into artifacts.personality on Path 2 (in-tx race)', async () => {
+      const raceArtifact = {
+        id: 'art-race',
+        name: 'Race Bot',
+        type: 'sales',
+        personality: { tone: 'friendly' },
+      };
+      const updateCalls: Any[] = [];
+      let callCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        if (callCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          });
+        }
+        if (callCount === 2) {
+          let txSelectCount = 0;
+          const insertSpy = vi.fn(() => ({ values: () => ({ returning: () => [] }) }));
+          const tx = {
+            execute: vi.fn().mockResolvedValue(undefined),
+            select: vi.fn(() => ({
+              from: vi.fn(() => ({
+                where: vi.fn(() => ({
+                  limit: vi.fn(() => {
+                    txSelectCount++;
+                    if (txSelectCount === 1) return [{ defaultArtifactId: 'art-race', settings: {} }];
+                    return [raceArtifact];
+                  }),
+                })),
+              })),
+            })),
+            insert: insertSpy,
+            update: vi.fn(() => ({
+              set: (data: Any) => { updateCalls.push({ phase: 'tx', data }); return { where: () => {} }; },
+            })),
+          };
+          return fn(tx);
+        }
+        // callCount === 3: Phase 2 profile merge UPDATE
+        return fn({
+          update: vi.fn(() => ({
+            set: (data: Any) => { updateCalls.push({ phase: 'profile', data }); return { where: () => {} }; },
+          })),
+        });
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      const result = await caller.setupArtifact({
+        name: 'Race Bot',
+        type: 'sales',
+        profile: { bio: 'Race path bio' },
+      });
+
+      const profileUpdate = updateCalls.find((c: Any) => c.phase === 'profile');
+      expect(profileUpdate).toBeDefined();
+      expect((result.personality as Any).bio).toBe('Race path bio');
+      expect((result.personality as Any).tone).toBe('friendly');
+      expect(result.id).toBe('art-race');
+      expect(mocks.applyArchetypeDefaults).not.toHaveBeenCalled();
+    });
+
+    it('profile merges into artifacts.personality on Path 3 (existing-by-type adopt)', async () => {
+      const existingByType = { id: 'art-by-type', name: 'Old Bot', type: 'support', personality: {} };
+      const updateCalls: Any[] = [];
+      let callCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        if (callCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          });
+        }
+        if (callCount === 2) {
+          let txSelectCount = 0;
+          const tx = {
+            execute: vi.fn().mockResolvedValue(undefined),
+            select: vi.fn(() => ({
+              from: vi.fn(() => ({
+                where: vi.fn(() => ({
+                  limit: vi.fn(() => {
+                    txSelectCount++;
+                    if (txSelectCount === 1) return [{ defaultArtifactId: null, settings: {} }];
+                    return [existingByType];
+                  }),
+                })),
+              })),
+            })),
+            insert: vi.fn(() => ({ values: () => ({ returning: () => [] }) })),
+            update: vi.fn(() => ({
+              set: (data: Any) => { updateCalls.push({ phase: 'tx', data }); return { where: () => {} }; },
+            })),
+          };
+          return fn(tx);
+        }
+        // callCount === 3: Phase 2 profile merge UPDATE
+        return fn({
+          update: vi.fn(() => ({
+            set: (data: Any) => { updateCalls.push({ phase: 'profile', data }); return { where: () => {} }; },
+          })),
+        });
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      const result = await caller.setupArtifact({
+        name: 'Old Bot',
+        type: 'support',
+        profile: { bio: 'Adopted artifact bio' },
+      });
+
+      const profileUpdate = updateCalls.find((c: Any) => c.phase === 'profile');
+      expect(profileUpdate).toBeDefined();
+      expect((result.personality as Any).bio).toBe('Adopted artifact bio');
+      expect(result.id).toBe('art-by-type');
+    });
+
+    it('no Phase 2 UPDATE issued when profile is omitted', async () => {
+      const fakeArtifact = { id: 'art-noprofile', name: 'Bot', type: 'sales', personality: {} };
+      let queryCallCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        queryCallCount++;
+        if (queryCallCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          });
+        }
+        let txSelectCount = 0;
+        const tx = {
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: vi.fn(() => ({
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(() => {
+                  txSelectCount++;
+                  if (txSelectCount === 1) return [{ defaultArtifactId: null, settings: {} }];
+                  return [];
+                }),
+              })),
+            })),
+          })),
+          insert: vi.fn(() => ({ values: () => ({ returning: () => [fakeArtifact] }) })),
+          update: vi.fn(() => ({ set: () => ({ where: () => {} }) })),
+        };
+        return fn(tx);
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      await caller.setupArtifact({ name: 'Bot', type: 'sales' });
+
+      expect(queryCallCount).toBe(2);
+    });
+
+    it('no Phase 2 UPDATE when all profile fields are blank after trim', async () => {
+      const fakeArtifact = { id: 'art-blank', name: 'Bot', type: 'sales', personality: {} };
+      let queryCallCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        queryCallCount++;
+        if (queryCallCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          });
+        }
+        let txSelectCount = 0;
+        const tx = {
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: vi.fn(() => ({
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(() => {
+                  txSelectCount++;
+                  if (txSelectCount === 1) return [{ defaultArtifactId: null, settings: {} }];
+                  return [];
+                }),
+              })),
+            })),
+          })),
+          insert: vi.fn(() => ({ values: () => ({ returning: () => [fakeArtifact] }) })),
+          update: vi.fn(() => ({ set: () => ({ where: () => {} }) })),
+        };
+        return fn(tx);
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      await caller.setupArtifact({
+        name: 'Bot',
+        type: 'sales',
+        profile: { tagline: '   ', bio: '' },
+      });
+
+      expect(queryCallCount).toBe(2);
+    });
+
+    it('profile.avatarUrl is included in personality patch', async () => {
+      const fakeArtifact = { id: 'art-avatar', name: 'Bot', type: 'sales', personality: {} };
+      const profileUpdateData: Any[] = [];
+      let callCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        if (callCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          });
+        }
+        if (callCount === 2) {
+          let txSelectCount = 0;
+          const tx = {
+            execute: vi.fn().mockResolvedValue(undefined),
+            select: vi.fn(() => ({
+              from: vi.fn(() => ({
+                where: vi.fn(() => ({
+                  limit: vi.fn(() => {
+                    txSelectCount++;
+                    if (txSelectCount === 1) return [{ defaultArtifactId: null, settings: {} }];
+                    return [];
+                  }),
+                })),
+              })),
+            })),
+            insert: vi.fn(() => ({ values: () => ({ returning: () => [fakeArtifact] }) })),
+            update: vi.fn(() => ({ set: () => ({ where: () => {} }) })),
+          };
+          return fn(tx);
+        }
+        return fn({
+          update: vi.fn(() => ({
+            set: (data: Any) => { profileUpdateData.push(data); return { where: () => {} }; },
+          })),
+        });
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      const result = await caller.setupArtifact({
+        name: 'Bot',
+        type: 'sales',
+        profile: { avatarUrl: 'https://cdn.example.com/logo.png' },
+      });
+
+      expect(profileUpdateData).toHaveLength(1);
+      expect((result.personality as Any).avatarUrl).toBe('https://cdn.example.com/logo.png');
+    });
   });
 
   // ----- ensurePreviewCustomer -----

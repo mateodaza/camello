@@ -13,23 +13,70 @@ interface Props {
   onComplete: () => void;
 }
 
+const ARCHETYPE_MODULE_SLUGS: Record<string, readonly string[]> = {
+  sales:     ['qualify_lead', 'book_meeting', 'collect_payment', 'send_quote'],
+  support:   ['create_ticket', 'escalate_to_human'],
+  marketing: ['send_followup', 'capture_interest', 'draft_content'],
+  custom:    [],
+};
+
 export function Step3MeetAgent({ suggestion, onComplete }: Props) {
   const t = useTranslations('onboarding');
   const [name, setName] = useState(suggestion.agentName);
   const [editing, setEditing] = useState(false);
-  const modules = trpc.module.catalog.useQuery();
 
-  const setup = trpc.onboarding.setupArtifact.useMutation({
-    onSuccess: () => onComplete(),
-  });
+  const uploadAvatar  = trpc.tenant.uploadAvatar.useMutation();
+  const updateProfile = trpc.tenant.updateProfile.useMutation();
+
+  const [tagline, setTagline]               = useState('');
+  const [bio, setBio]                       = useState('');
+  const [pendingAvatarUrl, setPendingAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar]   = useState(false);
+
+  const setup = trpc.onboarding.setupArtifact.useMutation();
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'] as const;
+    type AllowedType = typeof allowedTypes[number];
+    if (!allowedTypes.includes(file.type as AllowedType)) return;
+    setUploadingAvatar(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      if (!base64) { setUploadingAvatar(false); return; }
+      uploadAvatar.mutate(
+        { base64, contentType: file.type as AllowedType },
+        {
+          onSuccess: (data) => { setPendingAvatarUrl(data.avatarUrl); setUploadingAvatar(false); },
+          onError: () => setUploadingAvatar(false),
+        },
+      );
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleCreate = () => {
-    setup.mutate({
-      name,
-      type: suggestion.agentType as 'sales' | 'support' | 'marketing' | 'custom',
-      personality: suggestion.personality,
-      constraints: suggestion.constraints,
-    });
+    const profilePayload = {
+      tagline: tagline.trim() || undefined,
+      bio: bio.trim() || undefined,
+      avatarUrl: pendingAvatarUrl ?? undefined,
+    };
+    setup.mutate(
+      {
+        name,
+        type: suggestion.agentType as 'sales' | 'support' | 'marketing' | 'custom',
+        personality: suggestion.personality as Record<string, unknown>,
+        constraints: suggestion.constraints,
+        profile: profilePayload,
+      },
+      {
+        onSuccess: () =>
+          updateProfile.mutate(profilePayload, { onSuccess: () => onComplete() }),
+      },
+    );
   };
 
   return (
@@ -80,19 +127,75 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
 
         <div>
           <p className="text-sm font-medium text-charcoal">{t('modules')}</p>
-          {modules.isLoading && <p className="text-xs text-dune">{t('loadingModules')}</p>}
-          {modules.data && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {modules.data.map((m: { id: string; slug: string }) => (
-                <Badge key={m.id} variant="outline">{m.slug}</Badge>
-              ))}
-            </div>
-          )}
+          <div className="mt-1 flex flex-wrap gap-1">
+            {(ARCHETYPE_MODULE_SLUGS[suggestion.agentType] ?? []).map((slug) => (
+              <Badge key={slug} variant="outline">{slug}</Badge>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-charcoal/8 bg-cream p-4">
+          <p className="text-sm font-semibold text-charcoal">{t('quickProfileTitle')}</p>
+          <p className="text-xs text-dune">{t('quickProfileDescription')}</p>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-charcoal" htmlFor="onb-tagline">
+              {t('taglineLabel')}
+            </label>
+            <input
+              id="onb-tagline"
+              value={tagline}
+              maxLength={50}
+              onChange={(e) => setTagline(e.target.value)}
+              placeholder={t('taglinePlaceholder')}
+              className="w-full rounded border border-charcoal/15 px-3 py-1.5 text-sm"
+            />
+            <p className="mt-0.5 text-right text-xs text-dune">{tagline.length}/50</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-charcoal" htmlFor="onb-bio">
+              {t('bioLabel')}
+            </label>
+            <textarea
+              id="onb-bio"
+              value={bio}
+              maxLength={150}
+              rows={2}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder={t('bioPlaceholder')}
+              className="w-full resize-none rounded border border-charcoal/15 px-3 py-1.5 text-sm"
+            />
+            <p className="mt-0.5 text-right text-xs text-dune">{bio.length}/150</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-charcoal" htmlFor="onb-avatar">
+              {t('avatarLabel')} <span className="text-dune">({t('optional')})</span>
+            </label>
+            {pendingAvatarUrl && (
+              <img src={pendingAvatarUrl} alt="Avatar preview"
+                className="mb-2 h-12 w-12 rounded-full object-cover" />
+            )}
+            <input
+              id="onb-avatar"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleAvatarFile}
+              disabled={uploadingAvatar}
+              className="block text-sm text-charcoal"
+            />
+            {uploadingAvatar && <p className="mt-0.5 text-xs text-dune">{t('uploadingAvatar')}</p>}
+            {uploadAvatar.isError && <p className="mt-0.5 text-xs text-sunset">{t('avatarUploadError')}</p>}
+          </div>
         </div>
 
         <div className="flex gap-2 pt-2">
-          <Button onClick={handleCreate} disabled={setup.isPending || !name.trim()}>
-            {setup.isPending ? t('creating') : t('looksGood')}
+          <Button
+            onClick={handleCreate}
+            disabled={setup.isPending || updateProfile.isPending || uploadingAvatar || !name.trim()}
+          >
+            {setup.isPending || updateProfile.isPending ? t('creating') : t('looksGood')}
           </Button>
         </div>
 

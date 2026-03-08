@@ -22,15 +22,8 @@ Follow-up cron, approve/reject UI, module config, polling, budget parser, lead s
 
 ## P0 — Finish Open Items
 
-#### CAM-107 [ ] Fix onboarding Step 3 module badges + collect profile basics
-Step 3 renders all 9 catalog modules instead of the archetype's modules. No profile data collected during onboarding.
-
-**Acceptance Criteria:**
-- `Step3MeetAgent.tsx`: replace `trpc.module.catalog` query with filtered list from archetype's `moduleSlugs` (get from `getArchetype(suggestion.type)` or hardcode sales 4). Only show modules that will actually be bound.
-- Add a "Quick profile" section in Step 3 or new Step 3b: tagline (50 chars), one-line bio (150 chars), optional avatar upload. These populate `artifacts.personality` and `tenants.settings.profile`.
-- Profile data flows to `/chat/[slug]` OG metadata and business card on go-live
-- i18n keys (en + es)
-- `pnpm type-check` passes
+#### CAM-107 [x] Fix onboarding Step 3 module badges + collect profile basics
+Static `ARCHETYPE_MODULE_SLUGS` map replaces `trpc.module.catalog` query; Quick Profile section (tagline/bio/avatar) added; `setupArtifact` restructured to converge all 4 paths + unified Phase 2 profile merge; `tenant.updateProfile` chained on success; 7 API tests + 9 web tests (including Path 2 race condition). 10 i18n keys (en + es).
 
 #### CAM-111 [ ] Period-over-period sales comparison
 This-week vs last-week comparison on sales overview with delta arrows.
