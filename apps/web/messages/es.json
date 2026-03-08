@@ -29,7 +29,10 @@
     "collapse": "Colapsar barra lateral",
     "expand": "Expandir barra lateral",
     "help": "Ayuda",
-    "openMenu": "Abrir menú"
+    "openMenu": "Abrir menú",
+    "home": "Inicio",
+    "inbox": "Bandeja",
+    "settings": "Configuración"
   },
   "dashboard": {
     "pageTitle": "Panel",

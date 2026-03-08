@@ -306,7 +306,7 @@ Ensure the inbox is fully keyboard-navigable and screen-reader friendly.
 
 **Depends on:** NC-210
 
-#### NC-219 [ ] Update sidebar navigation
+#### NC-219 [x] Update sidebar navigation
 Rename and reorder sidebar items to match the new structure.
 
 **Acceptance Criteria:**
@@ -315,6 +315,8 @@ Rename and reorder sidebar items to match the new structure.
 - Inbox item shows a count badge from `dashboardOverview.pendingApprovalsCount` (already exists — counts `module_executions` with `status = 'pending'`). This is the most actionable inbox signal. Do NOT add a new backend field for this.
 - i18n keys (en + es) for renamed items
 - `pnpm type-check` passes
+
+**Done:** Renamed nav items (Home/Inbox/Agents/Analytics/Knowledge/Settings), removed Help entry, added pending badge via `dashboardOverview`, added `home`/`inbox`/`settings` i18n keys to en+es.
 
 #### NC-220 [ ] Sprint smoke tests + summary
 Final task. Write smoke tests covering the end-to-end inbox loop and produce a sprint summary.

@@ -29,7 +29,10 @@
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
     "help": "Help",
-    "openMenu": "Open menu"
+    "openMenu": "Open menu",
+    "home": "Home",
+    "inbox": "Inbox",
+    "settings": "Settings"
   },
   "dashboard": {
     "pageTitle": "Dashboard",

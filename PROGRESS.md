@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-219 | Update sidebar navigation | Mar 8 | `sidebar.tsx`: renamed navItems (Home/Inbox/Agents/Analytics/Knowledge/Settings), removed Help+Docs entry, added `pendingApprovalsCount` badge via `trpc.agent.dashboardOverview.useQuery()`, updated active logic for Settings to match `/dashboard/settings/*`. Added `home`/`inbox`/`settings` keys to `en.json`+`es.json`. Type-check passes. |
 | NC-218 | Accessibility audit on inbox | Mar 8 | `conversation-list.tsx`: roving tabIndex keyboard nav (ArrowUp/Down/Home/End), `role="listbox/option"`, `aria-selected`, search h-9, filter/load-more `min-h-[36px]`. `chat-thread.tsx`: `role="log"` + `aria-live="polite"` + `aria-relevant="additions"` on scroll container, `headerRef` focus on conversationId change, `<label>` for owner reply textarea, send/status buttons `min-h-[36px]`. `customer-panel.tsx`: `CollapsibleSection` gains `id` prop + `<h3>` wrapper + `aria-expanded` + `aria-controls` + always-in-DOM `hidden` content, `<label>` for notes textarea, add-note button `min-h-[36px]`. 3 i18n keys (en+es). Type-check passes. |
 | NC-217 | i18n for all new inbox components (en + es) | Mar 8 | Added `detailsPanelShow`/`detailsPanelHide` keys to `en.json` + `es.json`; wired `useTranslations('inbox')` in `inbox-layout.tsx` replacing 2 hardcoded `aria-label` strings. Type-check passes. |
 | NC-214 | Remove old workspace components | Mar 8 | Deleted 11 component files (kanban-board, lead-detail-sheet, sales-alerts, sales-payments, after-hours-card, registry/sales+support+marketing+index, workspace-header, priority-intents) and `__tests__/sales-timeline.test.ts`. Inlined `DeltaBadge`+`ForecastCard` into `analytics/page.tsx` (adding `stageKey` import from constants). Removed stale describe blocks from `agent-workspace.test.ts` (sectionRegistry, getScoreColor, PriorityIntents, SalesAlerts — 15 tests removed) and `a11y-audit.test.tsx` (LeadDetailSheet a11y, SalesAlerts a11y — 5 tests removed). Zero remaining imports to deleted files. Type-check + build pass. |
@@ -866,3 +867,4 @@
 - **NC-216** — 2026-03-08 — `0a16bbc` — Session: 20260308-190114-camello
 - **NC-217** — 2026-03-08 — `2b9bce5` — Session: 20260308-190114-camello
 - **NC-218** — 2026-03-08 — `b3b1784` — Session: 20260308-190114-camello
+- **NC-219** — 2026-03-08 — `472290b` — Session: 20260308-190114-camello
