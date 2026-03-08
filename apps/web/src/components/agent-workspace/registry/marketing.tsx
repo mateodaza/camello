@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
 import { trpc } from '@/lib/trpc';
@@ -7,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { MetricsGrid } from '../primitives/metrics-grid';
 import { CardFeed } from '../primitives/card-feed';
 import { fmtDate, truncate } from '@/lib/format';
+import { useToast } from '@/hooks/use-toast';
 
 const interestColors: Record<string, string> = {
   ready_to_buy: 'active',
@@ -23,6 +25,41 @@ const interestLevelKeys: Record<string, string> = {
 /** Map snake_case to PascalCase for i18n key suffix */
 function pascalCase(s: string): string {
   return s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+}
+
+function MarketingStats({ artifactId }: { artifactId: string }) {
+  const t = useTranslations('agentWorkspace');
+  const query = trpc.agent.marketingStats.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
+  const data = query.data;
+  const topCategories = data?.topCategories ?? [];
+
+  return (
+    <div className="space-y-3">
+      <MetricsGrid
+        metrics={[
+          { label: t('marketingInterestsCaptured'), value: data?.totalInterests ?? 0 },
+          { label: t('marketingTopCategoriesCount'), value: topCategories.length },
+          { label: t('marketingDraftsPending'), value: data?.draftCount ?? 0 },
+        ]}
+      />
+      {topCategories.length > 0 && (
+        <div className="rounded-lg border border-charcoal/10 bg-cream px-4 py-3 space-y-1">
+          <p className="text-xs font-semibold text-dune uppercase tracking-wide">
+            {t('marketingTopCategoriesLabel')}
+          </p>
+          {topCategories.map((cat, idx) => (
+            <div key={cat.topic ?? idx} className="flex items-center justify-between text-sm">
+              <span className="text-charcoal">{cat.topic ?? t('unknown')}</span>
+              <span className="text-dune font-medium">{cat.count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MarketingOverview({ artifactId }: { artifactId: string }) {
@@ -105,46 +142,177 @@ function MarketingEngagement({ artifactId }: { artifactId: string }) {
 function MarketingDrafts({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
+  const { addToast } = useToast();
+  const utils = trpc.useUtils();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const dismissedIds = useRef<Set<string>>(new Set());
 
   const query = trpc.agent.marketingDrafts.useQuery(
     { artifactId, limit: 20, offset: 0 },
     { refetchInterval: 30_000, refetchIntervalInBackground: false },
   );
 
+  const visibleDrafts = (query.data ?? []).filter((d) => !dismissedIds.current.has(d.id));
+
+  const updateDraft = trpc.module.updateDraft.useMutation({
+    onMutate: async ({ executionId }) => {
+      dismissedIds.current.add(executionId);
+      await utils.agent.marketingDrafts.cancel({ artifactId, limit: 20, offset: 0 });
+      const prev = utils.agent.marketingDrafts.getData({ artifactId, limit: 20, offset: 0 });
+      utils.agent.marketingDrafts.setData(
+        { artifactId, limit: 20, offset: 0 },
+        (old) => old ? old.filter((d) => d.id !== executionId) : old,
+      );
+      return { prev };
+    },
+    onSuccess: () => {
+      setEditingId(null);
+      setEditText('');
+      void utils.agent.marketingStats.invalidate({ artifactId });
+      addToast(t('draftActionSuccess'), 'success');
+    },
+    onError: (_err, vars, ctx) => {
+      dismissedIds.current.delete(vars.executionId);
+      if (ctx?.prev) {
+        utils.agent.marketingDrafts.setData({ artifactId, limit: 20, offset: 0 }, ctx.prev);
+      }
+      addToast(t('errorLoading'), 'error');
+    },
+  });
+
+  if (query.isLoading) {
+    return (
+      <div className="rounded-lg border border-charcoal/10 bg-cream p-4">
+        <div className="h-4 w-32 animate-pulse rounded bg-charcoal/10" />
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <div className="rounded-lg border border-charcoal/10 bg-cream p-4 space-y-2">
+        <p className="text-sm text-sunset">{t('errorLoading')}</p>
+        <button
+          type="button"
+          className="text-xs text-teal hover:underline min-h-[36px]"
+          onClick={() => query.refetch()}
+        >
+          {t('errorLoading')}
+        </button>
+      </div>
+    );
+  }
+
+  if (visibleDrafts.length === 0) {
+    return (
+      <div className="rounded-lg border border-charcoal/10 bg-cream p-4 space-y-1">
+        <p className="text-sm font-semibold text-charcoal">{t('marketingDraftsEmpty')}</p>
+        <p className="text-xs text-dune">{t('marketingDraftsEmptyDesc')}</p>
+      </div>
+    );
+  }
+
   return (
-    <CardFeed
-      title={t('marketingDrafts')}
-      items={query.data}
-      renderCard={(item) => {
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-charcoal">{t('marketingDrafts')}</p>
+      {visibleDrafts.map((item) => {
         const output = (item.output ?? {}) as Record<string, unknown>;
+        const draftTitle = String(output.topic ?? '—');
         const contentType = String(output.content_type ?? 'social_post');
-        const topic = String(output.topic ?? '—');
-        const draft = String(output.draft_text ?? '');
+        const draftPreview = truncate(String(output.draft_text ?? ''), 80);
+        const isEditing = editingId === item.id;
 
         return (
-          <div className="space-y-1">
+          <div key={item.id} className="rounded-lg border border-charcoal/10 bg-cream p-4 space-y-2">
+            {/* Header row: content_type badge + date */}
             <div className="flex items-center gap-2">
               <Badge variant="default" className="text-xs">
                 {t(`contentType${pascalCase(contentType)}` as Parameters<typeof t>[0])}
               </Badge>
-              <span className="text-sm font-medium">{topic}</span>
-              <Badge variant={item.status === 'executed' ? 'active' : 'default'} className="text-xs">
-                {t(`status${item.status.charAt(0).toUpperCase()}${item.status.slice(1)}` as Parameters<typeof t>[0])}
-              </Badge>
               <span className="ml-auto text-xs text-dune">{fmtDate(item.createdAt, locale)}</span>
             </div>
-            {draft && <p className="text-xs text-dune">{truncate(draft, 120)}</p>}
+            {/* Draft title — output.topic as primary heading */}
+            <p className="text-sm font-semibold text-charcoal">{draftTitle}</p>
+            {/* Draft preview */}
+            {draftPreview && <p className="text-xs text-dune">{draftPreview}</p>}
+            {/* Edit textarea */}
+            {isEditing && (
+              <textarea
+                className="w-full rounded border border-charcoal/20 bg-white p-2 text-sm text-charcoal placeholder:text-dune min-h-[80px] resize-y"
+                rows={4}
+                placeholder={t('draftEditPlaceholder')}
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+              />
+            )}
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              {!isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded bg-teal px-3 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 min-h-[36px]"
+                    disabled={updateDraft.isPending}
+                    onClick={() => updateDraft.mutate({ executionId: item.id, action: 'approve' })}
+                  >
+                    {t('draftApprove')}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded border border-charcoal/20 px-3 text-xs font-medium text-charcoal hover:bg-charcoal/5 disabled:opacity-50 min-h-[36px]"
+                    disabled={updateDraft.isPending}
+                    onClick={() => {
+                      setEditingId(item.id);
+                      setEditText(String(output.draft_text ?? ''));
+                    }}
+                  >
+                    {t('draftEdit')}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded border border-sunset/30 px-3 text-xs font-medium text-sunset hover:bg-sunset/5 disabled:opacity-50 min-h-[36px]"
+                    disabled={updateDraft.isPending}
+                    onClick={() => updateDraft.mutate({ executionId: item.id, action: 'discard' })}
+                  >
+                    {t('draftDiscard')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="rounded bg-teal px-3 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 min-h-[36px]"
+                    disabled={updateDraft.isPending || !editText.trim()}
+                    onClick={() =>
+                      updateDraft.mutate({
+                        executionId: item.id,
+                        action: 'edit',
+                        output: { ...output, draft_text: editText },
+                      })
+                    }
+                  >
+                    {t('draftSubmitEdit')}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded border border-charcoal/20 px-3 text-xs font-medium text-charcoal hover:bg-charcoal/5 min-h-[36px]"
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditText('');
+                    }}
+                  >
+                    {t('draftCancelEdit')}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         );
-      }}
-      isLoading={query.isLoading}
-      isError={query.isError}
-      error={query.error ?? undefined}
-      onRetry={() => query.refetch()}
-      emptyTitle={t('marketingDraftsEmpty')}
-      emptyDescription={t('marketingDraftsEmptyDesc')}
-    />
+      })}
+    </div>
   );
 }
 
-export const marketingSections = [MarketingOverview, MarketingEngagement, MarketingDrafts];
+export const marketingSections = [MarketingStats, MarketingOverview, MarketingEngagement, MarketingDrafts];

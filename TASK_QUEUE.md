@@ -79,7 +79,7 @@ The support workspace already has `agent.supportKnowledgeGaps` procedure and a `
 **Notes:**
 The backend procedure and basic UI already exist. This task improves the UX so gaps are actionable without leaving the workspace. Read `apps/web/src/components/agent-workspace/registry/support.tsx` for the current rendering.
 
-#### CAM-119 [ ] Marketing workspace: interest stats + draft content feed
+#### CAM-119 [x] Marketing workspace: interest stats + draft content feed
 The marketing workspace is a skeleton. Add substance.
 
 **Acceptance Criteria:**

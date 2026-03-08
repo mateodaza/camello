@@ -1511,10 +1511,61 @@ export const agentRouter = router({
             eq(moduleExecutions.artifactId, input.artifactId),
             eq(moduleExecutions.tenantId, ctx.tenantId),
             eq(moduleExecutions.moduleSlug, 'draft_content'),
+            eq(moduleExecutions.status, 'executed'),
+            sql`(${moduleExecutions.output}->>'draft_status') IS NULL`,
           ))
           .orderBy(desc(moduleExecutions.createdAt))
           .limit(input.limit)
           .offset(input.offset);
+      });
+    }),
+
+  marketingStats: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const result = await db.execute(sql`
+          WITH
+            interest_stats AS (
+              SELECT count(*)::int AS total_interests
+              FROM module_executions
+              WHERE artifact_id = ${input.artifactId}::uuid
+                AND tenant_id = ${ctx.tenantId}::uuid
+                AND module_slug = 'capture_interest'
+                AND status = 'executed'
+            ),
+            top_cats AS (
+              SELECT output->>'product_or_topic' AS topic, count(*)::int AS count
+              FROM module_executions
+              WHERE artifact_id = ${input.artifactId}::uuid
+                AND tenant_id = ${ctx.tenantId}::uuid
+                AND module_slug = 'capture_interest'
+                AND status = 'executed'
+              GROUP BY output->>'product_or_topic'
+              ORDER BY count(*) DESC
+              LIMIT 3
+            ),
+            draft_stats AS (
+              SELECT count(*)::int AS draft_count
+              FROM module_executions
+              WHERE artifact_id = ${input.artifactId}::uuid
+                AND tenant_id = ${ctx.tenantId}::uuid
+                AND module_slug = 'draft_content'
+                AND status = 'executed'
+                AND (output->>'draft_status') IS NULL
+            )
+          SELECT
+            (SELECT total_interests FROM interest_stats) AS total_interests,
+            (SELECT json_agg(top_cats ORDER BY count DESC) FROM top_cats) AS top_categories,
+            (SELECT draft_count FROM draft_stats) AS draft_count
+        `);
+        const row = (result.rows[0] ?? {}) as Record<string, unknown>;
+        const rawCats = row.top_categories as Array<{ topic: string | null; count: number }> | null;
+        return {
+          totalInterests: (row.total_interests as number) ?? 0,
+          topCategories: rawCats ?? [],
+          draftCount: (row.draft_count as number) ?? 0,
+        };
       });
     }),
 
