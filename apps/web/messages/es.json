@@ -486,7 +486,22 @@
     "returningCustomersEmptyDesc": "Los clientes que regresen aparecerán aquí.",
     "columnVisits": "Visitas",
     "columnLastTopic": "Último Tema",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "configIdentityTitle": "Identidad del Agente",
+    "configPersonalityTitle": "Personalidad",
+    "configKnowledgeTitle": "Conocimiento",
+    "configActivityTitle": "Actividad Reciente",
+    "configViewConversations": "Ver Conversaciones",
+    "configKnowledgeDocs": "{count, plural, =0 {Sin documentos} =1 {1 documento} other {# documentos}}",
+    "configManageKnowledge": "Gestionar",
+    "configActivityEmpty": "Sin actividad reciente",
+    "configSave": "Guardar",
+    "configIdentitySaved": "Identidad guardada",
+    "configPersonalitySaved": "Personalidad guardada",
+    "configEventNewLead": "Nuevo lead calificado",
+    "configEventConvResolved": "Conversación resuelta",
+    "configEventApprovalNeeded": "Aprobación requerida",
+    "configEventDealClosed": "Trato cerrado"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",

@@ -217,7 +217,8 @@ Reduce the current overview page to Botly-style hero metrics + agent cards + com
 
 **Depends on:** NC-210
 
-#### NC-212 [ ] Simplify `/dashboard/agents/[id]` to config-only page
+#### NC-212 [x] Simplify `/dashboard/agents/[id]` to config-only page
+**DONE.** `dashboardActivityFeed` in `agent.ts` gained optional `artifactId` filter (`.input(z.object({artifactId: uuid().optional()}).default({}))`). `agents/[id]/page.tsx` rewritten as 6-section config page (Identity, Personality, Modules, Knowledge, Recent Activity, Settings); removed WorkspaceHeader, PriorityIntents, registry, AgentActivity, NotificationsBell. 15 new i18n keys in `agentWorkspace` (en+es). 2 new tests in `agent-dashboard.test.ts`. Type-check passes.
 Replace the complex workspace with a clean configuration page.
 
 **Acceptance Criteria:**

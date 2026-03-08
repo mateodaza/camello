@@ -2066,7 +2066,8 @@ export const agentRouter = router({
   // =========================================================================
 
   dashboardActivityFeed: tenantProcedure
-    .query(async ({ ctx }) => {
+    .input(z.object({ artifactId: z.string().uuid().optional() }).default({}))
+    .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
         const notifRows = await db
           .select({
@@ -2083,6 +2084,7 @@ export const agentRouter = router({
           .where(and(
             eq(ownerNotifications.tenantId, ctx.tenantId),
             inArray(ownerNotifications.type, ['hot_lead', 'approval_needed', 'deal_closed']),
+            input.artifactId ? eq(ownerNotifications.artifactId, input.artifactId) : undefined,
           ))
           .orderBy(desc(ownerNotifications.createdAt))
           .limit(20);
@@ -2099,6 +2101,7 @@ export const agentRouter = router({
           .where(and(
             eq(conversations.tenantId, ctx.tenantId),
             isNotNull(conversations.resolvedAt),
+            input.artifactId ? eq(conversations.artifactId, input.artifactId) : undefined,
           ))
           .orderBy(desc(conversations.resolvedAt))
           .limit(20);

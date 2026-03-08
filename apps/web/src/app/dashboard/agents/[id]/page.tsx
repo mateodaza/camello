@@ -1,46 +1,111 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { MessageSquare, BookOpen, Activity } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { useToast } from '@/hooks/use-toast';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WorkspaceShell } from '@/components/agent-workspace/workspace-shell';
-import { WorkspaceHeader } from '@/components/agent-workspace/workspace-header';
-import { PriorityIntents } from '@/components/agent-workspace/priority-intents';
-import { AgentActivity } from '@/components/agent-workspace/agent-activity';
-import { sectionRegistry } from '@/components/agent-workspace/registry';
 import { ModuleSettings } from '@/components/agent-workspace/module-settings';
-import { NotificationsBell } from '@/components/agent-workspace/notifications-panel';
 import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
 import { AgentSettingsPanel } from '@/components/agent-workspace/agent-settings-panel';
 
-export default function AgentWorkspacePage() {
+const TONE_PRESETS = [
+  { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
+  { key: 'friendly', en: 'Friendly, warm, and approachable', es: 'Amigable, cálido y accesible' },
+  { key: 'casual', en: 'Casual, relaxed, and conversational', es: 'Casual, relajado y conversacional' },
+  { key: 'formal', en: 'Formal, respectful, and precise', es: 'Formal, respetuoso y preciso' },
+  { key: 'enthusiastic', en: 'Enthusiastic, casual, and engaging', es: 'Entusiasta, casual y atractivo' },
+  { key: 'empathetic', en: 'Empathetic, patient, and thorough', es: 'Empático, paciente y minucioso' },
+] as const;
+
+function matchTonePreset(tone: string): string {
+  const lower = tone.toLowerCase().trim();
+  const match = TONE_PRESETS.find(
+    (p) => p.en.toLowerCase() === lower || p.es.toLowerCase() === lower,
+  );
+  return match ? match.key : 'other';
+}
+
+export default function AgentConfigPage() {
   const { id } = useParams<{ id: string }>();
   const t = useTranslations('agentWorkspace');
+  const ta = useTranslations('artifacts');
+  const { addToast } = useToast();
+  const utils = trpc.useUtils();
 
   const workspace = trpc.agent.workspace.useQuery(
     { artifactId: id },
-    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
+    { retry: 2 },
   );
+  const knowledgeList = trpc.knowledge.list.useQuery({});
+  const activityFeed = trpc.agent.dashboardActivityFeed.useQuery({ artifactId: id });
+
+  // --- Identity form state ---
+  const [name, setName] = useState('');
+  const [isActive, setIsActive] = useState(false);
+
+  // --- Personality form state ---
+  const [instructions, setInstructions] = useState('');
+  const [greetingText, setGreetingText] = useState('');
+  const [tonePreset, setTonePreset] = useState('professional');
+  const [toneCustom, setToneCustom] = useState('');
+
+  // Sync form state from loaded data
+  useEffect(() => {
+    if (!workspace.data) return;
+    const { artifact } = workspace.data;
+    setName(artifact.name ?? '');
+    setIsActive(artifact.isActive ?? false);
+    const p = (artifact.personality as Record<string, unknown>) ?? {};
+    setInstructions((p.instructions as string) ?? '');
+    const rawG = p.greeting;
+    setGreetingText(Array.isArray(rawG) ? (rawG as string[]).join('\n') : ((rawG as string) ?? ''));
+    const tone = (p.tone as string) ?? '';
+    const preset = tone ? matchTonePreset(tone) : 'professional';
+    setTonePreset(preset);
+    setToneCustom(preset === 'other' ? tone : '');
+  }, [workspace.data?.artifact.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateArtifact = trpc.artifact.update.useMutation({
+    onSuccess: () => utils.agent.workspace.invalidate({ artifactId: id }),
+    onError: (err) => addToast(err.message, 'error'),
+  });
+
+  function handleIdentitySave() {
+    updateArtifact.mutate(
+      { id, name: name.trim() || undefined, isActive },
+      { onSuccess: () => addToast(t('configIdentitySaved'), 'success') },
+    );
+  }
+
+  function handlePersonalitySave() {
+    const existing = (workspace.data?.artifact.personality as Record<string, unknown>) ?? {};
+    const finalTone =
+      tonePreset === 'other'
+        ? toneCustom.trim()
+        : (TONE_PRESETS.find((p) => p.key === tonePreset)?.en ?? '');
+    const greetingLines = greetingText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const greetingValue = greetingLines.length <= 1 ? (greetingLines[0] ?? '') : greetingLines;
+    updateArtifact.mutate(
+      {
+        id,
+        personality: { ...existing, instructions, greeting: greetingValue, tone: finalTone },
+      },
+      { onSuccess: () => addToast(t('configPersonalitySaved'), 'success') },
+    );
+  }
 
   if (workspace.isLoading) {
     return (
       <WorkspaceShell>
         <div className="space-y-4">
-          <div className="rounded-xl bg-charcoal/[0.03] p-5">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <Skeleton className="h-7 w-48" />
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-12">
-              <Skeleton className="h-24 rounded-xl sm:col-span-4" />
-              <Skeleton className="h-24 rounded-xl sm:col-span-3" />
-              <Skeleton className="h-24 rounded-xl sm:col-span-5" />
-            </div>
-          </div>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
           ))}
         </div>
       </WorkspaceShell>
@@ -55,33 +120,158 @@ export default function AgentWorkspacePage() {
     );
   }
 
-  const data = workspace.data!;
-  const { artifact, boundModules, metrics } = data;
-  const sections = sectionRegistry[artifact.type] ?? [];
+  const { artifact, boundModules } = workspace.data!;
+  const recentEvents = (activityFeed.data?.events ?? []).slice(0, 5);
+  const knowledgeCount = knowledgeList.data?.length ?? 0;
+  const isCustom = artifact.type === 'custom';
+
+  function eventLabel(eventType: string): string {
+    if (eventType === 'new_lead') return t('configEventNewLead');
+    if (eventType === 'conversation_resolved') return t('configEventConvResolved');
+    if (eventType === 'approval_needed') return t('configEventApprovalNeeded');
+    if (eventType === 'deal_closed') return t('configEventDealClosed');
+    return eventType;
+  }
+
+  const sectionClass = 'rounded-xl border border-charcoal/8 bg-cream p-5';
+  const labelClass = 'mb-1 block text-xs font-medium text-charcoal';
+  const inputClass =
+    'w-full rounded-md border border-charcoal/15 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-teal';
 
   return (
     <WorkspaceShell>
-      <WorkspaceHeader
-        artifact={{
-          id: artifact.id,
-          name: artifact.name,
-          type: artifact.type,
-          isActive: artifact.isActive,
-        }}
-        metrics={metrics}
-        boundModules={boundModules.map((m) => ({
-          slug: m.slug,
-          name: m.name,
-          autonomyLevel: m.autonomyLevel,
-        }))}
-        rightAction={<NotificationsBell artifactId={id} />}
-      />
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-xl font-semibold text-charcoal">{artifact.name}</h1>
+        <Link
+          href={`/dashboard/conversations?artifactId=${id}`}
+          className="flex items-center gap-1.5 rounded-md bg-teal/10 px-3 py-1.5 text-sm font-medium text-teal hover:bg-teal/20"
+        >
+          <MessageSquare className="h-4 w-4" />
+          {t('configViewConversations')}
+        </Link>
+      </div>
 
-      {/* Module settings — collapsible, shown for all agent types */}
+      {/* 1. Agent Identity */}
+      <div className={sectionClass}>
+        <h2 className="mb-4 font-heading text-base font-semibold text-charcoal">
+          {t('configIdentityTitle')}
+        </h2>
+        <div className="space-y-3">
+          <div>
+            <label className={labelClass}>{ta('agentName')}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={ta('agentNamePlaceholder')}
+              maxLength={100}
+              className={inputClass}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isActive}
+              onClick={() => setIsActive(!isActive)}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2 ${isActive ? 'bg-teal' : 'bg-charcoal/20'}`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${isActive ? 'translate-x-4' : 'translate-x-0'}`}
+              />
+            </button>
+            <span className="text-sm text-charcoal">{isActive ? ta('on') : ta('off')}</span>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={handleIdentitySave}
+            disabled={updateArtifact.isPending}
+            className="rounded-md bg-teal px-4 py-1.5 text-sm font-medium text-white hover:bg-teal/90 disabled:opacity-50"
+          >
+            {t('configSave')}
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Personality */}
+      <div className={sectionClass}>
+        <h2 className="mb-4 font-heading text-base font-semibold text-charcoal">
+          {t('configPersonalityTitle')}
+        </h2>
+        <div className="space-y-3">
+          <div>
+            <label className={labelClass}>{ta('instructions')}</label>
+            <textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder={isCustom ? ta('instructionsPlaceholderCustom') : ta('instructionsPlaceholder')}
+              rows={4}
+              maxLength={2000}
+              className={inputClass}
+            />
+            <p className="mt-0.5 text-right text-xs text-dune">{instructions.length}/2000</p>
+          </div>
+          <div>
+            <label className={labelClass}>{ta('greeting')}</label>
+            <textarea
+              value={greetingText}
+              onChange={(e) => setGreetingText(e.target.value)}
+              placeholder={ta('greetingPlaceholder')}
+              rows={3}
+              className={inputClass}
+            />
+            <p className="mt-0.5 text-xs text-dune">{ta('greetingHint')}</p>
+          </div>
+          <div>
+            <label className={labelClass}>{ta('tone')}</label>
+            <select
+              value={tonePreset}
+              onChange={(e) => setTonePreset(e.target.value)}
+              className={inputClass}
+            >
+              {TONE_PRESETS.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {ta(
+                    `tone${p.key.charAt(0).toUpperCase()}${p.key.slice(1)}` as Parameters<
+                      typeof ta
+                    >[0],
+                  )}
+                </option>
+              ))}
+              <option value="other">{ta('toneOther')}</option>
+            </select>
+            {tonePreset === 'other' && (
+              <input
+                type="text"
+                value={toneCustom}
+                onChange={(e) => setToneCustom(e.target.value)}
+                placeholder={ta('tonePlaceholder')}
+                maxLength={100}
+                className={`mt-1.5 ${inputClass}`}
+              />
+            )}
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={handlePersonalitySave}
+            disabled={updateArtifact.isPending}
+            className="rounded-md bg-teal px-4 py-1.5 text-sm font-medium text-white hover:bg-teal/90 disabled:opacity-50"
+          >
+            {t('configSave')}
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Modules */}
       <WorkspaceSectionErrorBoundary key="module-settings">
         <ModuleSettings
           artifactId={id}
-          boundModules={data.boundModules.map((m) => ({
+          boundModules={boundModules.map((m) => ({
             id: m.id,
             moduleId: m.moduleId,
             slug: m.slug,
@@ -92,20 +282,49 @@ export default function AgentWorkspacePage() {
         />
       </WorkspaceSectionErrorBoundary>
 
-      {/* Type-specific sections from registry */}
-      {sections.map((Section, i) => (
-        <WorkspaceSectionErrorBoundary key={`section-${i}`}>
-          <Section artifactId={id} />
-        </WorkspaceSectionErrorBoundary>
-      ))}
+      {/* 4. Knowledge */}
+      <div className={sectionClass}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-teal" />
+            <h2 className="font-heading text-base font-semibold text-charcoal">
+              {t('configKnowledgeTitle')}
+            </h2>
+          </div>
+          <Link href="/dashboard/knowledge" className="text-sm text-teal hover:underline">
+            {t('configManageKnowledge')}
+          </Link>
+        </div>
+        <p className="mt-2 text-sm text-dune">
+          {t('configKnowledgeDocs', { count: knowledgeCount })}
+        </p>
+      </div>
 
-      {/* Shared sections: priority intents + activity */}
-      <WorkspaceSectionErrorBoundary key="priority-intents">
-        <PriorityIntents artifactId={id} />
-      </WorkspaceSectionErrorBoundary>
-      <WorkspaceSectionErrorBoundary key="agent-activity">
-        <AgentActivity artifactId={id} />
-      </WorkspaceSectionErrorBoundary>
+      {/* 5. Recent Activity */}
+      <div className={sectionClass}>
+        <div className="mb-4 flex items-center gap-2">
+          <Activity className="h-4 w-4 text-teal" />
+          <h2 className="font-heading text-base font-semibold text-charcoal">
+            {t('configActivityTitle')}
+          </h2>
+        </div>
+        {recentEvents.length === 0 ? (
+          <p className="text-sm text-dune">{t('configActivityEmpty')}</p>
+        ) : (
+          <ul className="space-y-2">
+            {recentEvents.map((event) => (
+              <li key={event.id} className="flex items-center justify-between text-sm">
+                <span className="text-charcoal">{eventLabel(event.eventType)}</span>
+                <span className="text-xs text-dune">
+                  {new Date(event.createdAt).toLocaleDateString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* 6. Settings */}
       <WorkspaceSectionErrorBoundary key="settings-panel">
         <AgentSettingsPanel artifactId={id} />
       </WorkspaceSectionErrorBoundary>

@@ -149,6 +149,20 @@ const T2 = new Date('2024-01-03T12:00:00Z');
 const T1 = new Date('2024-01-02T12:00:00Z');
 const T0 = new Date('2024-01-01T12:00:00Z');
 
+// Drizzle SQL expression objects contain circular references (Column → Table → Column).
+// This helper serialises the predicate while breaking cycles, so we can search for
+// param values (UUIDs) embedded in the expression tree.
+function safeStringify(obj: unknown): string {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(obj, (_key, value: unknown) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value as object)) return undefined;
+      seen.add(value as object);
+    }
+    return value;
+  }) ?? '';
+}
+
 describe('agent.dashboardActivityFeed', () => {
   it('happy path — merged and ordered newest-first', async () => {
     let selectCount = 0;
@@ -352,6 +366,102 @@ describe('agent.dashboardActivityFeed', () => {
     expect(result.events.length).toBe(1);
     expect(result.events[0].eventType).toBe('conversation_resolved');
     expect(result.events[0].createdAt).toEqual(T2);
+  });
+
+  it('artifactId filter — WHERE predicate includes artifactId condition for both queries', async () => {
+    // Capture the WHERE predicate passed to both DB queries so we can assert the
+    // artifactId filter is actually forwarded (not just that the mocked result has
+    // the right shape, which would pass even if the filter were removed).
+    const capturedPredicates: unknown[] = [];
+    let selectCount = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      const mockDb = {
+        select: () => {
+          selectCount++;
+          const idx = selectCount;
+          return {
+            from: () => ({
+              innerJoin: () => ({
+                where: (predicate: unknown) => {
+                  capturedPredicates.push(predicate);
+                  return {
+                    orderBy: () => ({
+                      limit: () =>
+                        idx === 1
+                          ? [{ id: NOTIF_ID_1, type: 'hot_lead', title: 'Hot Lead', body: '', artifactId: ARTIFACT_ID, artifactName: 'Sales Bot', createdAt: T1 }]
+                          : [],
+                    }),
+                  };
+                },
+              }),
+            }),
+          };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.dashboardActivityFeed({ artifactId: ARTIFACT_ID });
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].eventType).toBe('new_lead');
+    expect(result.events[0].artifactId).toBe(ARTIFACT_ID);
+
+    // Both the notifications query and conversations query must include the
+    // artifactId condition. Drizzle's eq() stores the value in a Param chunk,
+    // which JSON.stringify serialises as {"value":"<uuid>",...} — so the UUID
+    // must be present in the serialised predicate.
+    expect(capturedPredicates).toHaveLength(2);
+    const [notifPredicate, convPredicate] = capturedPredicates.map(safeStringify);
+    expect(notifPredicate).toContain(ARTIFACT_ID);
+    expect(convPredicate).toContain(ARTIFACT_ID);
+  });
+
+  it('empty input {} — WHERE predicate does not include any artifactId condition', async () => {
+    const capturedPredicates: unknown[] = [];
+    let selectCount = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      const mockDb = {
+        select: () => {
+          selectCount++;
+          const idx = selectCount;
+          return {
+            from: () => ({
+              innerJoin: () => ({
+                where: (predicate: unknown) => {
+                  capturedPredicates.push(predicate);
+                  return {
+                    orderBy: () => ({
+                      limit: () =>
+                        idx === 1
+                          ? [{ id: NOTIF_ID_2, type: 'approval_needed', title: 'Approval', body: '', artifactId: ARTIFACT_ID, artifactName: 'Bot', createdAt: T2 }]
+                          : [{ id: CONV_ID_1, artifactId: ARTIFACT_ID, artifactName: 'Bot', resolvedAt: T1 }],
+                    }),
+                  };
+                },
+              }),
+            }),
+          };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.dashboardActivityFeed({});
+
+    expect(result.events.length).toBe(2);
+    expect(result.events[0].eventType).toBe('approval_needed');
+    expect(result.events[1].eventType).toBe('conversation_resolved');
+
+    // When no artifactId is supplied the WHERE predicates must NOT include an
+    // artifact-specific filter (only tenantId and other fixed conditions).
+    // TENANT_ID ('...000001') will appear; ARTIFACT_ID ('...000002') must not.
+    expect(capturedPredicates).toHaveLength(2);
+    const [notifPredicate, convPredicate] = capturedPredicates.map(safeStringify);
+    expect(notifPredicate).not.toContain(ARTIFACT_ID);
+    expect(convPredicate).not.toContain(ARTIFACT_ID);
   });
 
   it('hot_lead mapped to new_lead; lead_stale excluded by inArray filter', async () => {
