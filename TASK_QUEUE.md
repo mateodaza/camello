@@ -109,8 +109,9 @@ Create the `InboxLayout` component — a 3-column layout that adapts to screen s
 - This is an operational shell, not a redesign exercise. Reuse current dashboard primitives before creating anything bespoke.
 - `pnpm type-check` passes
 
-#### NC-206 [ ] Inbox route state + left panel conversation list
+#### NC-206 [x] Inbox route state + left panel conversation list
 Implement the left panel of the inbox — conversation list with filter tabs, search, and proper display names.
+**DONE.** Created `conversation-list.tsx` (filter tabs, 300ms debounced search, infinite query, status dots, channel icons, escalated/selected row styles, empty state, load more). Rewrote `conversations/page.tsx` as inbox shell using `InboxLayout` with `?selected=` URL sync. Added `inbox` i18n section (en+es, 8 keys). Type-check passes.
 
 **Acceptance Criteria:**
 - New component `apps/web/src/components/inbox/conversation-list.tsx`

@@ -850,6 +850,16 @@
     "ogFallbackTitle": "Chatea con nosotros | Camello",
     "ogFallbackDescription": "Habla con nuestro agente de IA para ayuda inmediata"
   },
+  "inbox": {
+    "filterAll": "Todas",
+    "filterActive": "Activas",
+    "filterEscalated": "Escaladas",
+    "filterResolved": "Resueltas",
+    "emptyTitle": "Sin conversaciones",
+    "emptyDescription": "Las conversaciones aparecerán aquí cuando los clientes comiencen a chatear.",
+    "loadMore": "Cargar más",
+    "searchPlaceholder": "Buscar conversaciones..."
+  },
   "notifications": {
     "panelTitle": "Notificaciones del Agente",
     "bellLabel": "{count, plural, =0 {Notificaciones} =1 {1 notificación sin leer} other {# notificaciones sin leer}}",
