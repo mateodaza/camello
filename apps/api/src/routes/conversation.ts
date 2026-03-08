@@ -18,6 +18,7 @@ export const conversationRouter = router({
         search: z.string().max(200).optional(),
         dateRange: z.enum(['7d', '30d', 'all']).optional(),
         customerId: z.string().uuid().optional(),
+        artifactId: z.string().uuid().optional(),
         limit: z.number().int().min(1).max(100).default(50),
         cursor: z.string().uuid().optional(),
       }).default({}),
@@ -34,6 +35,9 @@ export const conversationRouter = router({
         }
         if (input.customerId) {
           conditions.push(eq(conversations.customerId, input.customerId));
+        }
+        if (input.artifactId) {
+          conditions.push(eq(conversations.artifactId, input.artifactId));
         }
         if (input.dateRange && input.dateRange !== 'all') {
           const days = input.dateRange === '7d' ? 7 : 30;
@@ -80,7 +84,7 @@ export const conversationRouter = router({
             status: conversations.status,
             createdAt: conversations.createdAt,
             updatedAt: conversations.updatedAt,
-            customerName: customers.name,
+            customerName: sql<string>`COALESCE(${customers.displayName}, ${customers.name}, 'Unknown')`,
             customerExternalId: customers.externalId,
             summary: sql<string | null>`(${conversations.metadata}->>'summary')`,
           })
@@ -116,7 +120,7 @@ export const conversationRouter = router({
             createdAt: conversations.createdAt,
             updatedAt: conversations.updatedAt,
             resolvedAt: conversations.resolvedAt,
-            customerName: customers.name,
+            customerName: sql<string>`COALESCE(${customers.displayName}, ${customers.name}, 'Unknown')`,
             customerEmail: customers.email,
             customerPhone: customers.phone,
             customerChannel: customers.channel,

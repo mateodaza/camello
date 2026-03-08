@@ -75,7 +75,8 @@ Allow the tenant owner to send a message into an escalated conversation. The mes
 
 **Notes:** Owner name comes from tRPC context (Clerk user). Use existing channel adapter pattern from `message-handler.ts` for WhatsApp delivery.
 
-#### NC-204 [ ] Anonymous customer naming cleanup + display_name read precedence
+#### NC-204 [x] Anonymous customer naming cleanup + display_name read precedence
+**DONE.** `findOrCreateWhatsAppCustomer` in `adapters/whatsapp.ts` now accepts `TenantDb`, sets `name: profileName ?? null`; `findOrCreateWebchatCustomer` extracted + exported from `webhooks/widget.ts` with `name: null`. Both use `pg_advisory_xact_lock` + xmax insert detection to assign `display_name = 'Visitor N'` atomically. `conversation.list` + `byId` use `COALESCE(displayName, name, 'Unknown')`. `artifactId` filter added to `conversation.list`. Migration 0022 NULLs out `visitor_%` names and backfills `display_name`. 4 new tests (3 naming + 1 artifactId filter). Type-check passes.
 Currently webchat customers are created with `name: visitorId` (raw UUID like `visitor_2ec36d4e78cf2a1b`) in `apps/api/src/webhooks/widget.ts:276`. WhatsApp uses `name: profileName ?? waId` in `apps/api/src/adapters/whatsapp.ts:79`. Both pollute `customers.name` with machine identifiers. Fix the creation flow and read path.
 
 **Acceptance Criteria:**

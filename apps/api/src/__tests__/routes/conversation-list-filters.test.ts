@@ -13,6 +13,7 @@ type Any = any;
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const USER_ID = 'user_test_123';
 const CUSTOMER_ID = '00000000-0000-0000-0000-000000000099';
+const ARTIFACT_ID = '00000000-0000-0000-0000-000000000010';
 
 const createCaller = createCallerFactory(conversationRouter);
 
@@ -198,6 +199,21 @@ describe('conversation.list filters', () => {
     const params = getWhereParams(whereSpy.mock.calls[0][0]);
     // CUSTOMER_ID UUID must be a bound param — proves eq(conversations.customerId, ...) was added
     expect(params).toContain(CUSTOMER_ID);
+    expect(params).toHaveLength(2);
+  });
+
+  it('8 — artifactId filter: WHERE clause includes artifactId value', async () => {
+    const rows = [makeRow('00000000-0000-0000-0000-000000000081')];
+    const { db, whereSpy } = makeMockDb(rows);
+    const caller = createCaller(makeCtx(db));
+
+    const result = await caller.list({ artifactId: ARTIFACT_ID, limit: 10 });
+
+    expect(result.items).toHaveLength(1);
+    expect(whereSpy).toHaveBeenCalledOnce();
+    const params = getWhereParams(whereSpy.mock.calls[0][0]);
+    // ARTIFACT_ID UUID must be a bound param — proves eq(conversations.artifactId, ...) was added
+    expect(params).toContain(ARTIFACT_ID);
     expect(params).toHaveLength(2);
   });
 });

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Hono } from 'hono';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { db, createTenantDb } from '@camello/db';
+import type { TenantDb } from '@camello/db';
 import { customers, conversations, messages, artifacts, tenants, artifactModules, modules } from '@camello/db';
 import { getQuickActionsForModules } from '@camello/ai';
 import { createWidgetToken, verifyWidgetToken } from '../lib/widget-jwt.js';
@@ -78,6 +79,53 @@ async function resolveTenantBySlug(
   const row = (result.rows as Array<{ id: string; name: string; default_artifact_id: string | null }>)[0];
   if (!row || !row.default_artifact_id) return null;
   return row as { id: string; name: string; default_artifact_id: string };
+}
+
+// ---------------------------------------------------------------------------
+// Customer find-or-create
+// ---------------------------------------------------------------------------
+
+export async function findOrCreateWebchatCustomer(
+  tenantDb: TenantDb,
+  tenantId: string,
+  visitorId: string,
+): Promise<string> {
+  return tenantDb.transaction(async (tx) => {
+    // Serialize display_name assignment per tenant
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`);
+
+    const rows = await tx
+      .insert(customers)
+      .values({
+        tenantId,
+        channel: 'webchat',
+        externalId: visitorId,
+        name: null,
+      })
+      .onConflictDoUpdate({
+        target: [customers.tenantId, customers.channel, customers.externalId],
+        set: { lastSeenAt: new Date() },
+      })
+      .returning({ id: customers.id, xmax: sql<string>`xmax` });
+
+    const row = rows[0];
+    // xmax=0 means fresh INSERT; non-zero means ON CONFLICT DO UPDATE
+    const isNewInsert = String(row.xmax) === '0';
+
+    if (isNewInsert) {
+      const countRows = await tx
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), sql`${customers.displayName} IS NOT NULL`));
+      const seq = Number(countRows[0]?.count ?? 0);
+      await tx
+        .update(customers)
+        .set({ displayName: `Visitor ${seq + 1}` })
+        .where(and(eq(customers.id, row.id), eq(customers.tenantId, tenantId)));
+    }
+
+    return row.id;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -266,22 +314,7 @@ widgetRoutes.post('/session', async (c) => {
     const visitorId = makeVisitorId(slug, fingerprint);
 
     // Find-or-create customer (upsert on tenant + channel + external_id)
-    const customerId = await tenantDb.query(async (qdb) => {
-      const rows = await qdb
-        .insert(customers)
-        .values({
-          tenantId,
-          channel: 'webchat',
-          externalId: visitorId,
-          name: visitorId,
-        })
-        .onConflictDoUpdate({
-          target: [customers.tenantId, customers.channel, customers.externalId],
-          set: { lastSeenAt: new Date() },
-        })
-        .returning({ id: customers.id });
-      return rows[0].id;
-    });
+    const customerId = await findOrCreateWebchatCustomer(tenantDb, tenantId, visitorId);
 
     // Create signed JWT with all server-resolved IDs
     const token = await createWidgetToken({
