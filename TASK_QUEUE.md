@@ -36,8 +36,8 @@ This-week vs last-week comparison on sales overview with delta arrows. `agent.sa
 - i18n keys (en + es)
 - `pnpm type-check` passes
 
-#### CAM-114 [ ] Revenue forecasting card
-Simple weighted pipeline forecast for next 30 days.
+#### CAM-114 [x] Revenue forecasting card
+`agent.salesForecast` procedure (artifact-scoped `stage_history` + `active_pipeline` CTEs, 90-day window, MIN_SAMPLE=5 fallback); `ForecastCard` component in `SalesOverview`; stats strip Forecast cell uses backend total; 4 i18n keys (en+es); 4 tests in `agent-sales-forecast.test.ts`. Type-check passes.
 
 **Acceptance Criteria:**
 - `agent.salesForecast` procedure: pipeline value * historical stage conversion rates (90-day window)

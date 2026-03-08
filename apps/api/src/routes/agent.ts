@@ -1779,4 +1779,92 @@ export const agentRouter = router({
         return { count: row?.count ?? 0 };
       });
     }),
+
+  salesForecast: tenantProcedure
+    .input(z.object({ artifactId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db.execute(sql`
+          WITH date_bound AS (
+            SELECT NOW() - INTERVAL '90 days' AS start_90d
+          ),
+          stage_history AS (
+            SELECT
+              lsc.to_stage AS stage,
+              COUNT(DISTINCT lsc.lead_id) FILTER (WHERE l.stage = 'closed_won')::int   AS won_count,
+              COUNT(DISTINCT lsc.lead_id) FILTER (WHERE l.stage IN ('closed_won', 'closed_lost'))::int AS terminated_count
+            FROM lead_stage_changes lsc
+            INNER JOIN leads l ON l.id = lsc.lead_id
+            INNER JOIN conversations c ON c.id = l.conversation_id
+            CROSS JOIN date_bound db
+            WHERE lsc.created_at >= db.start_90d
+              AND lsc.to_stage IN ('qualifying', 'proposal', 'negotiation')
+              AND lsc.tenant_id = ${ctx.tenantId}
+              AND c.artifact_id = ${input.artifactId}
+            GROUP BY lsc.to_stage
+          ),
+          active_pipeline AS (
+            SELECT
+              l.stage,
+              COUNT(*)::int                              AS lead_count,
+              COALESCE(SUM(l.estimated_value), 0)::text AS total_value
+            FROM leads l
+            INNER JOIN conversations c ON c.id = l.conversation_id
+            WHERE c.artifact_id = ${input.artifactId}
+              AND l.tenant_id = ${ctx.tenantId}
+              AND l.stage IN ('qualifying', 'proposal', 'negotiation')
+            GROUP BY l.stage
+          )
+          SELECT
+            ap.stage,
+            ap.lead_count,
+            ap.total_value,
+            COALESCE(sh.won_count, 0)        AS won_count,
+            COALESCE(sh.terminated_count, 0) AS terminated_count
+          FROM active_pipeline ap
+          LEFT JOIN stage_history sh ON sh.stage = ap.stage
+          ORDER BY CASE ap.stage
+            WHEN 'qualifying'  THEN 1
+            WHEN 'proposal'    THEN 2
+            WHEN 'negotiation' THEN 3
+          END
+        `);
+
+        type ForecastRow = {
+          stage: string;
+          lead_count: number;
+          total_value: string;
+          won_count: number;
+          terminated_count: number;
+        };
+
+        const FALLBACK_RATES: Record<string, number> = {
+          qualifying: 0.20,
+          proposal: 0.50,
+          negotiation: 0.70,
+        };
+        const MIN_SAMPLE = 5;
+
+        const stageRows = (rows.rows as ForecastRow[]).map((row) => {
+          const isFallback = row.terminated_count < MIN_SAMPLE;
+          const conversionRate = isFallback
+            ? (FALLBACK_RATES[row.stage] ?? 0)
+            : row.won_count / row.terminated_count;
+          const forecastValue = Number(row.total_value) * conversionRate;
+          return {
+            stage: row.stage,
+            leadCount: row.lead_count,
+            pipelineValue: Number(row.total_value),
+            conversionRate,
+            isFallback,
+            forecastValue,
+          };
+        });
+
+        const totalForecast = stageRows.reduce((sum, s) => sum + s.forecastValue, 0);
+
+        return { totalForecast, stages: stageRows };
+      });
+    }),
+
 });
