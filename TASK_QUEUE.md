@@ -269,7 +269,7 @@ Clean up components no longer used after the inbox transition.
 
 ## P3 — Polish & Fixes
 
-#### NC-216 [ ] Fix book_meeting business hours validation
+#### NC-216 [x] Fix book_meeting business hours validation
 The book_meeting module currently accepts any time without checking business hours. Feed `personality.hours` into the LLM system prompt and add validation in the module.
 
 **Acceptance Criteria:**

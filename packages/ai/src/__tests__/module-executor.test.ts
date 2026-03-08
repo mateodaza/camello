@@ -246,6 +246,55 @@ describe('book_meeting', () => {
     expect(result.booked).toBe(true);
     expect(result.calendar_link).toBe('https://calendly.com/test');
   });
+
+  it('does not flag outsideHours when time is within business hours', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = { businessHours: '9:00-17:00' };
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', preferred_time: '10:00', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as any;
+    expect(result.outsideHours).toBeUndefined();
+    expect(result.alternative_slots).toBeUndefined();
+  });
+
+  it('flags outsideHours and provides a concrete within-hours slot when time is outside', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = { businessHours: '9:00-17:00' };
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', preferred_time: '20:00', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as any;
+    expect(result.outsideHours).toBe(true);
+    expect(result.alternative_slots).toHaveLength(1);
+    // Must be a concrete time, not just an instructional string
+    expect(result.alternative_slots[0]).toMatch(/^09:00 on 2026-03-01/);
+  });
+
+  it('rejects booking (booked=false) even when calendarUrl is set if time is outside hours', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = { calendarUrl: 'https://calendly.com/test', businessHours: '9:00-17:00' };
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', preferred_time: '20:00', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as any;
+    expect(result.booked).toBe(false);
+    expect(result.outsideHours).toBe(true);
+    expect(result.alternative_slots).toHaveLength(1);
+    expect(result.alternative_slots[0]).toMatch(/^09:00 on 2026-03-01/);
+  });
+
+  it('ignores business hours check when businessHours is not configured', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = {};
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', preferred_time: '20:00', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as any;
+    expect(result.outsideHours).toBeUndefined();
+    expect(result.booked).toBe(false);
+    expect(result.alternative_slots?.[0]).toContain('manually');
+  });
 });
 
 // ---------------------------------------------------------------------------

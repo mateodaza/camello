@@ -62,11 +62,17 @@ export const bookMeetingInputSchema = z.object({
   topic: z.string().describe('Meeting topic/purpose'),
 });
 
+export const bookMeetingConfigSchema = z.object({
+  calendarUrl: z.string().optional(),
+  businessHours: z.string().optional(),
+});
+
 export const bookMeetingOutputSchema = z.object({
   booked: z.boolean(),
   datetime: z.string().optional(),
   calendar_link: z.string().optional(),
   alternative_slots: z.array(z.string()).optional(),
+  outsideHours: z.boolean().optional(),
 });
 
 export const sendFollowupInputSchema = z.object({

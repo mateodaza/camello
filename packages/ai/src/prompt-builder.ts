@@ -98,6 +98,9 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     if (p.instructions && typeof p.instructions === 'string' && p.instructions.trim()) {
       parts.push(t.customInstructions(p.instructions.trim()));
     }
+    if (p.hours && typeof p.hours === 'string') {
+      parts.push(`Business hours: ${p.hours}. Only suggest meeting times within these hours.`);
+    }
   }
 
   // Channel-specific greeting instruction

@@ -373,6 +373,18 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     }));
   });
 
+  // 6b-1. Enrich book_meeting bindings with businessHours from artifact.personality.hours
+  const artifactHours =
+    (artifact.personality as Record<string, unknown>)?.hours as string | undefined;
+
+  const enrichedModules: ArtifactModuleBinding[] = artifactHours
+    ? boundModules.map((m) =>
+        m.moduleSlug === 'book_meeting'
+          ? { ...m, configOverrides: { ...m.configOverrides, businessHours: artifactHours } }
+          : m,
+      )
+    : boundModules;
+
   // 6c. Build module DB callbacks (DI — keeps @camello/ai free of @camello/db)
   const moduleDbCallbacks: ModuleDbCallbacks = {
     insertLead: async (data) => {
@@ -620,7 +632,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     ragContext: ragResult.directContext,
     proactiveContext: ragResult.proactiveContext,
     learnings: artifactLearnings.map((l) => l.content),
-    modules: boundModules.map((m) => ({
+    modules: enrichedModules.map((m) => ({
       name: m.moduleName,
       slug: m.moduleSlug,
       description: m.moduleDescription,
@@ -665,8 +677,8 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
 
   // 12. Build tools (if artifact has bound modules) and call LLM
   const client = createLLMClient();
-  const tools = boundModules.length > 0
-    ? buildToolsFromBindings(boundModules, {
+  const tools = enrichedModules.length > 0
+    ? buildToolsFromBindings(enrichedModules, {
         tenantId,
         artifactId: resolved.artifactId,
         conversationId,
