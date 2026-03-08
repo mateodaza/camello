@@ -197,8 +197,9 @@ Step 4 lets owners add knowledge but the UX is minimal.
 **Notes:**
 Read `apps/web/src/components/onboarding/step4-teach-agent.tsx` for current implementation. URL ingestion uses `knowledge.queueUrl` (async queue + cron processing), NOT a synchronous ingest. Read `apps/api/src/routes/knowledge.ts` for the procedure.
 
-#### CAM-127 [ ] Widget chat — typing indicator + message status
+#### CAM-127 [x] Widget chat — typing indicator + message status
 The widget feels static. Add basic interaction feedback.
+`useChat.ts`: `ChatMessage` extended with `id` + `metadata.status` ('sent'/'delivered'/'error'); `generateId()` (no crypto dep); optimistic message gains `status:'sent'`, transitions to `delivered` on success or `error` on failure (429 still removes); `retryMessage(id)` removes + re-sends. `injectStyles.ts`: one-shot `<style>` injection with `camello-bounce`/`camello-fade-in` keyframes + `.camello-typing-dot`/`.camello-msg-enter` classes. `TypingIndicator.tsx`: animated dot bubble (artifact style). `MessageStatusIcon.tsx`: ✓/✓✓/✗+Retry below customer messages. `ChatWindow.tsx`: `messagesContainerRef` + `handleScroll` + `isScrolledUp` state; auto-scroll only when not scrolled up; scroll-to-bottom pill button; `key={msg.id}` + `camello-msg-enter` on bubbles; `retryMessage` wired. `messages.ts`: `chat.scrollToBottom` + `chat.retry` (en+es). Type-check passes.
 
 **Acceptance Criteria:**
 - Typing indicator: show animated dots while waiting for AI response (CSS-only animation, reuse `chat-page.module.css` pattern)

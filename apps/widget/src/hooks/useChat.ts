@@ -1,9 +1,15 @@
 import { useState, useCallback } from 'react';
 import { t } from '../i18n/messages.js';
 
-interface ChatMessage {
+export interface ChatMessageMetadata {
+  status: 'sent' | 'delivered' | 'error';
+}
+
+export interface ChatMessage {
+  id: string;
   role: 'customer' | 'artifact';
   content: string;
+  metadata: ChatMessageMetadata;
 }
 
 interface UseChatReturn {
@@ -13,6 +19,11 @@ interface UseChatReturn {
   error: string | null;
   inputDisabled: boolean;
   send: (text: string, conversationId?: string) => void;
+  retryMessage: (messageId: string) => void;
+}
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 /**
@@ -34,8 +45,13 @@ export function useChat(token: string, apiUrl: string, language: string): UseCha
       setIsSending(true);
       setError(null);
 
-      // Optimistic: add user message immediately
-      setMessages((prev) => [...prev, { role: 'customer', content: text }]);
+      const msgId = generateId();
+
+      // Optimistic: add user message immediately with 'sent' status
+      setMessages((prev) => [
+        ...prev,
+        { id: msgId, role: 'customer', content: text, metadata: { status: 'sent' } },
+      ]);
 
       try {
         const res = await fetch(`${apiUrl}/api/widget/message`, {
@@ -52,7 +68,8 @@ export function useChat(token: string, apiUrl: string, language: string): UseCha
 
         if (res.status === 429) {
           setError(t('chat.error.rateLimit', language));
-          setMessages((prev) => prev.slice(0, -1));
+          // Rate limit: message never left — remove optimistic message
+          setMessages((prev) => prev.filter((m) => m.id !== msgId));
           return;
         }
 
@@ -71,25 +88,60 @@ export function useChat(token: string, apiUrl: string, language: string): UseCha
 
         setConversationId(data.conversation_id);
 
+        // Update customer message to delivered
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId ? { ...m, metadata: { status: 'delivered' } } : m,
+          ),
+        );
+
         if (data.budget_exceeded) {
-          setMessages((prev) => [...prev, { role: 'artifact', content: t('chat.error.budgetExceeded', language) }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: generateId(),
+              role: 'artifact',
+              content: t('chat.error.budgetExceeded', language),
+              metadata: { status: 'delivered' },
+            },
+          ]);
           setInputDisabled(true);
         } else if (data.conversation_limit_reached) {
-          setMessages((prev) => [...prev, { role: 'artifact', content: t('chat.error.conversationLimit', language) }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: generateId(),
+              role: 'artifact',
+              content: t('chat.error.conversationLimit', language),
+              metadata: { status: 'delivered' },
+            },
+          ]);
           setInputDisabled(true);
         } else if (data.daily_limit_reached) {
-          setMessages((prev) => [...prev, { role: 'artifact', content: t('chat.error.dailyLimit', language) }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: generateId(),
+              role: 'artifact',
+              content: t('chat.error.dailyLimit', language),
+              metadata: { status: 'delivered' },
+            },
+          ]);
           setInputDisabled(true);
         } else {
           setMessages((prev) => [
             ...prev,
-            { role: 'artifact', content: data.response_text },
+            { id: generateId(), role: 'artifact', content: data.response_text, metadata: { status: 'delivered' } },
           ]);
         }
       } catch {
         setError(t('chat.error.send', language));
-        // Remove optimistic message on error
-        setMessages((prev) => prev.slice(0, -1));
+        // Mark customer message as error — keep it visible
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId ? { ...m, metadata: { status: 'error' } } : m,
+          ),
+        );
       } finally {
         setIsSending(false);
       }
@@ -97,5 +149,16 @@ export function useChat(token: string, apiUrl: string, language: string): UseCha
     [token, apiUrl, conversationId, isSending, language, inputDisabled],
   );
 
-  return { messages, conversationId, isSending, error, inputDisabled, send };
+  const retryMessage = useCallback(
+    (messageId: string) => {
+      const msg = messages.find((m) => m.id === messageId);
+      if (!msg) return;
+      const content = msg.content;
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      send(content, conversationId ?? undefined);
+    },
+    [messages, conversationId, send],
+  );
+
+  return { messages, conversationId, isSending, error, inputDisabled, send, retryMessage };
 }

@@ -1,6 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat } from '../hooks/useChat.js';
 import { t } from '../i18n/messages.js';
+import { TypingIndicator } from './TypingIndicator.js';
+import { MessageStatusIcon } from './MessageStatusIcon.js';
+import { injectWidgetStyles } from '../utils/injectStyles.js';
+
+injectWidgetStyles();
 
 interface ChatWindowProps {
   token: string;
@@ -25,11 +30,22 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { messages, conversationId, isSending, error, inputDisabled, send } = useChat(token, apiUrl, language);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const { messages, conversationId, isSending, error, inputDisabled, send, retryMessage } = useChat(token, apiUrl, language);
+
+  const handleScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 60;
+    setIsScrolledUp(!atBottom);
+  }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!isScrolledUp) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isSending, isScrolledUp]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +53,11 @@ export function ChatWindow({
     if (!text || isSending || inputDisabled) return;
     setInput('');
     send(text, conversationId ?? undefined);
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setIsScrolledUp(false);
   };
 
   const isDark = theme === 'dark';
@@ -100,59 +121,96 @@ export function ChatWindow({
         </button>
       </div>
 
-      {/* Messages */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '12px 16px',
-          minHeight: '300px',
-          maxHeight: '380px',
-        }}
-      >
-        {messages.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#999', marginTop: '40px', fontSize: '14px' }}>
-            {t('chat.empty', language)}
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            style={{
-              marginBottom: '10px',
-              display: 'flex',
-              justifyContent: msg.role === 'customer' ? 'flex-end' : 'flex-start',
-            }}
-          >
+      {/* Messages + scroll-to-bottom wrapper */}
+      <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {/* Messages */}
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '12px 16px',
+            minHeight: '300px',
+            maxHeight: '380px',
+          }}
+        >
+          {messages.length === 0 && (
+            <div style={{ textAlign: 'center', color: '#999', marginTop: '40px', fontSize: '14px' }}>
+              {t('chat.empty', language)}
+            </div>
+          )}
+          {messages.map((msg) => (
             <div
+              key={msg.id}
               style={{
-                maxWidth: '80%',
-                padding: '8px 12px',
-                borderRadius: '12px',
-                fontSize: '14px',
-                lineHeight: '1.4',
-                backgroundColor:
-                  msg.role === 'customer'
-                    ? (isDark ? '#4f46e5' : '#4f46e5')
-                    : (isDark ? '#0f3460' : '#f3f4f6'),
-                color: msg.role === 'customer' ? '#fff' : textColor,
+                marginBottom: '10px',
+                display: 'flex',
+                justifyContent: msg.role === 'customer' ? 'flex-end' : 'flex-start',
               }}
             >
-              {msg.content}
+              <div>
+                <div
+                  className="camello-msg-enter"
+                  style={{
+                    maxWidth: '80%',
+                    padding: '8px 12px',
+                    borderRadius: '12px',
+                    fontSize: '14px',
+                    lineHeight: '1.4',
+                    backgroundColor:
+                      msg.role === 'customer'
+                        ? (isDark ? '#4f46e5' : '#4f46e5')
+                        : (isDark ? '#0f3460' : '#f3f4f6'),
+                    color: msg.role === 'customer' ? '#fff' : textColor,
+                  }}
+                >
+                  {msg.content}
+                </div>
+                {msg.role === 'customer' && (
+                  <MessageStatusIcon
+                    status={msg.metadata.status}
+                    onRetry={() => retryMessage(msg.id)}
+                    language={language}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-        {isSending && (
-          <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
-            {t('chat.typing', language)}
-          </div>
+          ))}
+          {isSending && <TypingIndicator isDark={isDark} />}
+          {error && (
+            <div style={{ fontSize: '13px', color: '#e53e3e', marginTop: '4px', textAlign: 'center' }}>
+              {error}
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Scroll to bottom button */}
+        {isScrolledUp && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            aria-label={t('chat.scrollToBottom', language)}
+            style={{
+              position: 'absolute',
+              bottom: '60px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              backgroundColor: '#4f46e5',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '16px',
+              padding: '6px 16px',
+              fontSize: '13px',
+              cursor: 'pointer',
+              minHeight: '36px',
+              zIndex: 1,
+            }}
+          >
+            {t('chat.scrollToBottom', language)}
+          </button>
         )}
-        {error && (
-          <div style={{ fontSize: '13px', color: '#e53e3e', marginTop: '4px', textAlign: 'center' }}>
-            {error}
-          </div>
-        )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
