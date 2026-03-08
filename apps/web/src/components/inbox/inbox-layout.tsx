@@ -24,11 +24,13 @@ interface InboxLayoutProps {
   left: React.ReactNode;
   center: React.ReactNode;
   right: React.ReactNode;
+  /** When a deep-link selects a conversation, start on the chat pane (mobile). */
+  initialMobilePanel?: 'list' | 'chat' | 'details';
 }
 
-export function InboxLayout({ left, center, right }: InboxLayoutProps) {
+export function InboxLayout({ left, center, right, initialMobilePanel = 'list' }: InboxLayoutProps) {
   const t = useTranslations('inbox');
-  const [mobilePanel, setMobilePanel] = useState<'list' | 'chat' | 'details'>('list');
+  const [mobilePanel, setMobilePanel] = useState<'list' | 'chat' | 'details'>(initialMobilePanel);
   const [rightOpen, setRightOpen] = useState(false);
 
   const ctx: InboxPanelContextValue = {

@@ -16,6 +16,8 @@ export default function ConversationsPage() {
     () => searchParams.get('selected'),
   );
 
+  const artifactId = searchParams.get('artifactId') ?? undefined;
+
   // Sync state when URL changes externally (e.g. deep link or clearing ?selected=)
   useEffect(() => {
     const fromUrl = searchParams.get('selected');
@@ -32,11 +34,13 @@ export default function ConversationsPage() {
 
   return (
     <InboxLayout
+      initialMobilePanel={selectedId ? 'chat' : 'list'}
       left={
         <InboxLeftPanel>
           <ConversationList
             selectedId={selectedId}
             onSelect={handleSelect}
+            artifactId={artifactId}
           />
         </InboxLeftPanel>
       }

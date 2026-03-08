@@ -108,7 +108,10 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
     { refetchInterval: 30_000 },
   );
 
-  const statusMut = trpc.conversation.updateStatus.useMutation();
+  const statusMut = trpc.conversation.updateStatus.useMutation({
+    onSuccess: () => { void conv.refetch(); },
+    onError: () => { addToast(t('statusUpdateError'), 'error'); },
+  });
   const replyMut = trpc.conversation.replyAsOwner.useMutation();
   const [replyText, setReplyText] = useState('');
   const [optimisticMessages, setOptimisticMessages] = useState<Extract<TimelineItem, { kind: 'message' }>[]>([]);
@@ -203,7 +206,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
     setIsScrolledUp(el.scrollHeight - el.scrollTop - el.clientHeight > 100);
   }
 
-  const status = conv.data?.status ?? 'active';
+  const status = conv.isError ? 'active' : (conv.data?.status ?? 'active');
   const statusKeys = ['active', 'resolved', 'escalated'] as const;
 
   return (
@@ -227,6 +230,8 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-5 w-16 rounded-full" />
             </>
+          ) : conv.isError ? (
+            <span className="text-sm text-sunset">{t('convLoadError')}</span>
           ) : (
             <>
               <span className="text-sm font-semibold text-charcoal truncate">
@@ -277,7 +282,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
       </div>
 
       {/* LOADING SKELETON */}
-      {(msgs.isLoading || act.isLoading) && (
+      {msgs.isLoading && (
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton
@@ -296,7 +301,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
       )}
 
       {/* SCROLL CONTAINER */}
-      {!msgs.isLoading && !act.isLoading && !msgs.isError && (
+      {!msgs.isLoading && !msgs.isError && (
         <div
           ref={scrollRef}
           role="log"
@@ -306,6 +311,9 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
           onScroll={onScroll}
           className="relative flex-1 overflow-y-auto px-4 py-4 space-y-2"
         >
+          {act.isError && (
+            <p className="text-xs text-sunset text-center py-1">{t('activityLoadError')}</p>
+          )}
           {timeline.map((item, idx) => {
             if (item.kind === 'message') {
               if (item.role === 'customer') {

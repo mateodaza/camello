@@ -18,7 +18,7 @@ vi.mock('@camello/db', () => ({
     execute: mockDbExecute,
     select: () => ({ from: () => ({ where: mockDbSelectResult }) }),
   },
-  createTenantDb: vi.fn(() => ({ query: mockTenantDbQuery })),
+  createTenantDb: vi.fn(() => ({ query: mockTenantDbQuery, transaction: mockTenantDbQuery })),
   customers: {},
   conversations: {},
   messages: {},
@@ -377,6 +377,8 @@ describe('Widget routes', () => {
       mockTenantDbQuery.mockResolvedValueOnce(CUSTOMER_ID);
       // tenantDb.query → sessionInits fire-and-forget
       mockTenantDbQuery.mockResolvedValueOnce(undefined);
+      // tenantDb.query → tenant settings (language fallback: no personality.language → check tenant preferredLocale)
+      mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
 
       const res = await post('/session', {
         tenant_slug: 'acme',

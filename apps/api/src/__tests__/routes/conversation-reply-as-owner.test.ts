@@ -198,7 +198,78 @@ describe('conversation.replyAsOwner', () => {
     expect(capturedValues.conversationId).toBe(CONV_ID);
   });
 
-  it('5 — WhatsApp fire-and-forget delivery', async () => {
+  it('5 — userFullName null: INTERNAL_SERVER_ERROR', async () => {
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return {
+              from: () => ({
+                where: () => ({
+                  limit: () => [{ role: 'owner' }],
+                }),
+              }),
+            };
+          }
+          return {
+            from: () => ({
+              leftJoin: () => ({
+                where: () => ({
+                  limit: () => [{ id: CONV_ID, status: 'escalated', channel: 'web_chat', customerExternalId: null }],
+                }),
+              }),
+            }),
+          };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db, { userFullName: null }));
+    await expect(
+      caller.replyAsOwner({ conversationId: CONV_ID, message: 'Hi' }),
+    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });
+  });
+
+  it('6 — conversation NOT_FOUND: wrong ID returns NOT_FOUND', async () => {
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return {
+              from: () => ({
+                where: () => ({
+                  limit: () => [{ role: 'owner' }],
+                }),
+              }),
+            };
+          }
+          // Conversation query returns empty
+          return {
+            from: () => ({
+              leftJoin: () => ({
+                where: () => ({
+                  limit: () => [],
+                }),
+              }),
+            }),
+          };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    await expect(
+      caller.replyAsOwner({ conversationId: CONV_ID, message: 'Hi' }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('7 — WhatsApp fire-and-forget delivery', async () => {
     mockSendText.mockResolvedValueOnce('wamid.test');
 
     let callIndex = 0;

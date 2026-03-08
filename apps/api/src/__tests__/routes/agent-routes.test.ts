@@ -219,6 +219,22 @@ describe('agent.updateLeadStage', () => {
             }),
           }),
         }),
+        // After closed_won update, source fetches lead meta for notification
+        select: () => ({
+          from: () => ({
+            leftJoin: () => ({
+              where: () => ({
+                limit: () => [{ artifactId: ARTIFACT_ID, conversationId: CONVERSATION_ID, estimatedValue: null }],
+              }),
+            }),
+          }),
+        }),
+        // Then inserts ownerNotification
+        insert: () => ({
+          values: () => ({
+            catch: () => Promise.resolve(),
+          }),
+        }),
       };
       return fn(mockDb);
     });
@@ -272,10 +288,12 @@ describe('agent.supportTickets', () => {
       const mockDb = {
         select: () => ({
           from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => ({
-                  offset: () => fakeRows,
+            leftJoin: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: () => ({
+                    offset: () => fakeRows,
+                  }),
                 }),
               }),
             }),
@@ -296,10 +314,12 @@ describe('agent.supportTickets', () => {
       const mockDb = {
         select: () => ({
           from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => ({
-                  offset: () => [],
+            leftJoin: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: () => ({
+                    offset: () => [],
+                  }),
                 }),
               }),
             }),
@@ -326,10 +346,12 @@ describe('agent.supportTickets', () => {
       const mockDb = {
         select: () => ({
           from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => ({
-                  offset: () => page,
+            leftJoin: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: () => ({
+                    offset: () => page,
+                  }),
                 }),
               }),
             }),

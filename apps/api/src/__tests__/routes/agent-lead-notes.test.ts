@@ -197,8 +197,12 @@ describe('agent.salesLeadDetail', () => {
             // messages: .from().where().orderBy().limit()
             return { from: () => ({ where: () => ({ orderBy: () => ({ limit: () => fakeMessages }) }) }) };
           }
-          // stageChanges: .from().where().orderBy()
-          return { from: () => ({ where: () => ({ orderBy: () => fakeStageChanges }) }) };
+          if (callIndex === 7) {
+            // stageChanges: .from().where().orderBy()
+            return { from: () => ({ where: () => ({ orderBy: () => fakeStageChanges }) }) };
+          }
+          // conversationMeta: .from().where().limit().then()
+          return { from: () => ({ where: () => ({ limit: () => ({ then: (fn: (rows: unknown[]) => unknown) => fn([{ summary: null, resolvedAt: null }]) }) }) }) };
         },
       };
       return fn(mockDb);

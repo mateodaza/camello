@@ -93,7 +93,42 @@ describe('customer naming', () => {
     expect(getUpdateSet()?.displayName).toBe('Visitor 1');
   });
 
-  it('3 — webchat anonymous: name is null, Visitor 1 assigned', async () => {
+  it('3 — existing customer (xmax != 0): no display_name reassignment', async () => {
+    // Build a mock where insert returns xmax: '1' (ON CONFLICT hit = existing customer)
+    let updateSet: Any = null;
+
+    const insertChain: Any = {
+      values: () => insertChain,
+      onConflictDoUpdate: () => insertChain,
+      returning: async () => [{ id: 'test-id', xmax: '1' }],
+    };
+
+    const tx: Any = {
+      execute: async () => ({}),
+      insert: () => insertChain,
+      select: () => ({ from: () => ({ where: async () => [{ count: '0' }] }) }),
+      update: () => ({
+        set: (s: Any) => { updateSet = s; return { where: async () => {} }; },
+      }),
+    };
+
+    const tenantDb: TenantDb = {
+      query: async (fn: Any) => fn(tx),
+      transaction: async (fn: Any) => fn(tx as TenantTransaction),
+      tenantId: TENANT_ID,
+    } as Any;
+
+    await findOrCreateWebchatCustomer(tenantDb, TENANT_ID, 'visitor_returning');
+    // xmax != '0' means existing customer — display_name should NOT be reassigned
+    expect(updateSet).toBeNull();
+
+    // Also verify WhatsApp path
+    updateSet = null;
+    await findOrCreateWhatsAppCustomer(tenantDb, TENANT_ID, '5491155001234', undefined);
+    expect(updateSet).toBeNull();
+  });
+
+  it('4 — webchat anonymous: name is null, Visitor 1 assigned', async () => {
     const { tenantDb, getInsertValues, getUpdateSet } = makeMockTenantDb();
 
     await findOrCreateWebchatCustomer(tenantDb, TENANT_ID, 'visitor_abc123');

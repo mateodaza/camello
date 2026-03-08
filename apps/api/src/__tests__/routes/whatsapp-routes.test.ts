@@ -254,7 +254,7 @@ describe('WhatsApp webhook routes', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockFindOrCreateCustomer).toHaveBeenCalledWith(
-        TENANT_ID, '555', 'Jane',
+        expect.anything(), TENANT_ID, '555', 'Jane',
       );
       // handleMessage may be called more than once if a setImmediate leaks
       // from a prior test — check it was called with the right args

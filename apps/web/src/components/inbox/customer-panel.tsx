@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { fmtDate, fmtTimeAgo, humanize, fmtMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useInboxPanel } from './inbox-layout';
+import { useToast } from '@/hooks/use-toast';
 
 interface CustomerPanelProps {
   conversationId: string | null;
@@ -128,6 +129,7 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
   const t = useTranslations('inbox');
   const utils = trpc.useUtils();
   const { goToChat } = useInboxPanel();
+  const { addToast } = useToast();
 
   const conv = trpc.conversation.byId.useQuery(
     { id: conversationId },
@@ -145,6 +147,9 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
     onSuccess: (_result, variables) => {
       setNoteText('');
       utils.agent.leadNotes.invalidate({ leadId: variables.leadId });
+    },
+    onError: () => {
+      addToast(t('notesAddError'), 'error');
     },
   });
 
@@ -272,7 +277,9 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
         open={timelineOpen}
         onToggle={() => setTimelineOpen((v) => !v)}
       >
-        {(act.data ?? []).length === 0 ? (
+        {act.isError ? (
+          <p className="text-sm text-sunset py-4 text-center">{t('activityLoadError')}</p>
+        ) : (act.data ?? []).length === 0 ? (
           <p className="text-sm text-dune py-4 text-center">{t('activityEmpty')}</p>
         ) : (
           <div className="divide-y divide-charcoal/8">
@@ -304,7 +311,9 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
         ) : (
           <div className="space-y-3">
             {/* Notes list */}
-            {(notes.data ?? []).length === 0 ? (
+            {notes.isError ? (
+              <p className="text-sm text-sunset">{t('notesLoadError')}</p>
+            ) : (notes.data ?? []).length === 0 ? (
               <p className="text-sm text-dune">{t('notesEmpty')}</p>
             ) : (
               <div>

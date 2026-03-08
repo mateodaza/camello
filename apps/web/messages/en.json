@@ -939,7 +939,12 @@
     "detailsPanelHide": "Hide details panel",
     "conversationListLabel": "Conversations",
     "chatLogLabel": "Chat messages",
-    "ownerReplyLabel": "Reply to customer"
+    "ownerReplyLabel": "Reply to customer",
+    "statusUpdateError": "Failed to update status. Please try again.",
+    "convLoadError": "Failed to load conversation",
+    "activityLoadError": "Failed to load activity",
+    "notesAddError": "Failed to save note. Please try again.",
+    "notesLoadError": "Failed to load notes"
   },
   "notifications": {
     "panelTitle": "Agent Notifications",

@@ -7,8 +7,15 @@ type Input = typeof bookMeetingInputSchema._output;
 type Output = typeof bookMeetingOutputSchema._output;
 
 function parseBusinessHours(hours: string): { startH: number; endH: number } | null {
+  // Strip common prefixes (day ranges) and suffixes (timezones) to isolate the time range.
+  // e.g. "Mon-Fri 9am-6pm EST" → "9am-6pm", "Lun-Vie 9:00-17:00 COT" → "9:00-17:00"
+  const stripped = hours
+    .replace(/^[a-záéíóú]+-[a-záéíóú]+\s*/i, '')  // day range prefix
+    .replace(/\s+[a-z]{2,5}$/i, '')                 // timezone suffix
+    .trim();
+
   // 12-hour: e.g. "9am-5pm", "9am-6pm"
-  const match12 = hours.match(/^(\d{1,2})(am|pm)-(\d{1,2})(am|pm)$/i);
+  const match12 = stripped.match(/^(\d{1,2})(am|pm)\s*-\s*(\d{1,2})(am|pm)$/i);
   if (match12) {
     const rawStart = parseInt(match12[1], 10);
     const rawEnd = parseInt(match12[3], 10);
@@ -26,7 +33,7 @@ function parseBusinessHours(hours: string): { startH: number; endH: number } | n
   }
 
   // 24-hour: e.g. "9:00-17:00"
-  const match24 = hours.match(/^(\d{1,2}):00-(\d{1,2}):00$/);
+  const match24 = stripped.match(/^(\d{1,2}):00\s*-\s*(\d{1,2}):00$/);
   if (match24) {
     const startH = parseInt(match24[1], 10);
     const endH = parseInt(match24[2], 10);

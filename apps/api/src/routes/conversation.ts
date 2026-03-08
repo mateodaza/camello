@@ -51,6 +51,8 @@ export const conversationRouter = router({
           const pattern = `%${escaped}%`;
           conditions.push(
             or(
+              sql`${customers.displayName} ILIKE ${pattern}`,
+              sql`${customers.name} ILIKE ${pattern}`,
               sql`(${conversations.metadata}->>'customerName') ILIKE ${pattern}`,
               sql`EXISTS (
                 SELECT 1 FROM messages
@@ -195,7 +197,7 @@ export const conversationRouter = router({
 
         setImmediate(async () => {
           try {
-            // 1. Fetch customer messages for this conversation
+            // 1. Fetch all messages for this conversation (all roles — extractFactsRegex filters internally)
             const msgs = await tenantDb.query(async (db) => {
               return db
                 .select({ role: messages.role, content: messages.content })
@@ -399,7 +401,7 @@ export const conversationRouter = router({
             });
             const config = configRows[0];
             if (!config) {
-              console.warn('[replyAsOwner] WhatsApp channel config not found for tenant', tenantId);
+              console.error('[replyAsOwner] WhatsApp channel config not found for tenant', tenantId);
               return;
             }
             await whatsappAdapter.sendText(waId, text, {
@@ -407,7 +409,7 @@ export const conversationRouter = router({
               phoneNumber: config.phoneNumber ?? undefined,
             });
           } catch (err) {
-            console.warn('[replyAsOwner] WhatsApp delivery failed:', err);
+            console.error('[replyAsOwner] WhatsApp delivery failed:', err);
           }
         })();
       }

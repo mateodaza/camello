@@ -177,11 +177,11 @@ describe('conversation.list filters', () => {
     expect(result.items).toHaveLength(1);
     expect(whereSpy).toHaveBeenCalledOnce();
     const params = getWhereParams(whereSpy.mock.calls[0][0]);
-    // '%Alice%' must appear twice: once for customerName ILIKE, once for messages EXISTS
+    // '%Alice%' appears 4 times: displayName ILIKE, name ILIKE, metadata customerName ILIKE, messages EXISTS
     const pattern = '%Alice%';
-    expect(params.filter((v) => v === pattern)).toHaveLength(2);
-    // Total: tenantId + '%Alice%' + '%Alice%' = 3 params
-    expect(params).toHaveLength(3);
+    expect(params.filter((v) => v === pattern)).toHaveLength(4);
+    // Total: tenantId + 4 × '%Alice%' = 5 params
+    expect(params).toHaveLength(5);
   });
 
   it('7 — customerId filter: WHERE clause includes customerId value', async () => {

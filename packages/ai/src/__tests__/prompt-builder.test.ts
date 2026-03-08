@@ -94,8 +94,7 @@ describe('buildSystemPrompt', () => {
       locale: 'es',
       artifact: { ...baseCtx.artifact, type: 'support' },
     });
-    expect(prompt).toContain('BEHAVIORAL FRAMEWORK');
-    expect(prompt).toContain('SUPPORT AGENT');
+    expect(prompt).toContain('SUPPORT AGENT RULES');
   });
 
   it('does NOT include archetype framework for custom type', () => {

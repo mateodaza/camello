@@ -939,7 +939,12 @@
     "detailsPanelHide": "Ocultar panel de detalles",
     "conversationListLabel": "Conversaciones",
     "chatLogLabel": "Mensajes del chat",
-    "ownerReplyLabel": "Responder al cliente"
+    "ownerReplyLabel": "Responder al cliente",
+    "statusUpdateError": "No se pudo actualizar el estado. Inténtalo de nuevo.",
+    "convLoadError": "No se pudo cargar la conversación",
+    "activityLoadError": "No se pudo cargar la actividad",
+    "notesAddError": "No se pudo guardar la nota. Inténtalo de nuevo.",
+    "notesLoadError": "No se pudieron cargar las notas"
   },
   "notifications": {
     "panelTitle": "Notificaciones del Agente",
