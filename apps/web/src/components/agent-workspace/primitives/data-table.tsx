@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ColumnDef<T> {
   key: string;
@@ -34,6 +35,7 @@ interface DataTableProps<T> {
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadMoreLabel?: string;
+  rowClassName?: (row: T) => string;
 }
 
 export function DataTable<T>({
@@ -50,6 +52,7 @@ export function DataTable<T>({
   onLoadMore,
   hasMore,
   loadMoreLabel,
+  rowClassName,
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
@@ -120,7 +123,7 @@ export function DataTable<T>({
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
-                    <tr key={i} className="border-b border-charcoal/5 last:border-0">
+                    <tr key={i} className={cn('border-b border-charcoal/5 last:border-0', rowClassName?.(row))}>
                       {columns.map((col) => (
                         <td key={col.key} className="py-2 pr-3">
                           {col.render(row)}

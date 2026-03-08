@@ -1175,8 +1175,17 @@ export const agentRouter = router({
             status: moduleExecutions.status,
             conversationId: moduleExecutions.conversationId,
             createdAt: moduleExecutions.createdAt,
+            conversationStatus: conversations.status,
+            csat: sql<number | null>`(${conversations.metadata}->>'csat')::numeric`,
           })
           .from(moduleExecutions)
+          .leftJoin(
+            conversations,
+            and(
+              eq(moduleExecutions.conversationId, conversations.id),
+              eq(conversations.tenantId, ctx.tenantId),
+            ),
+          )
           .where(and(...conditions))
           .orderBy(desc(moduleExecutions.createdAt))
           .limit(input.limit)
@@ -1351,6 +1360,63 @@ export const agentRouter = router({
 
         if (rows.length === 0) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Escalated conversation not found' });
+        }
+        return rows[0];
+      });
+    }),
+
+  supportResolutionStats: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const thirtyDaysAgo = sql`now() - interval '30 days'`;
+
+        const [stats] = await db
+          .select({
+            total: sql<number>`count(*)::int`,
+            resolved: sql<number>`count(*) FILTER (WHERE ${conversations.status} = 'resolved')::int`,
+            avgCsat: sql<number | null>`avg((${conversations.metadata}->>'csat')::numeric)`,
+          })
+          .from(conversations)
+          .where(and(
+            eq(conversations.artifactId, input.artifactId),
+            eq(conversations.tenantId, ctx.tenantId),
+            gte(conversations.createdAt, thirtyDaysAgo),
+          ));
+
+        const total = stats?.total ?? 0;
+        const resolved = stats?.resolved ?? 0;
+        const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+        const avgCsat = stats?.avgCsat != null
+          ? Math.round(stats.avgCsat * 10) / 10
+          : null;
+
+        return { resolvedCount: resolved, avgCsat, resolutionRate };
+      });
+    }),
+
+  storeCsatRating: tenantProcedure
+    .input(z.object({
+      conversationId: z.string().uuid(),
+      rating: z.number().int().min(1).max(5),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .update(conversations)
+          .set({
+            metadata: sql`metadata || jsonb_build_object('csat', ${input.rating})`,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(conversations.id, input.conversationId),
+            eq(conversations.tenantId, ctx.tenantId),
+            eq(conversations.status, 'resolved'),
+          ))
+          .returning({ id: conversations.id });
+
+        if (rows.length === 0) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Resolved conversation not found' });
         }
         return rows[0];
       });

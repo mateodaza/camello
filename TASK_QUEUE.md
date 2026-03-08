@@ -50,8 +50,8 @@ This-week vs last-week comparison on sales overview with delta arrows. `agent.sa
 
 ## P1 — Support & Marketing Workspace Substance
 
-#### CAM-117 [ ] Support workspace: ticket resolution flow
-The support workspace shows tickets but has no way to resolve them or collect feedback.
+#### CAM-117 [x] Support workspace: ticket resolution flow
+"Resolve" button + inline CSAT (1-5 stars stored in `conversations.metadata.csat`); `agent.supportResolutionStats` procedure (resolved count, avg CSAT, resolution rate, 30d); `SupportResolutionStats` MetricsGrid section; resolved tickets grayed out with star badge; `rowClassName` added to DataTable primitive; 11 i18n keys (en+es). Type-check passes.
 
 **Acceptance Criteria:**
 - "Resolve" button on each open ticket in `registry/support.tsx` — calls existing `conversation.updateStatus` with `status: 'resolved'`

@@ -50,6 +50,25 @@ function SupportOverview({ artifactId }: { artifactId: string }) {
   );
 }
 
+function SupportResolutionStats({ artifactId }: { artifactId: string }) {
+  const t = useTranslations('agentWorkspace');
+  const query = trpc.agent.supportResolutionStats.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  );
+  const data = query.data;
+
+  return (
+    <MetricsGrid
+      metrics={[
+        { label: t('supportResolvedCount'), value: data?.resolvedCount ?? 0 },
+        { label: t('supportAvgCsat'), value: data?.avgCsat != null ? `${data.avgCsat} ★` : '—' },
+        { label: t('supportResolutionRate30d'), value: `${data?.resolutionRate ?? 0}%` },
+      ]}
+    />
+  );
+}
+
 function SupportTickets({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
@@ -58,6 +77,7 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
 
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
+  const [csatFor, setCsatFor] = useState<string | null>(null);
 
   const query = trpc.agent.supportTickets.useQuery(
     {
@@ -76,23 +96,43 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
     },
   });
 
+  const resolveConversation = trpc.conversation.updateStatus.useMutation({
+    onSuccess: (_data, vars) => {
+      setCsatFor(vars.id);
+      utils.agent.supportTickets.invalidate();
+      utils.agent.supportResolutionStats.invalidate();
+      addToast(t('ticketResolved'), 'success');
+    },
+  });
+
+  const storeCsatRating = trpc.agent.storeCsatRating.useMutation({
+    onSuccess: () => {
+      setCsatFor(null);
+      utils.agent.supportResolutionStats.invalidate();
+      utils.agent.supportTickets.invalidate();
+      addToast(t('csatSaved'), 'success');
+    },
+  });
+
+  type TicketRow = NonNullable<typeof query.data>[number];
+
   return (
     <DataTable
       title={t('supportTickets')}
       columns={[
-        { key: 'id', label: t('columnTicketId'), render: (row) => (
+        { key: 'id', label: t('columnTicketId'), render: (row: TicketRow) => (
           <span className="font-mono text-xs">{row.id.slice(0, 8)}</span>
         )},
-        { key: 'subject', label: t('columnSubject'), render: (row) => {
+        { key: 'subject', label: t('columnSubject'), render: (row: TicketRow) => {
           const output = (row.output ?? {}) as Record<string, unknown>;
           return <span className="text-sm">{String(output.subject ?? output.summary ?? '—')}</span>;
         }},
-        { key: 'priority', label: t('supportPriority'), render: (row) => {
+        { key: 'priority', label: t('supportPriority'), render: (row: TicketRow) => {
           const output = (row.output ?? {}) as Record<string, unknown>;
           const p = String(output.priority ?? 'medium');
           return <Badge variant={priorityColors[p] ?? 'default'}>{t(`priority${p.charAt(0).toUpperCase()}${p.slice(1)}` as Parameters<typeof t>[0])}</Badge>;
         }},
-        { key: 'status', label: t('supportStatus'), render: (row) => {
+        { key: 'status', label: t('supportStatus'), render: (row: TicketRow) => {
           const output = (row.output ?? {}) as Record<string, unknown>;
           const s = String(output.status ?? 'open');
           return (
@@ -105,13 +145,70 @@ function SupportTickets({ artifactId }: { artifactId: string }) {
             </select>
           );
         }},
-        { key: 'date', label: t('columnDate'), render: (row) => fmtDate(row.createdAt, locale) },
+        { key: 'date', label: t('columnDate'), render: (row: TicketRow) => fmtDate(row.createdAt, locale) },
+        { key: 'actions', label: '', render: (row: TicketRow) => {
+          const isResolved = row.conversationStatus === 'resolved';
+          const showCsat = csatFor === row.conversationId;
+
+          if (isResolved && !showCsat) {
+            return (
+              <span className="flex items-center gap-1 text-xs text-dune">
+                <span>{t('ticketResolvedLabel')}</span>
+                {row.csat && <span className="text-gold">{'★'.repeat(Number(row.csat))}</span>}
+              </span>
+            );
+          }
+
+          if (showCsat) {
+            return (
+              <div className="flex items-center gap-1" role="group" aria-label={t('csatPrompt')}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => storeCsatRating.mutate({ conversationId: row.conversationId!, rating: star })}
+                    className="text-lg leading-none text-dune hover:text-gold focus:text-gold min-h-[36px] min-w-[36px]"
+                    aria-label={t('csatStarLabel', { star: String(star) })}
+                  >
+                    ★
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCsatFor(null)}
+                  className="text-xs text-dune hover:underline ml-1"
+                >
+                  {t('skipCsat')}
+                </button>
+              </div>
+            );
+          }
+
+          const ticketStatus = (row.output as { status?: string } | null)?.status;
+          if (ticketStatus !== 'open') {
+            return null;
+          }
+
+          return (
+            <button
+              type="button"
+              disabled={resolveConversation.isPending || !row.conversationId}
+              onClick={() => resolveConversation.mutate({ id: row.conversationId!, status: 'resolved' })}
+              className="rounded bg-teal/10 px-2 py-1 text-xs font-medium text-teal hover:bg-teal/20 disabled:opacity-50 min-h-[36px]"
+            >
+              {t('resolveTicket')}
+            </button>
+          );
+        }},
       ]}
       data={query.data}
       isLoading={query.isLoading}
       isError={query.isError}
       error={query.error ?? undefined}
       onRetry={() => query.refetch()}
+      rowClassName={(row: TicketRow) =>
+        row.conversationStatus === 'resolved' ? 'opacity-50' : ''
+      }
       filters={[
         {
           key: 'status',
@@ -210,4 +307,4 @@ function SupportKnowledgeGaps({ artifactId }: { artifactId: string }) {
   );
 }
 
-export const supportSections = [SupportOverview, SupportTickets, SupportEscalations, SupportKnowledgeGaps];
+export const supportSections = [SupportOverview, SupportResolutionStats, SupportTickets, SupportEscalations, SupportKnowledgeGaps];
