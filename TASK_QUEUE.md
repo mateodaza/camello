@@ -236,7 +236,8 @@ Replace the complex workspace with a clean configuration page.
 
 **Depends on:** NC-210
 
-#### NC-213 [ ] Promote `/dashboard/analytics` page
+#### NC-213 [x] Promote `/dashboard/analytics` page
+**DONE.** Exported `DeltaBadge` + `ForecastCard` from `registry/sales.tsx`. Rewrote `analytics/page.tsx`: unified agent selector replaces two separate selectors; added 4 agent-specific sections (Performance via `AgentPerformance`, Top Intents via `recentLogs` frequency chart, Sales Comparison via `SalesComparisonSection`+`salesComparison`, Revenue Forecast via `ForecastSection`+`salesForecast`); sales sections gated to `type === 'sales'` agents. 6 new i18n keys in `en.json` + `es.json`. Type-check passes.
 Move performance charts and metrics from old workspace into a proper analytics page.
 
 **Acceptance Criteria:**

@@ -38,7 +38,7 @@ interface DeltaBadgeProps {
   locale?: string;
 }
 
-function DeltaBadge({ current, pct, format = 'count', locale }: DeltaBadgeProps) {
+export function DeltaBadge({ current, pct, format = 'count', locale }: DeltaBadgeProps) {
   const t = useTranslations('agentWorkspace');
 
   if (pct === null && current === 0) {
@@ -82,7 +82,7 @@ interface ForecastData {
   }>;
 }
 
-function ForecastCard({ artifactId: _artifactId, salesForecast }: { artifactId: string; salesForecast: ForecastData | undefined }) {
+export function ForecastCard({ artifactId: _artifactId, salesForecast }: { artifactId: string; salesForecast: ForecastData | undefined }) {
   const t = useTranslations('agentWorkspace');
   const locale = useLocale();
 

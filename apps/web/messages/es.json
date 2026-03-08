@@ -598,7 +598,13 @@
     "noUsageRecords": "No hay registros de uso aún.",
     "columnPeriodStart": "Inicio del Período",
     "columnPeriodEnd": "Fin del Período",
-    "columnOverage": "Excedente"
+    "columnOverage": "Excedente",
+    "allAgents": "Todos los Agentes",
+    "agentSpecificPrompt": "Selecciona un agente para ver rendimiento, intenciones e insights de ventas.",
+    "sectionPerformance": "Rendimiento",
+    "sectionIntents": "Principales Intenciones",
+    "sectionSalesComparison": "Comparación de Ventas",
+    "sectionForecast": "Pronóstico de Ingresos"
   },
   "billing": {
     "pageTitle": "Facturación",

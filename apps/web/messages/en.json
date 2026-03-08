@@ -598,7 +598,13 @@
     "noUsageRecords": "No usage records yet.",
     "columnPeriodStart": "Period Start",
     "columnPeriodEnd": "Period End",
-    "columnOverage": "Overage"
+    "columnOverage": "Overage",
+    "allAgents": "All Agents",
+    "agentSpecificPrompt": "Select an agent to view performance, intents, and sales insights.",
+    "sectionPerformance": "Performance",
+    "sectionIntents": "Top Intents",
+    "sectionSalesComparison": "Sales Comparison",
+    "sectionForecast": "Revenue Forecast"
   },
   "billing": {
     "pageTitle": "Billing",
