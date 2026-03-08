@@ -931,7 +931,9 @@
     "ownerReplyPlaceholder": "Responder al cliente...",
     "ownerReplySend": "Enviar",
     "ownerReplySending": "Enviando...",
-    "ownerReplySendError": "No se pudo enviar la respuesta. Inténtalo de nuevo."
+    "ownerReplySendError": "No se pudo enviar la respuesta. Inténtalo de nuevo.",
+    "detailsPanelShow": "Mostrar panel de detalles",
+    "detailsPanelHide": "Ocultar panel de detalles"
   },
   "notifications": {
     "panelTitle": "Notificaciones del Agente",

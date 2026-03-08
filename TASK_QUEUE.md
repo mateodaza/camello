@@ -280,8 +280,8 @@ The book_meeting module currently accepts any time without checking business hou
 - At least 3 tests
 - `pnpm type-check` passes
 
-#### NC-217 [ ] i18n for all new inbox components (en + es)
-Add all translation keys for the inbox UI.
+#### NC-217 [x] i18n for all new inbox components (en + es)
+**DONE.** Added `detailsPanelShow`/`detailsPanelHide` keys to `en.json` + `es.json`; wired `useTranslations('inbox')` in `inbox-layout.tsx` to replace 2 hardcoded aria-labels.
 
 **Acceptance Criteria:**
 - New `inbox` section in `en.json` and `es.json`

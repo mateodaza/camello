@@ -931,7 +931,9 @@
     "ownerReplyPlaceholder": "Reply to customer...",
     "ownerReplySend": "Send",
     "ownerReplySending": "Sending...",
-    "ownerReplySendError": "Failed to send reply. Please try again."
+    "ownerReplySendError": "Failed to send reply. Please try again.",
+    "detailsPanelShow": "Show details panel",
+    "detailsPanelHide": "Hide details panel"
   },
   "notifications": {
     "panelTitle": "Agent Notifications",

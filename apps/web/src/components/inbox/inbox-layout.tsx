@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { PanelRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,7 @@ interface InboxLayoutProps {
 }
 
 export function InboxLayout({ left, center, right }: InboxLayoutProps) {
+  const t = useTranslations('inbox');
   const [mobilePanel, setMobilePanel] = useState<'list' | 'chat' | 'details'>('list');
   const [rightOpen, setRightOpen] = useState(false);
 
@@ -63,7 +65,7 @@ export function InboxLayout({ left, center, right }: InboxLayoutProps) {
           <button
             type="button"
             onClick={() => setRightOpen(prev => !prev)}
-            aria-label={rightOpen ? "Hide details panel" : "Show details panel"}
+            aria-label={rightOpen ? t('detailsPanelHide') : t('detailsPanelShow')}
             className="hidden md:flex xl:hidden absolute right-2 top-2 z-10 h-9 w-9 items-center justify-center rounded-md border border-charcoal/8 bg-cream hover:bg-sand"
           >
             <PanelRight className="h-4 w-4" />
