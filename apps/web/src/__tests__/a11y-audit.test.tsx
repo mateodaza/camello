@@ -1,0 +1,405 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import React, { createElement } from 'react';
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+// next-intl: passthrough translation function
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string, params?: Record<string, unknown>) => {
+    if (params) return `${key}:${JSON.stringify(params)}`;
+    return key;
+  },
+  useLocale: () => 'en',
+}));
+
+// next/navigation
+vi.mock('next/navigation', () => ({
+  useParams: () => ({ id: 'test-artifact-id' }),
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/dashboard/agents/test-artifact-id',
+}));
+
+// next/link — render as <a>
+vi.mock('next/link', () => ({
+  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) =>
+    createElement('a', { href, ...props }, children),
+}));
+
+// Toast hook
+vi.mock('@/hooks/use-toast', () => ({
+  useToast: () => ({ addToast: vi.fn() }),
+}));
+
+// tRPC mock helpers (same pattern as agent-workspace.test.ts)
+const mockQueryResult = (data: unknown, overrides?: Partial<{ isLoading: boolean; isError: boolean; error: unknown }>) => ({
+  data,
+  isLoading: false,
+  isError: false,
+  error: null,
+  refetch: vi.fn(),
+  ...overrides,
+});
+
+const mockMutationResult = (overrides?: Partial<{ mutate: ReturnType<typeof vi.fn>; isPending: boolean }>) => ({
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+  isError: false,
+  error: null,
+  ...overrides,
+});
+
+const queryMocks = new Map<string, ReturnType<typeof mockQueryResult>>();
+const mutationMocks = new Map<string, ReturnType<typeof mockMutationResult>>();
+
+function setQueryMock(path: string, data: unknown, overrides?: Parameters<typeof mockQueryResult>[1]) {
+  queryMocks.set(path, mockQueryResult(data, overrides));
+}
+
+function setMutationMock(path: string, overrides?: Parameters<typeof mockMutationResult>[0]) {
+  mutationMocks.set(path, mockMutationResult(overrides));
+}
+
+function buildNestedProxy(target: Record<string, unknown>, path: string[] = []): unknown {
+  return new Proxy(target, {
+    get(_, prop: string) {
+      if (prop === 'useQuery') {
+        const key = path.join('.');
+        return () => queryMocks.get(key) ?? mockQueryResult(undefined, { isLoading: true });
+      }
+      if (prop === 'useMutation') {
+        const key = path.join('.');
+        return (opts?: {
+          onMutate?: (vars: unknown) => unknown;
+          onSuccess?: () => void;
+          onError?: (err: unknown, vars: unknown, ctx: unknown) => void;
+        }) => {
+          const base = mutationMocks.get(key) ?? mockMutationResult();
+          const baseMutate = base.mutate as (vars: unknown) => void;
+          return {
+            ...base,
+            mutate: (vars: unknown) => {
+              void opts?.onMutate?.(vars);
+              baseMutate(vars);
+            },
+          };
+        };
+      }
+      if (prop === 'useUtils') {
+        return () => new Proxy({}, {
+          get(_, ns: string) {
+            return new Proxy({}, {
+              get(_, resource: string) {
+                return new Proxy({}, {
+                  get(_, method: string) {
+                    return vi.fn();
+                  },
+                });
+              },
+            });
+          },
+        });
+      }
+      return buildNestedProxy({}, [...path, prop]);
+    },
+  });
+}
+
+vi.mock('@/lib/trpc', () => ({
+  trpc: buildNestedProxy({}, []),
+}));
+
+// ---------------------------------------------------------------------------
+// Sheet a11y
+// ---------------------------------------------------------------------------
+
+describe('Sheet a11y', () => {
+  it('panel has role="dialog"', async () => {
+    const { Sheet } = await import('@/components/ui/sheet');
+    const { container } = render(createElement(Sheet, {
+      open: true,
+      onClose: vi.fn(),
+      children: createElement('div', null, 'content'),
+    }));
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+
+  it('panel has aria-modal="true"', async () => {
+    const { Sheet } = await import('@/components/ui/sheet');
+    const { container } = render(createElement(Sheet, {
+      open: true,
+      onClose: vi.fn(),
+      children: createElement('div', null, 'content'),
+    }));
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog?.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('Escape fires onClose', async () => {
+    const onClose = vi.fn();
+    const { Sheet } = await import('@/components/ui/sheet');
+    render(createElement(Sheet, {
+      open: true,
+      onClose,
+      children: createElement('div', null, 'content'),
+    }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ModuleSettings a11y
+// ---------------------------------------------------------------------------
+
+describe('ModuleSettings a11y', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  const sampleModules = [
+    {
+      id: 'bind-1',
+      moduleId: 'mod-book-meeting',
+      slug: 'book_meeting',
+      name: 'Book Meeting',
+      autonomyLevel: 'fully_autonomous',
+      configOverrides: { calendarUrl: '' },
+    },
+  ];
+
+  it('expand button has aria-expanded and aria-controls', async () => {
+    setMutationMock('artifact.attachModule');
+    const { ModuleSettings } = await import('@/components/agent-workspace/module-settings');
+    render(createElement(ModuleSettings as any, {
+      artifactId: 'art-1',
+      boundModules: sampleModules,
+    }));
+    const btn = screen.getByRole('button', { name: 'moduleSettings' });
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    expect(btn.getAttribute('aria-controls')).toBe('module-settings-panel');
+  });
+
+  it('label associates with autonomy select after expand', async () => {
+    setMutationMock('artifact.attachModule');
+    const { ModuleSettings } = await import('@/components/agent-workspace/module-settings');
+    render(createElement(ModuleSettings as any, {
+      artifactId: 'art-1',
+      boundModules: sampleModules,
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'moduleSettings' }));
+    const select = screen.getByLabelText('autonomyLevel');
+    expect(select.tagName).toBe('SELECT');
+  });
+
+  it('save button has type="button"', async () => {
+    setMutationMock('artifact.attachModule');
+    const { ModuleSettings } = await import('@/components/agent-workspace/module-settings');
+    render(createElement(ModuleSettings as any, {
+      artifactId: 'art-1',
+      boundModules: sampleModules,
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'moduleSettings' }));
+    const saveBtn = screen.getByRole('button', { name: 'saveSettings' }) as HTMLButtonElement;
+    expect(saveBtn.type).toBe('button');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LeadDetailSheet a11y
+// ---------------------------------------------------------------------------
+
+describe('LeadDetailSheet a11y', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  const sampleLeadData = {
+    lead: {
+      id: 'lead-1',
+      score: 'hot',
+      stage: 'qualifying',
+      estimatedValue: '1000',
+      budget: null,
+      timeline: null,
+      summary: null,
+    },
+    customer: { name: 'Alice', email: 'alice@example.com', phone: null },
+    attribution: { totalMessages: 5, totalInteractions: 3, totalCost: '0.05' },
+    interactions: [],
+    executions: [],
+    notes: [],
+    messages: [],
+    stageChanges: [],
+    conversationSummary: null,
+    conversationResolvedAt: null,
+  };
+
+  it('notes textarea is accessible via label', async () => {
+    setQueryMock('agent.salesLeadDetail', sampleLeadData);
+    setMutationMock('agent.addLeadNote');
+    const { LeadDetailSheet } = await import('@/components/agent-workspace/sales/lead-detail-sheet');
+    render(createElement(LeadDetailSheet as any, {
+      leadId: 'lead-1',
+      onClose: vi.fn(),
+      onStageChange: vi.fn(),
+    }));
+    const textarea = screen.getByLabelText('leadNotesTitle');
+    expect(textarea.tagName).toBe('TEXTAREA');
+  });
+
+  it('stage buttons have type="button"', async () => {
+    setQueryMock('agent.salesLeadDetail', sampleLeadData);
+    setMutationMock('agent.addLeadNote');
+    const { LeadDetailSheet } = await import('@/components/agent-workspace/sales/lead-detail-sheet');
+    render(createElement(LeadDetailSheet as any, {
+      leadId: 'lead-1',
+      onClose: vi.fn(),
+      onStageChange: vi.fn(),
+    }));
+    // Stage buttons render i18n keys as text via mock translator
+    const stageTexts = [
+      'salesStageNew', 'salesStageQualifying', 'salesStageProposal',
+      'salesStageNegotiation', 'salesStageClosedWon', 'salesStageClosedLost',
+    ];
+    for (const text of stageTexts) {
+      const btn = screen.getByText(text).closest('button') as HTMLButtonElement;
+      expect(btn.type).toBe('button');
+    }
+  });
+
+  it('confirm and cancel buttons in close-reason dialog have min-h-[36px]', async () => {
+    setQueryMock('agent.salesLeadDetail', sampleLeadData);
+    setMutationMock('agent.addLeadNote');
+    const { LeadDetailSheet } = await import('@/components/agent-workspace/sales/lead-detail-sheet');
+    render(createElement(LeadDetailSheet as any, {
+      leadId: 'lead-1',
+      onClose: vi.fn(),
+      onStageChange: vi.fn(),
+    }));
+    // Click closed_won to open close-reason dialog
+    fireEvent.click(screen.getByText('salesStageClosedWon'));
+    // Both confirm and cancel buttons should now be visible
+    const allButtons = screen.getAllByRole('button');
+    const closeReasonButtons = allButtons.filter(
+      (btn) => btn.className.includes('min-h-[36px]') && (
+        btn.textContent?.includes('confirm') || btn.textContent === 'cancel'
+      ),
+    );
+    expect(closeReasonButtons.length).toBeGreaterThanOrEqual(2);
+    closeReasonButtons.forEach((btn) => {
+      expect(btn.className).toContain('min-h-[36px]');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SalesAlerts a11y
+// ---------------------------------------------------------------------------
+
+describe('SalesAlerts a11y', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  const onePendingApproval = {
+    pendingApprovals: [
+      {
+        id: 'exec-1',
+        moduleSlug: 'send_quote',
+        conversationId: 'conv-1',
+        createdAt: new Date('2026-01-01'),
+        input: { total: 1500, currency: 'USD' },
+      },
+    ],
+    staleLeads: [],
+    highValueEarly: [],
+  };
+
+  it('approve and reject buttons have type="button"', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+    const approveBtn = screen.getByText('approve').closest('button') as HTMLButtonElement;
+    const rejectBtn = screen.getByText('reject').closest('button') as HTMLButtonElement;
+    expect(approveBtn.type).toBe('button');
+    expect(rejectBtn.type).toBe('button');
+  });
+
+  it('reject form: reason label associates with select', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+    fireEvent.click(screen.getByText('reject'));
+    const select = screen.getByLabelText('rejectReason');
+    expect(select.tagName).toBe('SELECT');
+  });
+
+  it('reject form: free text label associates with textarea', async () => {
+    setQueryMock('agent.salesAlerts', onePendingApproval);
+    setMutationMock('module.approve');
+    setMutationMock('module.reject');
+    const { SalesAlerts } = await import('@/components/agent-workspace/sales/sales-alerts');
+    render(createElement(SalesAlerts as any, {
+      artifactId: 'art-1',
+      onLeadClick: vi.fn(),
+    }));
+    fireEvent.click(screen.getByText('reject'));
+    const textarea = screen.getByLabelText('rejectFreeText');
+    expect(textarea.tagName).toBe('TEXTAREA');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BarChartCss a11y
+// ---------------------------------------------------------------------------
+
+describe('BarChartCss a11y', () => {
+  it('container has role="list"', async () => {
+    const { BarChartCss } = await import('@/components/agent-workspace/primitives/bar-chart-css');
+    const { container } = render(createElement(BarChartCss, {
+      bars: [{ label: 'Web Chat', value: 5 }],
+    }));
+    expect(container.querySelector('[role="list"]')).not.toBeNull();
+  });
+
+  it('each bar row has role="listitem" with aria-label containing label and value', async () => {
+    const { BarChartCss } = await import('@/components/agent-workspace/primitives/bar-chart-css');
+    const { container } = render(createElement(BarChartCss, {
+      bars: [
+        { label: 'Web Chat', value: 10 },
+        { label: 'WhatsApp', value: 5 },
+      ],
+    }));
+    const items = container.querySelectorAll('[role="listitem"]');
+    expect(items).toHaveLength(2);
+    expect(items[0].getAttribute('aria-label')).toBe('Web Chat: 10');
+    expect(items[1].getAttribute('aria-label')).toBe('WhatsApp: 5');
+  });
+
+  it('ariaLabel prop applied to container', async () => {
+    const { BarChartCss } = await import('@/components/agent-workspace/primitives/bar-chart-css');
+    const { container } = render(createElement(BarChartCss, {
+      bars: [{ label: 'Source', value: 3 }],
+      ariaLabel: 'Source Breakdown',
+    }));
+    const list = container.querySelector('[role="list"]');
+    expect(list?.getAttribute('aria-label')).toBe('Source Breakdown');
+  });
+});

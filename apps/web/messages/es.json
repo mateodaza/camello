@@ -796,6 +796,8 @@
     "typeLeadStale": "Lead enfriándose",
     "typeEscalation": "Escalación",
     "typeBudgetWarning": "Alerta de presupuesto",
-    "errorLoading": "Error al cargar. Inténtalo de nuevo."
+    "errorLoading": "Error al cargar. Inténtalo de nuevo.",
+    "unread": "No leído",
+    "close": "Cerrar notificaciones"
   }
 }

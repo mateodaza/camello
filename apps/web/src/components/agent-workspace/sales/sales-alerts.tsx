@@ -167,6 +167,7 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
               </div>
               <div className="flex shrink-0 gap-2">
                 <button
+                  type="button"
                   onClick={() => approveMut.mutate({ executionId: exec.id })}
                   disabled={approvingId === exec.id || rejectingBusyId === exec.id}
                   className="min-h-9 min-w-9 rounded-md bg-teal px-3 text-xs font-medium text-white hover:bg-teal/90 disabled:opacity-50"
@@ -174,6 +175,7 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
                   {t('approve')}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setRejectingId(exec.id)}
                   disabled={approvingId === exec.id || rejectingBusyId === exec.id}
                   className="min-h-9 min-w-9 rounded-md border border-charcoal/15 px-3 text-xs font-medium text-charcoal hover:bg-charcoal/5 disabled:opacity-50"
@@ -186,8 +188,9 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
             {isRejecting && (
               <div className="mt-3 space-y-2 border-t border-gold/30 pt-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-charcoal">{t('rejectReason')}</label>
+                  <label htmlFor={`reject-reason-${exec.id}`} className="text-xs font-medium text-charcoal">{t('rejectReason')}</label>
                   <select
+                    id={`reject-reason-${exec.id}`}
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value as UiRejectionReason)}
                     className="rounded-md border border-charcoal/20 bg-white px-2 py-1.5 text-xs text-charcoal"
@@ -199,8 +202,9 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-charcoal">{t('rejectFreeText')}</label>
+                  <label htmlFor={`reject-text-${exec.id}`} className="text-xs font-medium text-charcoal">{t('rejectFreeText')}</label>
                   <textarea
+                    id={`reject-text-${exec.id}`}
                     value={rejectText}
                     onChange={(e) => setRejectText(e.target.value)}
                     rows={2}
@@ -214,6 +218,7 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
                 </div>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() =>
                       rejectMut.mutate({
                         executionId: exec.id,
@@ -227,6 +232,7 @@ export function SalesAlerts({ artifactId, onLeadClick }: SalesAlertsProps) {
                     {t('rejectConfirm')}
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       setRejectingId(null);
                       setRejectText('');

@@ -1,16 +1,17 @@
 interface BarChartCssProps {
   bars: Array<{ label: string; value: number; color?: string }>;
+  ariaLabel?: string;
 }
 
-export function BarChartCss({ bars }: BarChartCssProps) {
+export function BarChartCss({ bars, ariaLabel }: BarChartCssProps) {
   const max = Math.max(...bars.map((b) => b.value), 1);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" role="list" aria-label={ariaLabel}>
       {bars.map((bar) => {
         const pct = Math.round((bar.value / max) * 100);
         return (
-          <div key={bar.label} className="flex items-center gap-3">
+          <div key={bar.label} className="flex items-center gap-3" role="listitem" aria-label={`${bar.label}: ${bar.value}`}>
             <span className="w-28 shrink-0 truncate text-sm text-dune">{bar.label}</span>
             <div className="relative h-5 flex-1 rounded bg-charcoal/8">
               <div

@@ -106,7 +106,7 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
     <Sheet open={!!leadId} onClose={onClose}>
       <SheetHeader>
         <SheetTitle>{t('leadDetail')}</SheetTitle>
-        <button onClick={onClose} className="rounded p-1 text-dune hover:bg-charcoal/5" aria-label="Close">
+        <button type="button" onClick={onClose} className="rounded p-1 text-dune hover:bg-charcoal/5" aria-label="Close">
           <X className="h-4 w-4" />
         </button>
       </SheetHeader>
@@ -165,6 +165,7 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                 {STAGES.map((s) => (
                   <button
                     key={s}
+                    type="button"
                     onClick={() => handleStageClick(s)}
                     disabled={s === lead.stage}
                     className={`min-h-[36px] rounded-md border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-40 ${
@@ -194,14 +195,16 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                   />
                   <div className="mt-2 flex gap-2">
                     <button
+                      type="button"
                       onClick={confirmClose}
-                      className="rounded-md bg-charcoal px-3 py-1.5 text-xs font-medium text-cream hover:bg-charcoal/80"
+                      className="min-h-[36px] rounded-md bg-charcoal px-3 py-1.5 text-xs font-medium text-cream hover:bg-charcoal/80"
                     >
                       {t('confirm')} — {t(`salesStage${stageKey(pendingStage)}` as Parameters<typeof t>[0])}
                     </button>
                     <button
+                      type="button"
                       onClick={() => { setPendingStage(null); setCloseReason(''); }}
-                      className="rounded-md border border-charcoal/15 px-3 py-1.5 text-xs font-medium text-dune hover:bg-charcoal/5"
+                      className="min-h-[36px] rounded-md border border-charcoal/15 px-3 py-1.5 text-xs font-medium text-dune hover:bg-charcoal/5"
                     >
                       {t('cancel')}
                     </button>
@@ -231,8 +234,9 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
 
             {/* 4. Notes input */}
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dune">{t('leadNotesTitle')}</p>
+              <label htmlFor="lead-notes-textarea" className="mb-2 block text-xs font-semibold uppercase tracking-wide text-dune">{t('leadNotesTitle')}</label>
               <textarea
+                id="lead-notes-textarea"
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 maxLength={500}
@@ -241,6 +245,7 @@ export function LeadDetailSheet({ leadId, onClose, onStageChange }: LeadDetailSh
                 style={{ minHeight: '36px' }}
               />
               <button
+                type="button"
                 onClick={() => addLeadNoteMut.mutate({ leadId: leadId!, content: noteText })}
                 disabled={!noteText.trim() || isNotePending}
                 className="mt-2 min-h-[36px] rounded-md bg-teal px-3 py-1.5 text-xs font-medium text-cream hover:bg-teal/80 disabled:cursor-default disabled:opacity-40"

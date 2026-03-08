@@ -796,6 +796,8 @@
     "typeLeadStale": "Lead going cold",
     "typeEscalation": "Escalation",
     "typeBudgetWarning": "Budget warning",
-    "errorLoading": "Failed to load. Try again."
+    "errorLoading": "Failed to load. Try again.",
+    "unread": "Unread",
+    "close": "Close notifications"
   }
 }

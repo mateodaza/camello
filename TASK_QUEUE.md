@@ -126,8 +126,9 @@ Add integration tests for procedures added in the sales optimization sprint.
 - At least 3 tests per procedure (happy path, empty data, edge case)
 - `pnpm type-check` passes
 
-#### CAM-122 [ ] Accessibility audit on new components
+#### CAM-122 [x] Accessibility audit on new components
 Ensure all components from the sales optimization sprint meet a11y standards.
+`role="dialog"` + `aria-modal` on Sheet; `aria-controls` + `htmlFor`/`id` pairs on ModuleSettings; sr-only unread dot + i18n close on NotificationsPanel; `type="button"` + `min-h-[36px]` + label/textarea association on LeadDetailSheet; `type="button"` + label/input pairs on SalesAlerts reject form; `role="list/listitem"` + `ariaLabel` prop on BarChartCss; win-rate color indicator dot in registry/sales.tsx; 2 i18n keys (en+es); 15 tests in `a11y-audit.test.tsx`. Type-check passes.
 
 **Acceptance Criteria:**
 - Audit these files: `module-settings.tsx`, `notifications-panel.tsx`, `lead-detail-sheet.tsx`, `sales-alerts.tsx` (reject form), `sales-overview.tsx` (source chart)

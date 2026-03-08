@@ -316,8 +316,10 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
                 <Trophy className="h-3.5 w-3.5 text-dune" />
                 <span className="text-xs font-medium text-dune">{t('salesWinRate')}</span>
               </div>
-              <p className={`mt-1 font-heading text-2xl font-bold tabular-nums ${winRate >= 30 ? 'text-teal' : winRate >= 15 ? 'text-gold' : 'text-charcoal'}`}>
+              <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
                 {winRate}%
+                {winRate >= 30 && <span aria-hidden="true" className="ml-1.5 inline-block h-2 w-2 rounded-full bg-teal" />}
+                {winRate >= 15 && winRate < 30 && <span aria-hidden="true" className="ml-1.5 inline-block h-2 w-2 rounded-full bg-gold" />}
               </p>
             </div>
             <div className="px-4 first:pl-0 last:pr-0">
@@ -397,6 +399,7 @@ function SalesOverview({ artifactId }: { artifactId: string }) {
                 label: t(`sourceChannel${r.channel.charAt(0).toUpperCase()}${r.channel.slice(1)}` as Parameters<typeof t>[0]),
                 value: r.count,
               }))}
+              ariaLabel={t('salesSourceBreakdownTitle')}
             />
           </CardContent>
         </Card>

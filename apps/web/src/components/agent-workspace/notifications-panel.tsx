@@ -123,7 +123,10 @@ export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       {isUnread && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-teal" />
+                        <>
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-teal" />
+                          <span className="sr-only">{t('unread')}</span>
+                        </>
                       )}
                       <p className="text-sm font-medium text-charcoal truncate">{n.title}</p>
                     </div>
@@ -210,7 +213,7 @@ export function NotificationsBell({ artifactId }: NotificationsBellProps) {
           <SheetTitle>{t('panelTitle')}</SheetTitle>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t('close')}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-dune hover:bg-charcoal/[0.06] transition-colors"
             onClick={() => setOpen(false)}
           >

@@ -8,10 +8,11 @@ interface SheetProps {
   onClose: () => void;
   side?: 'right' | 'left';
   className?: string;
+  'aria-labelledby'?: string;
   children: React.ReactNode;
 }
 
-export function Sheet({ open, onClose, side = 'right', className, children }: SheetProps) {
+export function Sheet({ open, onClose, side = 'right', className, 'aria-labelledby': ariaLabelledby, children }: SheetProps) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -27,6 +28,9 @@ export function Sheet({ open, onClose, side = 'right', className, children }: Sh
       <div className="absolute inset-0 bg-midnight/40" onClick={onClose} />
       {/* panel */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={ariaLabelledby}
         className={cn(
           'relative ml-auto flex h-full w-full max-w-md flex-col bg-cream shadow-xl',
           side === 'left' && 'mr-auto ml-0',
