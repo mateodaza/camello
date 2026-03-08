@@ -2327,4 +2327,49 @@ export const agentRouter = router({
       });
     }),
 
+  // =========================================================================
+  // customerInsights — top 10 returning customers (>1 conversation) by visit count
+  // =========================================================================
+
+  customerInsights: tenantProcedure
+    .input(z.object({ artifactId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const result = await db.execute(sql`
+          SELECT
+            c.id,
+            c.name,
+            c.email,
+            COUNT(conv.id)::int AS conversation_count,
+            MAX(conv.created_at) AS last_seen_at,
+            (
+              SELECT f->>'value'
+              FROM jsonb_array_elements(c.memory->'facts') AS f
+              WHERE f->>'key' = 'past_topic'
+              ORDER BY (f->>'extractedAt') DESC
+              LIMIT 1
+            ) AS last_topic
+          FROM customers c
+          INNER JOIN conversations conv
+            ON conv.customer_id = c.id
+            AND conv.artifact_id = ${input.artifactId}
+            AND NOT (conv.metadata @> '{"sandbox": true}'::jsonb)
+          WHERE c.tenant_id = ${ctx.tenantId}
+          GROUP BY c.id, c.name, c.email, c.memory
+          HAVING COUNT(conv.id) > 1
+          ORDER BY COUNT(conv.id) DESC
+          LIMIT 10
+        `);
+
+        return (result.rows as Array<Record<string, unknown>>).map((r) => ({
+          id: r.id as string,
+          name: (r.name as string | null) ?? null,
+          email: (r.email as string | null) ?? null,
+          conversationCount: Number(r.conversation_count),
+          lastSeenAt: new Date(r.last_seen_at as string),
+          lastTopic: (r.last_topic as string | null) ?? null,
+        }));
+      });
+    }),
+
 });

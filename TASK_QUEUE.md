@@ -257,7 +257,9 @@ Add a dedicated analytics tab/section to the workspace.
 **Notes:**
 Data comes from `conversations` (created_at, resolved_at for response time), `module_executions` (counts by slug), and `artifact_metrics_daily` (pre-aggregated daily stats). Prefer `artifact_metrics_daily` when available to avoid expensive queries.
 
-#### CAM-131 [ ] Customer insights — returning visitor tracking
+#### CAM-131 [x] Customer insights — returning visitor tracking
+`agent.customerInsights` procedure (raw SQL: customers JOIN conversations, HAVING COUNT > 1 for returning-only, correlated subquery on customers.memory JSONB for last topic, ORDER BY conv count DESC LIMIT 10); `onRowClick` prop added to `DataTable` primitive; `ReturningCustomers` component registered in `salesSections`; row click → `router.push` to `/dashboard/conversations?customerId=`; name cell retains `Link` for a11y + right-click; 4 tests in `agent-customer-insights.test.ts`; 5 i18n keys (en+es). Type-check passes.
+
 Show which customers come back and what they ask about over time.
 
 **Acceptance Criteria:**

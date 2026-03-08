@@ -476,6 +476,11 @@
     "performanceModuleUsageTitle": "Uso de Módulos",
     "performanceModuleUsage": "Ejecuciones (total)",
     "performanceNoData": "Aún no hay datos de rendimiento",
+    "returningCustomersTitle": "Clientes Recurrentes",
+    "returningCustomersEmptyTitle": "Aún no hay clientes recurrentes",
+    "returningCustomersEmptyDesc": "Los clientes que regresen aparecerán aquí.",
+    "columnVisits": "Visitas",
+    "columnLastTopic": "Último Tema",
     "retry": "Reintentar"
   },
   "knowledge": {

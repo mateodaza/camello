@@ -36,6 +36,7 @@ interface DataTableProps<T> {
   hasMore?: boolean;
   loadMoreLabel?: string;
   rowClassName?: (row: T) => string;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
@@ -53,6 +54,7 @@ export function DataTable<T>({
   hasMore,
   loadMoreLabel,
   rowClassName,
+  onRowClick,
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
@@ -123,7 +125,15 @@ export function DataTable<T>({
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
-                    <tr key={i} className={cn('border-b border-charcoal/5 last:border-0', rowClassName?.(row))}>
+                    <tr
+                      key={i}
+                      className={cn(
+                        'border-b border-charcoal/5 last:border-0',
+                        rowClassName?.(row),
+                        onRowClick && 'cursor-pointer',
+                      )}
+                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    >
                       {columns.map((col) => (
                         <td key={col.key} className="py-2 pr-3">
                           {col.render(row)}

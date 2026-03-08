@@ -736,5 +736,81 @@ export function SalesWorkspace({ artifactId }: { artifactId: string }) {
 }
 
 import { AgentPerformance } from '../performance-panel';
+import { useRouter } from 'next/navigation';
 
-export const salesSections = [SalesWorkspace, AgentPerformance];
+// ---------------------------------------------------------------------------
+// ReturningCustomers — top 10 returning customers (>1 conversation)
+// ---------------------------------------------------------------------------
+
+type CustomerInsightsRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  conversationCount: number;
+  lastSeenAt: Date;
+  lastTopic: string | null;
+};
+
+function ReturningCustomers({ artifactId }: { artifactId: string }) {
+  const t = useTranslations('agentWorkspace');
+  const locale = useLocale();
+  const router = useRouter();
+  const query = trpc.agent.customerInsights.useQuery(
+    { artifactId },
+    { refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 2 },
+  );
+
+  return (
+    <DataTable<CustomerInsightsRow>
+      title={t('returningCustomersTitle')}
+      columns={[
+        {
+          key: 'name',
+          label: t('columnCustomer'),
+          render: (row) => (
+            <Link
+              href={`/dashboard/conversations?customerId=${row.id}`}
+              className="font-medium text-charcoal hover:text-teal hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {row.name ?? row.email ?? '—'}
+            </Link>
+          ),
+        },
+        {
+          key: 'conversationCount',
+          label: t('columnVisits'),
+          render: (row) => (
+            <span className="tabular-nums">{row.conversationCount}</span>
+          ),
+        },
+        {
+          key: 'lastSeenAt',
+          label: t('columnLastSeen'),
+          render: (row) => (
+            <span className="text-dune">{fmtDate(row.lastSeenAt, locale)}</span>
+          ),
+        },
+        {
+          key: 'lastTopic',
+          label: t('columnLastTopic'),
+          render: (row) => (
+            <span className="text-dune">{row.lastTopic ?? '—'}</span>
+          ),
+        },
+      ]}
+      data={query.data}
+      isLoading={query.isLoading}
+      isError={query.isError}
+      error={query.error ?? undefined}
+      onRetry={() => query.refetch()}
+      onRowClick={(row) =>
+        router.push(`/dashboard/conversations?customerId=${row.id}`)
+      }
+      emptyTitle={t('returningCustomersEmptyTitle')}
+      emptyDescription={t('returningCustomersEmptyDesc')}
+    />
+  );
+}
+
+export const salesSections = [SalesWorkspace, AgentPerformance, ReturningCustomers];

@@ -476,6 +476,11 @@
     "performanceModuleUsageTitle": "Module Usage",
     "performanceModuleUsage": "Executions (all time)",
     "performanceNoData": "No performance data yet",
+    "returningCustomersTitle": "Returning Customers",
+    "returningCustomersEmptyTitle": "No returning customers yet",
+    "returningCustomersEmptyDesc": "Customers who return will appear here.",
+    "columnVisits": "Visits",
+    "columnLastTopic": "Last Topic",
     "retry": "Retry"
   },
   "knowledge": {
