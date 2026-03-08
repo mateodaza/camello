@@ -318,7 +318,7 @@ Rename and reorder sidebar items to match the new structure.
 
 **Done:** Renamed nav items (Home/Inbox/Agents/Analytics/Knowledge/Settings), removed Help entry, added pending badge via `dashboardOverview`, added `home`/`inbox`/`settings` i18n keys to en+es.
 
-#### NC-220 [ ] Sprint smoke tests + summary
+#### NC-220 [x] Sprint smoke tests + summary
 Final task. Write smoke tests covering the end-to-end inbox loop and produce a sprint summary.
 
 **Acceptance Criteria:**
@@ -344,6 +344,8 @@ Final task. Write smoke tests covering the end-to-end inbox loop and produce a s
   - `pnpm type-check` output (pass/fail)
 
 **Depends on:** NC-214, NC-216, NC-217, NC-218, NC-219
+
+**Done:** Created `apps/api/src/__tests__/inbox-smoke.test.ts` — 8 tests across AC 1–4 using `createCallerFactory` pattern; fixed mock paths (non-routes file uses `../` not `../../`). Updated `PROGRESS.md` with Sprint Summary. Type-check passes.
 
 ## Manual / Blocked — Not for NC
 

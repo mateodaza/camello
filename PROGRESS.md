@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-220 | Sprint smoke tests + summary | Mar 8 | Created `apps/api/src/__tests__/inbox-smoke.test.ts` — 8 tests using `createCallerFactory` covering all 4 ACs: `conversation.activity` (happy path + empty), `conversation.replyAsOwner` (happy path + PRECONDITION_FAILED guard), `conversation.list` (COALESCE name + artifactId WHERE params), `agent.dashboardActivityFeed` (artifactId filter + unfiltered {} path). Type-check passes. |
 | NC-219 | Update sidebar navigation | Mar 8 | `sidebar.tsx`: renamed navItems (Home/Inbox/Agents/Analytics/Knowledge/Settings), removed Help+Docs entry, added `pendingApprovalsCount` badge via `trpc.agent.dashboardOverview.useQuery()`, updated active logic for Settings to match `/dashboard/settings/*`. Added `home`/`inbox`/`settings` keys to `en.json`+`es.json`. Type-check passes. |
 | NC-218 | Accessibility audit on inbox | Mar 8 | `conversation-list.tsx`: roving tabIndex keyboard nav (ArrowUp/Down/Home/End), `role="listbox/option"`, `aria-selected`, search h-9, filter/load-more `min-h-[36px]`. `chat-thread.tsx`: `role="log"` + `aria-live="polite"` + `aria-relevant="additions"` on scroll container, `headerRef` focus on conversationId change, `<label>` for owner reply textarea, send/status buttons `min-h-[36px]`. `customer-panel.tsx`: `CollapsibleSection` gains `id` prop + `<h3>` wrapper + `aria-expanded` + `aria-controls` + always-in-DOM `hidden` content, `<label>` for notes textarea, add-note button `min-h-[36px]`. 3 i18n keys (en+es). Type-check passes. |
 | NC-217 | i18n for all new inbox components (en + es) | Mar 8 | Added `detailsPanelShow`/`detailsPanelHide` keys to `en.json` + `es.json`; wired `useTranslations('inbox')` in `inbox-layout.tsx` replacing 2 hardcoded `aria-label` strings. Type-check passes. |
@@ -30,6 +31,23 @@
 | NC-205 | Inbox layout shell: 3-panel responsive component | Mar 8 | Created `apps/web/src/components/inbox/inbox-layout.tsx`. `InboxLayout` renders 3 panels: left (w-80), center (flex-1), right (w-[340px]). Mobile: `mobilePanel` state drives one-at-a-time visibility. Tablet (md–xl): `rightOpen` toggle via `PanelRight` button (`hidden md:flex xl:hidden`). xl+: all panels always visible. `useInboxPanel` context hook throws outside provider. 5 named exports. Type-check passes. |
 | NC-204 | Anonymous customer naming cleanup + display_name read precedence | Mar 8 | `adapters/whatsapp.ts`: `findOrCreateWhatsAppCustomer` signature changed to accept `TenantDb`; `name: profileName ?? null`; advisory lock + xmax-based insert detection assigns `display_name='Visitor N'` atomically. `webhooks/widget.ts`: extracted `findOrCreateWebchatCustomer` (exported) with `name: null`. `routes/conversation.ts`: `COALESCE(displayName, name, 'Unknown')` for `list` + `byId`; `artifactId` UUID filter added. `packages/db/migrations/0022_backfill_visitor_names.sql`: NULLs `visitor_%` names, assigns `Visitor N` continuing per-tenant sequence. 3 naming tests in `adapters/customer-naming.test.ts` + 1 artifactId test in `conversation-list-filters.test.ts`. Type-check passes. |
 | NC-202 | `conversation.activity` tRPC procedure | Mar 8 | `apps/api/src/routes/conversation.ts`: `activity` tenantProcedure — 3 sequential DB queries inside single `tenantDb.query()` call: (1) module executions leftJoin modules for name, (2) lead lookup by conversationId, (3) stage changes by leadId. JS-merged array sorted ASC by timestamp. `apps/api/src/__tests__/routes/conversation-activity.test.ts`: 4 tests (happy path mixed sort, empty, executions-only, stage-changes-only). Type-check passes. |
+
+---
+
+## Workspace v2 Sprint Summary
+
+| Field | Detail |
+|---|---|
+| **Tasks completed** | 20 (NC-201 through NC-220; CAM-200/201 are manual tasks executed by Mateo) |
+| **New files created** | `inbox-smoke.test.ts`, `conversation-activity.test.ts`, `conversation-list-filters.test.ts`, `conversation-reply-as-owner.test.ts`, `agent-dashboard.test.ts` (extended), `adapters/customer-naming.test.ts`, `inbox-layout.tsx`, `conversation-list.tsx`, `chat-thread.tsx`, `customer-panel.tsx`, `migrations/0021_display_name.sql`, `migrations/0022_backfill_visitor_names.sql` |
+| **Files modified** | `apps/api/src/routes/conversation.ts` (activity, replyAsOwner, list+artifactId, byId+leadId), `apps/api/src/routes/agent.ts` (dashboardActivityFeed+artifactId), `apps/api/src/trpc/context.ts` (userFullName), `apps/api/src/adapters/whatsapp.ts` (findOrCreateWhatsAppCustomer), `apps/api/src/webhooks/widget.ts` (findOrCreateWebchatCustomer), `apps/web/src/app/dashboard/conversations/page.tsx`, `apps/web/src/app/dashboard/agents/[id]/page.tsx`, `apps/web/src/app/dashboard/page.tsx`, `apps/web/messages/en.json`, `apps/web/messages/es.json`, `apps/web/src/components/ui/sidebar.tsx` |
+| **Migrations written** | 0021 (`display_name` column + backfill on `customers`), 0022 (`visitor_*` name cleanup + NULL backfill with per-tenant `Visitor N` sequence) |
+| **New tRPC procedures** | `conversation.activity`, `conversation.replyAsOwner`, `conversation.list` (artifactId filter added), `agent.dashboardActivityFeed` (artifactId param added) |
+| **Components created** | `InboxLayout`, `InboxLeftPanel`, `InboxCenterPanel`, `InboxRightPanel` (via `inbox-layout.tsx`), `ConversationList` (`conversation-list.tsx`), `ChatThread` (`chat-thread.tsx`), `CustomerPanel` (`customer-panel.tsx`), owner-reply textarea+button (inline in ChatThread) |
+| **i18n keys added** | ~60 keys across `inbox`, `agentWorkspace`, `analytics` sections (en + es symmetric) |
+| **Known limitations / deferred** | WhatsApp delivery in `replyAsOwner` is fire-and-forget (no delivery receipt); stage-change events in `conversation.activity` only cover `lead_stage_changes` table (not conversation status transitions directly); specialized workspace UIs (Sales, Support, Marketing) preserved per `WORKSPACE_ARCHITECTURE.md` — inbox is the shared operational layer |
+| **`pnpm build`** | pass |
+| **`pnpm type-check`** | pass |
 
 ---
 
@@ -868,3 +886,4 @@
 - **NC-217** — 2026-03-08 — `2b9bce5` — Session: 20260308-190114-camello
 - **NC-218** — 2026-03-08 — `b3b1784` — Session: 20260308-190114-camello
 - **NC-219** — 2026-03-08 — `472290b` — Session: 20260308-190114-camello
+- **NC-220** — 2026-03-08 — `de906d6` — Session: 20260308-190114-camello
