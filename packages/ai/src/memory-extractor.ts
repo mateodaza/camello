@@ -85,6 +85,7 @@ const NAME_PATTERNS: RegExp[] = [
   /\bmy name is (\w+)/i,
   /\bI'm (\w+)/i,
   /\bme llamo (\w+)/i,
+  /\bmi nombre es (\w+)/i,
   /\bsoy (\w+)/i,
 ];
 
@@ -149,6 +150,50 @@ export function extractFactsRegex(
   }
 
   return facts;
+}
+
+// ---------------------------------------------------------------------------
+// LLM Memory Tag Parsing
+// ---------------------------------------------------------------------------
+
+/** Matches [MEMORY:key=value] tags emitted by the LLM */
+const MEMORY_TAG_RE = /\[MEMORY:(\w+)=([^\]]+)\]/g;
+
+/** Allowed keys for LLM-emitted memory tags (strict allowlist) */
+const LLM_TAG_ALLOWED_KEYS = new Set<string>(['name', 'email', 'phone']);
+
+/**
+ * Parse [MEMORY:key=value] tags from LLM response text.
+ * Returns extracted facts (sanitized, allowlisted). Ignores unknown keys.
+ */
+export function parseMemoryTags(
+  responseText: string,
+  conversationId: string,
+): CustomerFact[] {
+  const facts: CustomerFact[] = [];
+  const now = new Date().toISOString();
+  const seen = new Set<string>();
+
+  let match: RegExpExecArray | null;
+  while ((match = MEMORY_TAG_RE.exec(responseText)) !== null) {
+    const key = match[1].toLowerCase();
+    if (!LLM_TAG_ALLOWED_KEYS.has(key) || seen.has(key)) continue;
+    seen.add(key);
+
+    const value = sanitizeFactValue(match[2].trim());
+    if (value) {
+      facts.push({ key: key as FactKey, value, extractedAt: now, conversationId });
+    }
+  }
+
+  return facts;
+}
+
+/**
+ * Strip [MEMORY:...] tags from the response text before displaying to the customer.
+ */
+export function stripMemoryTags(responseText: string): string {
+  return responseText.replace(MEMORY_TAG_RE, '').trimEnd();
 }
 
 // ---------------------------------------------------------------------------

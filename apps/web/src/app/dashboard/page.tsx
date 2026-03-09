@@ -39,9 +39,9 @@ export default function DashboardOverview() {
   const data = dashboardOverview.data;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8 lg:space-y-10">
       <div className="flex items-center gap-3">
-        <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{tenant.data?.name ?? t('pageTitle')}</h1>
+        <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl lg:text-3xl">{tenant.data?.name ?? t('pageTitle')}</h1>
         {tenant.data?.planTier && (
           <Badge variant={tenant.data.planTier}>{tenant.data.planTier}</Badge>
         )}
@@ -54,7 +54,7 @@ export default function DashboardOverview() {
       {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}
 
       {/* ===== Hero Metrics ===== */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-4 lg:gap-6">
         <StatCard title={t('todayConversations')} value={data?.todayConversations ?? 0} />
         <StatCard title={t('weekConversations')} value={data?.weekConversations ?? 0} />
         <StatCard title={t('pendingApprovals')} value={data?.pendingApprovalsCount ?? 0} />
@@ -92,9 +92,9 @@ function YourAgentsSection({
         {!agents || agents.length === 0 ? (
           <p className="text-sm text-dune">{t('noAgents')}</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {agents.map((agent) => (
-              <div key={agent.id} className="flex items-center gap-2 rounded-lg border border-charcoal/8 p-3">
+              <div key={agent.id} className="flex items-center gap-3 rounded-lg border border-charcoal/8 p-4">
                 <span
                   className={`h-2 w-2 shrink-0 rounded-full ${agent.isActive ? 'bg-teal' : 'bg-dune'}`}
                   aria-hidden="true"
@@ -154,9 +154,9 @@ function ActivityFeedSection({
         {!events || events.length === 0 ? (
           <p className="text-sm text-dune">{t('noActivity')}</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {events.slice(0, 5).map((event) => (
-              <li key={event.id} className="flex items-center gap-2 text-sm">
+              <li key={event.id} className="flex items-center gap-3 text-sm">
                 <span
                   className={`h-2 w-2 shrink-0 rounded-full ${EVENT_TYPE_COLORS[event.eventType]}`}
                   aria-hidden="true"
@@ -199,7 +199,7 @@ function ShareLinkCard({
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3">
+      <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-4">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-charcoal">{t('shareLink')}</p>
           <p className="text-xs text-dune truncate">{chatUrl}</p>

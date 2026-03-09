@@ -31,7 +31,12 @@ export const conversationRouter = router({
           eq(conversations.tenantId, ctx.tenantId),
           sql`NOT (${conversations.metadata} @> '{"sandbox": true}'::jsonb)`,
         ];
-        if (input.status) conditions.push(eq(conversations.status, input.status));
+        if (input.status) {
+          conditions.push(eq(conversations.status, input.status));
+        } else {
+          // "All" tab: show active + escalated (actionable). Resolved has its own tab.
+          conditions.push(sql`${conversations.status} IN ('active', 'escalated')`);
+        }
         if (input.channel) {
           conditions.push(eq(conversations.channel, input.channel));
         }
@@ -88,9 +93,14 @@ export const conversationRouter = router({
             status: conversations.status,
             createdAt: conversations.createdAt,
             updatedAt: conversations.updatedAt,
-            customerName: sql<string>`COALESCE(${customers.displayName}, ${customers.name}, 'Unknown')`,
+            customerName: sql<string>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
             customerExternalId: customers.externalId,
-            summary: sql<string | null>`(${conversations.metadata}->>'summary')`,
+            summary: sql<string | null>`COALESCE(
+              ${conversations.metadata}->>'summary',
+              (SELECT LEFT(m.content, 80) FROM messages m
+               WHERE m.conversation_id = ${conversations.id} AND m.role = 'customer'
+               ORDER BY m.created_at ASC LIMIT 1)
+            )`,
           })
           .from(conversations)
           .leftJoin(customers, eq(conversations.customerId, customers.id))
@@ -124,7 +134,7 @@ export const conversationRouter = router({
             createdAt: conversations.createdAt,
             updatedAt: conversations.updatedAt,
             resolvedAt: conversations.resolvedAt,
-            customerName: sql<string>`COALESCE(${customers.displayName}, ${customers.name}, 'Unknown')`,
+            customerName: sql<string>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
             customerEmail: customers.email,
             customerPhone: customers.phone,
             customerChannel: customers.channel,
@@ -218,7 +228,7 @@ export const conversationRouter = router({
             // 3. Fetch current customer memory (explicit tenant scope — defense-in-depth)
             const customerRow = await tenantDb.query(async (db) => {
               const rows = await db
-                .select({ memory: customers.memory })
+                .select({ memory: customers.memory, name: customers.name, email: customers.email, phone: customers.phone })
                 .from(customers)
                 .where(and(eq(customers.id, customerId), eq(customers.tenantId, ctx.tenantId)))
                 .limit(1);
@@ -230,16 +240,27 @@ export const conversationRouter = router({
             // 4. Merge facts
             const merged = mergeMemoryFacts(existingFacts, newFacts);
 
-            // 5. Persist merged memory
+            // 5. Persist merged memory + sync extracted facts to top-level columns
             const memoryPayload = JSON.stringify({
               facts: merged,
               updatedAt: new Date().toISOString(),
             });
 
+            const syncFields: Record<string, string> = {};
+            const nameFact = merged.find((f) => f.key === 'name');
+            if (nameFact && !customerRow?.name) syncFields.name = nameFact.value;
+            const emailFact = merged.find((f) => f.key === 'email');
+            if (emailFact && !customerRow?.email) syncFields.email = emailFact.value;
+            const phoneFact = merged.find((f) => f.key === 'phone');
+            if (phoneFact && !customerRow?.phone) syncFields.phone = phoneFact.value;
+
             await tenantDb.query(async (db) => {
               await db
                 .update(customers)
-                .set({ memory: sql`${memoryPayload}::jsonb` })
+                .set({
+                  memory: sql`${memoryPayload}::jsonb`,
+                  ...syncFields,
+                })
                 .where(and(eq(customers.id, customerId), eq(customers.tenantId, ctx.tenantId)));
             });
           } catch (err) {
@@ -352,14 +373,14 @@ export const conversationRouter = router({
         return rows[0] ?? null;
       });
 
-      // Step 4 — Guard: conversation must exist and be escalated
+      // Step 4 — Guard: conversation must exist and not be resolved
       if (!conv) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Conversation not found.' });
       }
-      if (conv.status !== 'escalated') {
+      if (conv.status === 'resolved') {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Only escalated conversations can receive owner replies.',
+          message: 'Cannot reply to resolved conversations.',
         });
       }
 

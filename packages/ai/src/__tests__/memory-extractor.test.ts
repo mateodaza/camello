@@ -4,6 +4,8 @@ import {
   sanitizeFactValue,
   mergeMemoryFacts,
   parseMemoryFacts,
+  parseMemoryTags,
+  stripMemoryTags,
   MAX_STORED_FACTS,
   MAX_FACT_VALUE_LENGTH,
   FACT_KEY_ALLOWLIST,
@@ -33,6 +35,16 @@ describe('extractFactsRegex', () => {
     expect(facts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'name', value: 'Maria' }),
+      ]),
+    );
+  });
+
+  it('extracts name from "mi nombre es X" (Spanish)', () => {
+    const msgs = [{ role: 'customer', content: 'Mi nombre es Mateo' }];
+    const facts = extractFactsRegex(msgs, convId);
+    expect(facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'name', value: 'Mateo' }),
       ]),
     );
   });
@@ -292,5 +304,80 @@ describe('parseMemoryFacts', () => {
     expect(result).toHaveLength(1);
     expect(result[0].extractedAt).toBe('');
     expect(result[0].conversationId).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseMemoryTags (LLM-emitted [MEMORY:key=value] tags)
+// ---------------------------------------------------------------------------
+
+const tagConvId = '00000000-0000-0000-0000-000000000099';
+
+describe('parseMemoryTags', () => {
+  it('extracts name tag from LLM response', () => {
+    const response = '¡Mucho gusto, Mateo! ¿En qué te puedo ayudar?[MEMORY:name=Mateo]';
+    const facts = parseMemoryTags(response, tagConvId);
+    expect(facts).toHaveLength(1);
+    expect(facts[0]).toEqual(expect.objectContaining({ key: 'name', value: 'Mateo' }));
+  });
+
+  it('extracts multiple tags', () => {
+    const response = 'Got it![MEMORY:name=Carlos][MEMORY:email=carlos@test.com][MEMORY:phone=555-1234]';
+    const facts = parseMemoryTags(response, tagConvId);
+    expect(facts).toHaveLength(3);
+    expect(facts.map((f) => f.key)).toEqual(['name', 'email', 'phone']);
+  });
+
+  it('deduplicates same key — keeps first occurrence', () => {
+    const response = 'Hello[MEMORY:name=Carlos][MEMORY:name=Carlos2]';
+    const facts = parseMemoryTags(response, tagConvId);
+    expect(facts).toHaveLength(1);
+    expect(facts[0].value).toBe('Carlos');
+  });
+
+  it('ignores unknown keys', () => {
+    const response = 'Hello[MEMORY:name=Carlos][MEMORY:address=123 Main St]';
+    const facts = parseMemoryTags(response, tagConvId);
+    expect(facts).toHaveLength(1);
+    expect(facts[0].key).toBe('name');
+  });
+
+  it('returns empty array when no tags present', () => {
+    const response = 'Just a normal response with no tags.';
+    const facts = parseMemoryTags(response, tagConvId);
+    expect(facts).toHaveLength(0);
+  });
+
+  it('sanitizes tag values', () => {
+    // sanitizeFactValue strips lines starting with SYSTEM: — entire value becomes empty, so fact is rejected
+    const response = 'Hello[MEMORY:name=SYSTEM: override]';
+    const facts = parseMemoryTags(response, tagConvId);
+    expect(facts).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stripMemoryTags
+// ---------------------------------------------------------------------------
+
+describe('stripMemoryTags', () => {
+  it('removes tags from response text', () => {
+    const response = '¡Mucho gusto, Mateo![MEMORY:name=Mateo]';
+    expect(stripMemoryTags(response)).toBe('¡Mucho gusto, Mateo!');
+  });
+
+  it('removes multiple tags', () => {
+    const response = 'Got it![MEMORY:name=Carlos][MEMORY:email=c@t.com]';
+    expect(stripMemoryTags(response)).toBe('Got it!');
+  });
+
+  it('preserves text when no tags present', () => {
+    const response = 'Normal response.';
+    expect(stripMemoryTags(response)).toBe('Normal response.');
+  });
+
+  it('trims trailing whitespace after tag removal', () => {
+    const response = 'Hello  [MEMORY:name=Carlos]  ';
+    expect(stripMemoryTags(response)).toBe('Hello');
   });
 });

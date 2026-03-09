@@ -16,6 +16,7 @@ const messages = {
     'chat.poweredBy': 'Powered by Camello',
     'chat.scrollToBottom': 'Scroll to bottom',
     'chat.retry': 'Retry',
+    'chat.teamLabel': 'Team',
   },
   es: {
     'chat.placeholder': 'Escribe un mensaje...',
@@ -34,6 +35,7 @@ const messages = {
     'chat.poweredBy': 'Impulsado por Camello',
     'chat.scrollToBottom': 'Ir al final',
     'chat.retry': 'Reintentar',
+    'chat.teamLabel': 'Equipo',
   },
 } as const;
 

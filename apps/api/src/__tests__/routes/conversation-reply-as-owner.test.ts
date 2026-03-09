@@ -113,7 +113,7 @@ describe('conversation.replyAsOwner', () => {
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
-  it('3 — non-escalated: PRECONDITION_FAILED when status is not escalated', async () => {
+  it('3 — resolved: PRECONDITION_FAILED when status is resolved', async () => {
     let callIndex = 0;
     const db = mockTenantDb(async (fn: Any) => {
       const mockDb = {
@@ -132,7 +132,7 @@ describe('conversation.replyAsOwner', () => {
             from: () => ({
               leftJoin: () => ({
                 where: () => ({
-                  limit: () => [{ id: CONV_ID, status: 'active', channel: 'web_chat', customerExternalId: null }],
+                  limit: () => [{ id: CONV_ID, status: 'resolved', channel: 'web_chat', customerExternalId: null }],
                 }),
               }),
             }),

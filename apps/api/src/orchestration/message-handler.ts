@@ -30,6 +30,9 @@ import {
   shouldCheckGrounding,
   flattenRagChunks,
   parseMemoryFacts,
+  mergeMemoryFacts,
+  parseMemoryTags,
+  stripMemoryTags,
   sanitizeFactValue,
   MAX_INJECTED_FACTS,
 } from '@camello/ai';
@@ -760,6 +763,12 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     }
   }
 
+  // 12c. Parse + strip LLM memory tags from response (before saving)
+  const memoryTagFacts = parseMemoryTags(responseText, conversationId);
+  if (memoryTagFacts.length > 0) {
+    responseText = stripMemoryTags(responseText);
+  }
+
   // Totals (main + grounding for persisted metrics)
   const latencyMs = Date.now() - startTime;
   const tokensIn = mainTokensIn + groundingTokensIn;
@@ -803,6 +812,46 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       .set({ updatedAt: new Date() })
       .where(eq(conversations.id, conversationId));
   });
+
+  // 16. Fire-and-forget: persist LLM-extracted memory tags + sync name
+  if (memoryTagFacts.length > 0) {
+    setImmediate(async () => {
+      try {
+        const custRow = await tenantDb.query(async (db) => {
+          const rows = await db
+            .select({ memory: customers.memory, name: customers.name, email: customers.email, phone: customers.phone })
+            .from(customers)
+            .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+            .limit(1);
+          return rows[0];
+        });
+
+        const merged = mergeMemoryFacts(parseMemoryFacts(custRow?.memory), memoryTagFacts);
+        const memoryPayload = JSON.stringify({ facts: merged, updatedAt: new Date().toISOString() });
+
+        // Sync extracted facts to top-level columns (only if column is currently empty)
+        const syncFields: Record<string, string> = {};
+        const nameFact = merged.find((f) => f.key === 'name');
+        if (nameFact && !custRow?.name) syncFields.name = nameFact.value;
+        const emailFact = merged.find((f) => f.key === 'email');
+        if (emailFact && !custRow?.email) syncFields.email = emailFact.value;
+        const phoneFact = merged.find((f) => f.key === 'phone');
+        if (phoneFact && !custRow?.phone) syncFields.phone = phoneFact.value;
+
+        await tenantDb.query(async (db) => {
+          await db
+            .update(customers)
+            .set({
+              memory: sql`${memoryPayload}::jsonb`,
+              ...syncFields,
+            })
+            .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)));
+        });
+      } catch (err) {
+        console.error('[customer-memory] tag persistence failed (non-blocking):', err);
+      }
+    });
+  }
 
   trace.finalize({
     modelUsed: modelId,

@@ -74,6 +74,94 @@ const STATUS_LABELS = {
   escalated: 'chatStatusEscalated',
 } as const;
 
+const STATUS_COLORS = {
+  active:    { badge: 'bg-teal/15 text-teal', dot: 'bg-teal' },
+  escalated: { badge: 'bg-sunset/15 text-sunset', dot: 'bg-sunset' },
+  resolved:  { badge: 'bg-dune/15 text-dune', dot: 'bg-dune' },
+} as const;
+
+const statusKeys = ['active', 'escalated', 'resolved'] as const;
+
+type ConversationStatus = (typeof statusKeys)[number];
+
+function StatusDropdown({
+  status,
+  isPending,
+  onSelect,
+}: {
+  status: string;
+  isPending: boolean;
+  onSelect: (s: ConversationStatus) => void;
+}) {
+  const t = useTranslations('inbox');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  const colors = STATUS_COLORS[status as keyof typeof STATUS_COLORS] ?? STATUS_COLORS.active;
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        className={cn(
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer transition-colors min-h-[28px]',
+          colors.badge,
+          'hover:opacity-80',
+        )}
+        disabled={isPending}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        {t(STATUS_LABELS[status as keyof typeof STATUS_LABELS] ?? 'chatStatusActive')}
+        <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute top-full left-0 mt-1 z-20 min-w-[140px] rounded-lg border border-charcoal/10 bg-cream shadow-md py-1"
+        >
+          {statusKeys.map((s) => {
+            const c = STATUS_COLORS[s];
+            const isCurrent = s === status;
+            return (
+              <button
+                key={s}
+                type="button"
+                role="option"
+                aria-selected={isCurrent}
+                className={cn(
+                  'flex items-center gap-2 w-full px-3 py-2 text-xs text-left transition-colors min-h-[36px]',
+                  isCurrent ? 'bg-sand font-medium' : 'hover:bg-sand/50',
+                )}
+                disabled={isPending || isCurrent}
+                onClick={() => {
+                  onSelect(s);
+                  setOpen(false);
+                }}
+              >
+                <span className={cn('h-2 w-2 rounded-full shrink-0', c.dot)} />
+                {t(STATUS_LABELS[s])}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChatThread({ conversationId }: ChatThreadProps) {
   const t = useTranslations('inbox');
 
@@ -207,7 +295,6 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
   }
 
   const status = conv.isError ? 'active' : (conv.data?.status ?? 'active');
-  const statusKeys = ['active', 'resolved', 'escalated'] as const;
 
   return (
     <div className="flex flex-col h-full">
@@ -223,7 +310,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
           <ArrowLeft className="h-4 w-4" />
         </button>
 
-        {/* Group 2 — name + status badge */}
+        {/* Group 2 — name + status dropdown badge */}
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {conv.isLoading ? (
             <>
@@ -237,39 +324,17 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
               <span className="text-sm font-semibold text-charcoal truncate">
                 {conv.data?.customerName}
               </span>
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-xs shrink-0',
-                  status === 'active'    && 'bg-teal/15 text-teal',
-                  status === 'escalated' && 'bg-sunset/15 text-sunset',
-                  status === 'resolved'  && 'bg-dune/15 text-dune',
-                )}
-              >
-                {t(STATUS_LABELS[status as keyof typeof STATUS_LABELS] ?? 'chatStatusActive')}
-              </span>
+              <StatusDropdown
+                status={status}
+                isPending={statusMut.isPending}
+                onSelect={(s) => statusMut.mutate({ id: conversationId, status: s })}
+              />
             </>
           )}
         </div>
 
-        {/* Group 3 — right actions */}
+        {/* Group 3 — right actions (details toggle on mobile) */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* Status-change buttons: desktop only — hidden on mobile to prevent 375px overflow */}
-          <div className="hidden md:flex items-center gap-1">
-            {statusKeys.map((s) => (
-              <Button
-                key={s}
-                size="sm"
-                type="button"
-                variant={conv.data?.status === s ? 'default' : 'ghost'}
-                className="min-h-[36px]"
-                disabled={statusMut.isPending}
-                onClick={() => statusMut.mutate({ id: conversationId, status: s })}
-              >
-                {t(STATUS_LABELS[s])}
-              </Button>
-            ))}
-          </div>
-          {/* Details toggle: mobile only */}
           <button
             type="button"
             className="md:hidden flex items-center justify-center h-9 w-9 rounded-md hover:bg-sand"
@@ -400,8 +465,8 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
         </div>
       )}
 
-      {/* OWNER REPLY INPUT — only shown for escalated conversations */}
-      {status === 'escalated' && (
+      {/* OWNER REPLY INPUT — shown for active and escalated conversations */}
+      {status !== 'resolved' && (
         <div className="shrink-0 border-t border-charcoal/8 px-4 py-3 flex flex-col gap-2">
           <p className="text-xs text-sunset bg-sunset/8 rounded-md px-3 py-2">
             {t('ownerReplyBanner')}

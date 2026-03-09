@@ -81,6 +81,57 @@ function activityLabel(
   }
 }
 
+// ── Activity list with collapse ───────────────────────────────────────────────
+
+const ACTIVITY_PREVIEW_COUNT = 5;
+
+function ActivityList({
+  items,
+  t,
+}: {
+  items: ActivityItem[];
+  t: ReturnType<typeof useTranslations<'inbox'>>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const showToggle = items.length > ACTIVITY_PREVIEW_COUNT;
+  const visible = showToggle && !expanded ? items.slice(-ACTIVITY_PREVIEW_COUNT) : items;
+
+  return (
+    <div className="divide-y divide-charcoal/8">
+      {showToggle && !expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="w-full py-2 text-xs text-teal hover:text-teal/80 font-medium"
+        >
+          {t('activityShowAll', { count: items.length })}
+        </button>
+      )}
+      {visible.map((item, idx) => {
+        const { Icon, className } = activityIcon(item);
+        return (
+          <div key={idx} className="flex gap-3 items-start py-2">
+            <Icon className={cn('h-4 w-4 mt-0.5 shrink-0', className)} aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-charcoal">{activityLabel(t, item)}</p>
+              <p className="text-xs text-dune">{fmtTimeAgo(item.timestamp)}</p>
+            </div>
+          </div>
+        );
+      })}
+      {showToggle && expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="w-full py-2 text-xs text-teal hover:text-teal/80 font-medium"
+        >
+          {t('activityShowLess')}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Collapsible section wrapper ───────────────────────────────────────────────
 
 function CollapsibleSection({
@@ -185,6 +236,10 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
   const memFacts =
     (data.customerMemory as { facts?: { key: string; value: string }[] } | null)?.facts ?? [];
 
+  // Fallback: use memory facts for email/phone when top-level columns are empty
+  const displayEmail = data.customerEmail ?? memFacts.find((f) => f.key === 'email')?.value ?? null;
+  const displayPhone = data.customerPhone ?? memFacts.find((f) => f.key === 'phone')?.value ?? null;
+
   return (
     <div className="flex flex-col overflow-y-auto">
       {/* Mobile back-to-chat row */}
@@ -222,13 +277,13 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
           {/* Email */}
           <div className="flex items-center gap-2">
             <Mail className="h-4 w-4 text-dune shrink-0" aria-hidden="true" />
-            <span className="text-sm text-charcoal truncate">{data.customerEmail ?? '—'}</span>
+            <span className="text-sm text-charcoal truncate">{displayEmail ?? '—'}</span>
           </div>
 
           {/* Phone */}
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4 text-dune shrink-0" aria-hidden="true" />
-            <span className="text-sm text-charcoal truncate">{data.customerPhone ?? '—'}</span>
+            <span className="text-sm text-charcoal truncate">{displayPhone ?? '—'}</span>
           </div>
 
           {/* Channel */}
@@ -252,14 +307,14 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
           </div>
         </div>
 
-        {/* Memory facts */}
-        {memFacts.length > 0 && (
+        {/* Memory facts — exclude name/email/phone (already shown in info fields above) */}
+        {memFacts.filter((f) => !['name', 'email', 'phone'].includes(f.key)).length > 0 && (
           <div className="mt-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-dune mb-2">
               {t('customerMemoryFacts')}
             </p>
             <div className="space-y-1">
-              {memFacts.map((fact) => (
+              {memFacts.filter((f) => !['name', 'email', 'phone'].includes(f.key)).map((fact) => (
                 <div key={fact.key} className="flex gap-2">
                   <span className="text-xs text-dune w-24 shrink-0 truncate">{fact.key}</span>
                   <span className="text-sm text-charcoal">{fact.value}</span>
@@ -282,20 +337,7 @@ function CustomerPanelInner({ conversationId }: { conversationId: string }) {
         ) : (act.data ?? []).length === 0 ? (
           <p className="text-sm text-dune py-4 text-center">{t('activityEmpty')}</p>
         ) : (
-          <div className="divide-y divide-charcoal/8">
-            {(act.data ?? []).map((item, idx) => {
-              const { Icon, className } = activityIcon(item);
-              return (
-                <div key={idx} className="flex gap-3 items-start py-2">
-                  <Icon className={cn('h-4 w-4 mt-0.5 shrink-0', className)} aria-hidden="true" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-charcoal">{activityLabel(t, item)}</p>
-                    <p className="text-xs text-dune">{fmtTimeAgo(item.timestamp)}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <ActivityList items={act.data ?? []} t={t} />
         )}
       </CollapsibleSection>
 

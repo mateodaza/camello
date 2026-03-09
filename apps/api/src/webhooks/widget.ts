@@ -492,7 +492,7 @@ widgetRoutes.get('/history', async (c) => {
             eq(conversations.tenantId, claims.tenant_id),
             eq(conversations.customerId, claims.customer_id),
             eq(conversations.channel, 'webchat'),
-            eq(conversations.status, 'active'),
+            sql`${conversations.status} IN ('active', 'escalated')`,
           ),
         )
         .orderBy(desc(conversations.updatedAt))

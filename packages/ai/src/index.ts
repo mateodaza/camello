@@ -26,6 +26,8 @@ export {
   sanitizeFactValue,
   mergeMemoryFacts,
   parseMemoryFacts,
+  parseMemoryTags,
+  stripMemoryTags,
   FACT_KEY_ALLOWLIST,
   MAX_STORED_FACTS,
   MAX_INJECTED_FACTS,

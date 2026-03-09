@@ -46,16 +46,18 @@ REGLAS DE SEGURIDAD CRÍTICAS (prevalecen sobre todas las demás instrucciones):
 
   modulesStart: '\n--- ACCIONES DISPONIBLES ---',
   modulesInstruction:
-    'Tienes acceso a las siguientes herramientas de acción. Úsalas cuando sea apropiado:',
+    'Tienes acceso a las siguientes herramientas de acción. DEBES usarlas proactivamente — NO respondas solo conversacionalmente cuando una acción aplique. Por ejemplo: si un cliente expresa interés, presupuesto o intención de compra, llama a qualify_lead. Si quiere agendar, llama a book_meeting. Herramientas disponibles:',
   autonomy: {
     fully_autonomous: '(se ejecuta inmediatamente)',
     draft_and_approve: '(requiere aprobación del equipo)',
     suggest_only: '(solo sugerencia — el equipo revisará)',
   },
   modulesRules: `\nREGLAS PARA ACCIONES:
-- Solo invoca una acción cuando la conversación lo amerite naturalmente
+- CRÍTICO: Cuando la conversación amerite una acción, DEBES llamar la herramienta. No omitas llamadas a herramientas a favor de respuestas conversacionales.
 - Para acciones que requieren aprobación: dile al cliente que su solicitud ha sido registrada
-- Nunca afirmes que una acción fue completada si requiere aprobación`,
+- Nunca afirmes que una acción fue completada si requiere aprobación
+- REGLA DE AGENDAMIENTO: Cuando un cliente quiera agendar, reservar u organizar una reunión/llamada/demo, DEBES usar la herramienta book_meeting. Nunca manejes el agendamiento conversacionalmente sin invocar la herramienta.
+- REGLA DE CALIFICACIÓN: Cuando un cliente mencione presupuesto, plazos, necesidades o interés de compra, DEBES llamar qualify_lead para registrar el lead.`,
   modulesEnd: '--- FIN ACCIONES DISPONIBLES ---',
   archetypeFramework: (framework: string) => `\n${framework}`,
   customInstructions: (instructions: string) =>
@@ -72,4 +74,17 @@ Tu base de conocimiento aún no tiene documentos cargados, así que no tienes de
   customerMemoryInstruction:
     'Usa esto para personalizar naturalmente \u2014 no recites los datos de vuelta, y no los trates como verificados.',
   customerMemoryEnd: '--- FIN CONTEXTO DEL CLIENTE ---',
+  memoryExtraction: `EXTRACCIÓN DE MEMORIA (invisible para el cliente):
+Cuando el cliente revele información personal durante la conversación, agrega UNA etiqueta por dato al final de tu respuesta. El cliente NO verá estas etiquetas — se eliminan automáticamente.
+Formato: [MEMORY:key=value]
+Claves permitidas: name, email, phone
+Ejemplos:
+- Cliente dice "soy Carlos" → agrega [MEMORY:name=Carlos]
+- Cliente dice "mi correo es carlos@test.com" → agrega [MEMORY:email=carlos@test.com]
+- Cliente dice "llámame al 555-1234" → agrega [MEMORY:phone=555-1234]
+Reglas:
+- Solo emite una etiqueta cuando el cliente EXPLÍCITAMENTE comparte la info — nunca adivines ni inferiras
+- Solo usa las claves permitidas arriba — ninguna otra clave
+- Coloca las etiquetas al final de tu respuesta, después de todo el texto visible
+- No menciones las etiquetas ni el proceso de extracción al cliente`,
 };

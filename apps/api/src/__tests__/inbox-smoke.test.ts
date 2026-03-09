@@ -305,7 +305,7 @@ describe('inbox smoke — conversation.replyAsOwner (NC-203)', () => {
     expect(result.id).toBe(MESSAGE_ID);
   });
 
-  it('Test 4: non-escalated guard — throws PRECONDITION_FAILED', async () => {
+  it('Test 4: resolved guard — throws PRECONDITION_FAILED', async () => {
     let selectCount = 0;
 
     const db = mockTenantDb(async (fn: Any) => {
@@ -321,7 +321,7 @@ describe('inbox smoke — conversation.replyAsOwner (NC-203)', () => {
               }),
             };
           }
-          // conversation with status: 'active' (not escalated)
+          // conversation with status: 'resolved' — cannot reply
           return {
             from: () => ({
               leftJoin: () => ({
@@ -329,7 +329,7 @@ describe('inbox smoke — conversation.replyAsOwner (NC-203)', () => {
                   limit: () => [
                     {
                       id: CONVERSATION_ID,
-                      status: 'active',
+                      status: 'resolved',
                       channel: 'web_chat',
                       customerExternalId: null,
                     },

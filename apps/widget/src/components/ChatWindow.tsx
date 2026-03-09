@@ -140,43 +140,51 @@ export function ChatWindow({
               {t('chat.empty', language)}
             </div>
           )}
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              style={{
-                marginBottom: '10px',
-                display: 'flex',
-                justifyContent: msg.role === 'customer' ? 'flex-end' : 'flex-start',
-              }}
-            >
-              <div>
-                <div
-                  className="camello-msg-enter"
-                  style={{
-                    maxWidth: '80%',
-                    padding: '8px 12px',
-                    borderRadius: '12px',
-                    fontSize: '14px',
-                    lineHeight: '1.4',
-                    backgroundColor:
-                      msg.role === 'customer'
-                        ? (isDark ? '#4f46e5' : '#4f46e5')
-                        : (isDark ? '#0f3460' : '#f3f4f6'),
-                    color: msg.role === 'customer' ? '#fff' : textColor,
-                  }}
-                >
-                  {msg.content}
+          {messages.map((msg) => {
+            const isCustomer = msg.role === 'customer';
+
+            // Human (operator) and artifact share the same bubble style —
+            // from the customer's perspective, both are "the business".
+            const bubbleBg = isCustomer
+              ? '#4f46e5'
+              : (isDark ? '#0f3460' : '#f3f4f6');
+            const bubbleColor = isCustomer ? '#fff' : textColor;
+
+            return (
+              <div
+                key={msg.id}
+                style={{
+                  marginBottom: '10px',
+                  display: 'flex',
+                  justifyContent: isCustomer ? 'flex-end' : 'flex-start',
+                }}
+              >
+                <div>
+                  <div
+                    className="camello-msg-enter"
+                    style={{
+                      maxWidth: '80%',
+                      padding: '8px 12px',
+                      borderRadius: '12px',
+                      fontSize: '14px',
+                      lineHeight: '1.4',
+                      backgroundColor: bubbleBg,
+                      color: bubbleColor,
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+                  {isCustomer && (
+                    <MessageStatusIcon
+                      status={msg.metadata.status}
+                      onRetry={() => retryMessage(msg.id)}
+                      language={language}
+                    />
+                  )}
                 </div>
-                {msg.role === 'customer' && (
-                  <MessageStatusIcon
-                    status={msg.metadata.status}
-                    onRetry={() => retryMessage(msg.id)}
-                    language={language}
-                  />
-                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
           {isSending && <TypingIndicator isDark={isDark} />}
           {error && (
             <div style={{ fontSize: '13px', color: '#e53e3e', marginTop: '4px', textAlign: 'center' }}>

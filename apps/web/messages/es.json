@@ -930,7 +930,7 @@
     "chatBackToList": "Volver",
     "chatToggleDetails": "Detalles",
     "detailsBackToChat": "Volver al chat",
-    "ownerReplyBanner": "Esta conversación fue escalada. Tu respuesta se enviará al cliente.",
+    "ownerReplyBanner": "Tu respuesta se enviará directamente al cliente.",
     "ownerReplyPlaceholder": "Responder al cliente...",
     "ownerReplySend": "Enviar",
     "ownerReplySending": "Enviando...",
@@ -944,7 +944,9 @@
     "convLoadError": "No se pudo cargar la conversación",
     "activityLoadError": "No se pudo cargar la actividad",
     "notesAddError": "No se pudo guardar la nota. Inténtalo de nuevo.",
-    "notesLoadError": "No se pudieron cargar las notas"
+    "notesLoadError": "No se pudieron cargar las notas",
+    "activityShowAll": "Ver todo ({count})",
+    "activityShowLess": "Ver menos"
   },
   "notifications": {
     "panelTitle": "Notificaciones del Agente",
