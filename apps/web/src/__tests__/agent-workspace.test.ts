@@ -494,3 +494,101 @@ describe('QuotesSection', () => {
     vi.restoreAllMocks();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Render Tests — MeetingsSection
+// ---------------------------------------------------------------------------
+
+describe('MeetingsSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  it('renders meeting cards with customerName, topic, and date', async () => {
+    setQueryMock('agent.salesMeetings', [
+      {
+        id: 'm1',
+        output: { booked: true, datetime: '2099-06-15T10:00:00.000Z' },
+        status: 'executed',
+        conversationId: 'conv-m1',
+        createdAt: new Date('2025-06-01'),
+        leadId: 'lead-1',
+        customerId: 'cust-1',
+        customerName: 'Acme Corp',
+        datetime: '2099-06-15T10:00:00.000Z',
+        topic: 'Product demo',
+        booked: true,
+      },
+    ]);
+
+    const { MeetingsSection } = await import('@/components/agent-workspace/sales/meetings-section');
+    render(createElement(MeetingsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('Product demo')).toBeInTheDocument();
+    // Confirmed badge
+    expect(screen.getByText('meetingStatusConfirmed')).toBeInTheDocument();
+  });
+
+  it('renders empty state for upcoming when salesMeetings returns []', async () => {
+    setQueryMock('agent.salesMeetings', []);
+
+    const { MeetingsSection } = await import('@/components/agent-workspace/sales/meetings-section');
+    render(createElement(MeetingsSection as any, { artifactId: 'test-artifact-id' }));
+
+    // next-intl mock returns the key as-is
+    expect(screen.getByText('meetingsUpcomingEmptyTitle')).toBeInTheDocument();
+    expect(screen.getByText('meetingsUpcomingEmptyDescription')).toBeInTheDocument();
+  });
+
+  it('row click deep-links to inbox; row without conversationId skips navigation', async () => {
+    const mockPush = vi.fn();
+    const nav = await import('next/navigation');
+    vi.spyOn(nav, 'useRouter').mockReturnValue({ push: mockPush } as any);
+
+    setQueryMock('agent.salesMeetings', [
+      {
+        id: 'm1',
+        output: { booked: true, datetime: '2099-06-15T10:00:00.000Z' },
+        status: 'executed',
+        conversationId: 'conv-m1',
+        createdAt: new Date('2025-06-01'),
+        leadId: null,
+        customerId: null,
+        customerName: 'Click Me',
+        datetime: '2099-06-15T10:00:00.000Z',
+        topic: 'Demo',
+        booked: true,
+      },
+      {
+        id: 'm2',
+        output: { booked: false },
+        status: 'executed',
+        conversationId: null,
+        createdAt: new Date('2025-05-01'),
+        leadId: null,
+        customerId: null,
+        customerName: 'No Nav',
+        datetime: null,
+        topic: 'Intro',
+        booked: false,
+      },
+    ]);
+
+    const { MeetingsSection } = await import('@/components/agent-workspace/sales/meetings-section');
+    render(createElement(MeetingsSection as any, { artifactId: 'test-artifact-id' }));
+
+    const buttons = screen.getAllByRole('button');
+    // Click first button (has conversationId)
+    fireEvent.click(buttons[0]!);
+    expect(mockPush).toHaveBeenCalledWith('/dashboard/conversations?selected=conv-m1');
+
+    // Click second button (no conversationId) — push should not be called again
+    mockPush.mockClear();
+    fireEvent.click(buttons[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+});

@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-223 | Meetings section | Mar 9 | Added `salesMeetings` tRPC procedure to `agent.ts` (JSONB extracts `datetime`, `topic`, `booked` from `module_executions`); created `meetings-section.tsx` with two `CardFeed` sections (upcoming/past split via `useMemo`); wired into dashboard tab; 8 i18n keys (en+es); 3 backend tests (`agent-meetings.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes. |
 | NC-222 | Quotes section | Mar 9 | Enriched `agent.salesQuotes` with LEFT JOIN customers + COALESCE(`displayName`, `name`) + JSONB extraction for `amount`/`quoteStatus`. Built `QuotesSection` (`DataTable`, 4 columns, `QuoteStatusBadge`, row-click inbox deep-link). 6 tests (3 backend + 3 frontend). 12 i18n keys (en+es). Type-check passes. |
 | NC-221 | Tab navigation on agent workspace | Mar 9 | Added `activeTab` state + pill-style tab bar (Setup/Dashboard) to `agents/[id]/page.tsx`. 6 config sections wrapped under Setup conditional. Dashboard tab renders placeholder. 3 i18n keys (en+es). Type-check passes. |
 | — | LLM memory extraction + dashboard spacing | Mar 9 | **LLM memory tags:** system prompt instructs LLM to emit `[MEMORY:key=value]` tags; `parseMemoryTags()` + `stripMemoryTags()` in `memory-extractor.ts`; message-handler parses tags, strips from response, persists to `customers.memory` JSONB + syncs `customers.name` (fire-and-forget). `memoryExtraction` added to `PromptTemplates` (types.ts, en.ts, es.ts). COALESCE order fixed (`name` > `displayName`). "mi nombre es" regex added. SCHEDULING RULE added to modulesRules. Business hours prompt strengthened. Dashboard spacing: responsive gaps (`space-y-6 md:space-y-8 lg:space-y-10`), layout padding `p-4 md:p-8 lg:p-10`, container `max-w-6xl`. 10 new memory-extractor tests. 5 integration test mocks updated. All type-checks pass. |
@@ -891,3 +892,4 @@
 - **NC-219** — 2026-03-08 — `472290b` — Session: 20260308-190114-camello
 - **NC-220** — 2026-03-08 — `de906d6` — Session: 20260308-190114-camello
 - **NC-222** — 2026-03-09 — `a572f32` — Session: 20260309-172346-camello
+- **NC-223** — 2026-03-09 — `53a8ae3` — Session: 20260309-172346-camello

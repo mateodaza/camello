@@ -322,6 +322,38 @@ export const agentRouter = router({
       });
     }),
 
+  salesMeetings: tenantProcedure
+    .input(paginatedInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        return db
+          .select({
+            id: moduleExecutions.id,
+            output: moduleExecutions.output,
+            status: moduleExecutions.status,
+            conversationId: moduleExecutions.conversationId,
+            createdAt: moduleExecutions.createdAt,
+            leadId: leads.id,
+            customerId: leads.customerId,
+            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            datetime: sql<string | null>`${moduleExecutions.output}->>'datetime'`,
+            topic: sql<string | null>`${moduleExecutions.input}->>'topic'`,
+            booked: sql<boolean | null>`(${moduleExecutions.output}->>'booked')::boolean`,
+          })
+          .from(moduleExecutions)
+          .leftJoin(leads, eq(leads.conversationId, moduleExecutions.conversationId))
+          .leftJoin(customers, eq(customers.id, leads.customerId))
+          .where(and(
+            eq(moduleExecutions.artifactId, input.artifactId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+            eq(moduleExecutions.moduleSlug, 'book_meeting'),
+          ))
+          .orderBy(desc(moduleExecutions.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+      });
+    }),
+
   salesFunnel: tenantProcedure
     .input(artifactIdInput)
     .query(async ({ ctx, input }) => {

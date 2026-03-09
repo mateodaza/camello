@@ -14,6 +14,7 @@ import { ModuleSettings } from '@/components/agent-workspace/module-settings';
 import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
 import { AgentSettingsPanel } from '@/components/agent-workspace/agent-settings-panel';
 import { QuotesSection } from '@/components/agent-workspace/sales/quotes-section';
+import { MeetingsSection } from '@/components/agent-workspace/sales/meetings-section';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -369,6 +370,7 @@ export default function AgentConfigPage() {
       {activeTab === 'dashboard' && (
         <div className="space-y-4">
           <QuotesSection artifactId={id} />
+          <MeetingsSection artifactId={id} />
         </div>
       )}
     </WorkspaceShell>

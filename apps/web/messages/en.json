@@ -519,7 +519,15 @@
     "quoteStatusAccepted": "Accepted",
     "quoteStatusRejected": "Rejected",
     "quoteStatusExpired": "Expired",
-    "quoteStatusPending": "Pending"
+    "quoteStatusPending": "Pending",
+    "meetingsUpcoming": "Upcoming",
+    "meetingsPast": "Past",
+    "meetingsUpcomingEmptyTitle": "No upcoming meetings",
+    "meetingsUpcomingEmptyDescription": "Meetings scheduled in the future will appear here.",
+    "meetingsPastEmptyTitle": "No past meetings",
+    "meetingsPastEmptyDescription": "Completed meetings will appear here.",
+    "meetingStatusConfirmed": "Confirmed",
+    "meetingStatusPending": "Pending"
   },
   "knowledge": {
     "pageTitle": "Knowledge",

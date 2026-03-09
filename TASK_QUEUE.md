@@ -348,10 +348,11 @@ Final task. Write smoke tests covering the end-to-end inbox loop and produce a s
 **Files:** `agent.ts`, `sales/quotes-section.tsx`, `agent-quotes.test.ts`, `agent-workspace.test.ts`, i18n (en+es), `agents/[id]/page.tsx`
 **Depends on:** NC-221
 
-#### NC-223 [ ] Meetings section
+#### NC-223 [x] Meetings section
 New `salesMeetings` tRPC query (module_executions filtered by `book_meeting` + LEFT JOIN customers). CardFeed UI with upcoming/past sort.
 **Files:** `agent.ts`, `sales/meetings-section.tsx`, i18n
 **Depends on:** NC-221
+**Done:** Added `salesMeetings` tRPC procedure to `agent.ts`; created `meetings-section.tsx` with two `CardFeed` sections (upcoming/past); wired into dashboard tab in `page.tsx`; 8 i18n keys added (en+es); 3 backend + 3 frontend tests.
 
 #### NC-224 [ ] Payments section
 Reuse existing `agent.salesPayments` tRPC query (already returns amount, currency, status, customerName, dueDate, paidAt with LEFT JOIN customers). Build `DataTable` UI with status badges mapped to real `paymentStatusSchema` enum (`pending | sent | viewed | paid | overdue | cancelled`). Badge colors: teal=paid, gold=pending/sent/viewed, sunset=overdue/cancelled. Row click → inbox deep link.
