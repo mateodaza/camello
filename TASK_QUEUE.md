@@ -377,10 +377,11 @@ Move existing `AgentPerformance` and `AgentActivity` components into Dashboard t
 **Depends on:** NC-221
 **DONE.** Added `AgentPerformance` + `AgentActivity` imports; removed `activityFeed` query, `recentEvents`, `eventLabel`, `Activity` import, and Recent Activity section (#5) from Setup tab; wired both components into Dashboard tab (performance first, activity last). Type-check passes.
 
-#### NC-228 [ ] Pending Approvals section with approve/reject actions
+#### NC-228 [x] Pending Approvals section with approve/reject actions
 Reuse existing `module.pendingExecutions` query (already supports `artifactId` filter), `module.approve` mutation (race-safe atomic transition + module re-execution), and `module.reject` mutation (includes `processRejection()` learning feedback loop). Do NOT create duplicate routes in `agent.ts`. Build UI: list with inline Approve/Reject buttons per pending item. Reject flow: reason picker (required, enum: `false_positive | wrong_target | bad_timing | incorrect_data | policy_violation`) + optional free-text field (max 500 chars) → calls `module.reject({ executionId, reason, freeText })`. This is the key UI for the progressive autonomy model (draft_and_approve → fully_autonomous graduation).
 **Files:** `sales/approvals-section.tsx`, i18n
 **Depends on:** NC-221
+**DONE.** Created `approvals-section.tsx` (Card list with Approve/Reject buttons + expandable reject form with 5-reason select + optional freeText); wired as first section in Dashboard tab in `agents/[id]/page.tsx`; 8 i18n keys (en+es); 4 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
 #### NC-229 [ ] Trust graduation card on Dashboard tab
 Show autonomy progress card at top of Dashboard: "N of M modules fully autonomous" with per-module status (suggest_only → draft_and_approve → fully_autonomous). For modules on `draft_and_approve`, show approval streak ("12 approved in a row — ready to graduate?") computed from recent `module_executions` (count consecutive `status='executed'` with no `rejected` in last 20). CTA links to Setup → Modules to change autonomy level. This makes the progressive trust model visible and encourages graduation.

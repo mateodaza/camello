@@ -796,3 +796,95 @@ describe('FollowupsSection', () => {
     vi.restoreAllMocks();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Render Tests — ApprovalsSection
+// ---------------------------------------------------------------------------
+
+describe('ApprovalsSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  const pendingItem = {
+    id: 'exec-1',
+    moduleId: 'mod-uuid',
+    moduleSlug: 'book_meeting',
+    artifactId: 'test-artifact-id',
+    tenantId: 'tenant-uuid',
+    conversationId: 'conv-abc',
+    input: { topic: 'Demo call' },
+    output: null,
+    status: 'pending',
+    approvedBy: null,
+    executedAt: null,
+    durationMs: null,
+    createdAt: new Date('2025-06-01'),
+  };
+
+  it('renders pending items with module name and approve/reject buttons', async () => {
+    setQueryMock('module.pendingExecutions', [pendingItem]);
+
+    const { ApprovalsSection } = await import(
+      '@/components/agent-workspace/sales/approvals-section'
+    );
+    render(createElement(ApprovalsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('moduleBookMeeting')).toBeInTheDocument();
+    expect(screen.getByText('approve')).toBeInTheDocument();
+    expect(screen.getByText('reject')).toBeInTheDocument();
+  });
+
+  it('renders empty state when no pending executions', async () => {
+    setQueryMock('module.pendingExecutions', []);
+
+    const { ApprovalsSection } = await import(
+      '@/components/agent-workspace/sales/approvals-section'
+    );
+    render(createElement(ApprovalsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('approvalsEmpty')).toBeInTheDocument();
+    expect(screen.getByText('approvalsEmptyDesc')).toBeInTheDocument();
+  });
+
+  it('Approve button calls module.approve mutation with executionId', async () => {
+    setQueryMock('module.pendingExecutions', [{ ...pendingItem, id: 'exec-1' }]);
+    setMutationMock('module.approve');
+
+    const { ApprovalsSection } = await import(
+      '@/components/agent-workspace/sales/approvals-section'
+    );
+    render(createElement(ApprovalsSection as any, { artifactId: 'test-artifact-id' }));
+
+    fireEvent.click(screen.getByText('approve'));
+
+    expect(mutationMocks.get('module.approve')?.mutate).toHaveBeenCalledWith(
+      { executionId: 'exec-1' },
+    );
+  });
+
+  it('Reject flow: selecting reason + confirm calls module.reject', async () => {
+    setQueryMock('module.pendingExecutions', [{ ...pendingItem, id: 'exec-1' }]);
+    setMutationMock('module.reject');
+
+    const { ApprovalsSection } = await import(
+      '@/components/agent-workspace/sales/approvals-section'
+    );
+    render(createElement(ApprovalsSection as any, { artifactId: 'test-artifact-id' }));
+
+    // Click reject to expand the form
+    fireEvent.click(screen.getByText('reject'));
+
+    // Select a reason
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'bad_timing' } });
+
+    // Confirm
+    fireEvent.click(screen.getByText('rejectConfirm'));
+
+    expect(mutationMocks.get('module.reject')?.mutate).toHaveBeenCalledWith(
+      { executionId: 'exec-1', reason: 'bad_timing', freeText: undefined },
+    );
+  });
+});

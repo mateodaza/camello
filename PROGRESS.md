@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-228 | Pending Approvals section with approve/reject actions | Mar 9 | Created `approvals-section.tsx` (Card list, Approve/Reject inline buttons, expandable reject form with 5-enum reason select + optional freeText textarea); wired as first section in Dashboard tab; 8 i18n keys (en+es); 4 frontend tests in `agent-workspace.test.ts`. Type-check passes. |
 | NC-227 | Wire Performance + Activity into Dashboard tab | Mar 9 | Removed `activityFeed` query + `recentEvents` + `eventLabel` + `Activity` import + Recent Activity section from Setup tab; added `AgentPerformance` (top) + `AgentActivity` (bottom) to Dashboard tab in `agents/[id]/page.tsx`. Type-check passes. |
 | NC-225 | Follow-ups section | Mar 9 | Added `salesFollowups` tenantProcedure to `agent.ts` (JSONB extracts `followup_status`, `scheduled_at`, `channel`, `message_template`; LEFT JOIN leads+customers); created `followups-section.tsx` (`FollowupStatusBadge` + `CardFeed`); wired into dashboard tab; 8 i18n keys (en+es); 3 backend + 3 frontend tests. Type-check passes. |
 | NC-224 | Payments section | Mar 9 | Added `conversationId` to `salesPayments` select in `agent.ts`; created `payments-section.tsx` with `PaymentStatusBadge` (6-value enum, teal/gold/sunset colors) and `DataTable` (4 cols: customer, amount, status, due date); wired into dashboard tab after MeetingsSection; 6 i18n keys (en+es); 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes. |
@@ -899,3 +900,4 @@
 - **NC-224** — 2026-03-09 — `6da3a06` — Session: 20260309-172346-camello
 - **NC-225** — 2026-03-09 — `682875d` — Session: 20260309-172346-camello
 - **NC-227** — 2026-03-09 — `53df1f4` — Session: 20260309-172346-camello
+- **NC-228** — 2026-03-09 — `d3cbe01` — Session: 20260309-172346-camello

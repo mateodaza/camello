@@ -540,7 +540,15 @@
     "followupStatusQueued": "En cola",
     "followupStatusSent": "Enviado",
     "followupStatusProcessed": "Procesado",
-    "followupStatusFailed": "Fallido"
+    "followupStatusFailed": "Fallido",
+    "approvalsTitle": "Aprobaciones Pendientes",
+    "approvalsEmpty": "Sin aprobaciones pendientes",
+    "approvalsEmptyDesc": "Todas las acciones han sido revisadas. El agente ejecuta de forma autónoma.",
+    "approvalRequested": "Solicitado",
+    "rejectReasonFalsePositive": "Falso positivo",
+    "rejectReasonWrongTarget": "Objetivo incorrecto",
+    "rejectReasonIncorrectData": "Datos incorrectos",
+    "rejectReasonPolicyViolation": "Violación de política"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",

@@ -540,7 +540,15 @@
     "followupStatusQueued": "Queued",
     "followupStatusSent": "Sent",
     "followupStatusProcessed": "Processed",
-    "followupStatusFailed": "Failed"
+    "followupStatusFailed": "Failed",
+    "approvalsTitle": "Pending Approvals",
+    "approvalsEmpty": "No pending approvals",
+    "approvalsEmptyDesc": "All actions have been reviewed. The agent is executing autonomously.",
+    "approvalRequested": "Requested",
+    "rejectReasonFalsePositive": "False positive",
+    "rejectReasonWrongTarget": "Wrong target",
+    "rejectReasonIncorrectData": "Incorrect data",
+    "rejectReasonPolicyViolation": "Policy violation"
   },
   "knowledge": {
     "pageTitle": "Knowledge",
