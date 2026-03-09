@@ -343,50 +343,58 @@ Final task. Write smoke tests covering the end-to-end inbox loop and produce a s
 **Files:** `agents/[id]/page.tsx`, i18n (en+es)
 **Depends on:** —
 
-#### NC-222 [ ] Quotes section
-Reuse existing `agent.salesQuotes` tRPC query. **Backend gap:** current query returns raw `output` JSONB but no customer label or normalized amount/status fields. First enrich `salesQuotes` to LEFT JOIN customers for `customerName` and extract `output->>'total'` as `amount`, `output->>'status'` as `quoteStatus`. Then build `DataTable` UI with columns: Customer | Amount | Status | Date. Row click → deep link to conversation in inbox.
-**Files:** `agent.ts` (enrich query), `sales/quotes-section.tsx`, i18n
+#### NC-222 [x] Quotes section
+**DONE.** Enriched `agent.salesQuotes` with LEFT JOIN customers + COALESCE(`displayName`, `name`) + JSONB extraction for `amount` and `quoteStatus`. Built `QuotesSection` using `DataTable` (Customer | Amount | Status | Date), row-click deep-links to inbox. 6 tests (3 backend + 3 frontend). i18n keys added (en+es). Type-check passes.
+**Files:** `agent.ts`, `sales/quotes-section.tsx`, `agent-quotes.test.ts`, `agent-workspace.test.ts`, i18n (en+es), `agents/[id]/page.tsx`
 **Depends on:** NC-221
 
-#### NC-223 [ ] Meetings section
+#### NC-223 [x] Meetings section
 New `salesMeetings` tRPC query (module_executions filtered by `book_meeting` + LEFT JOIN customers). CardFeed UI with upcoming/past sort.
 **Files:** `agent.ts`, `sales/meetings-section.tsx`, i18n
 **Depends on:** NC-221
+**Done:** Added `salesMeetings` tRPC procedure to `agent.ts`; created `meetings-section.tsx` with two `CardFeed` sections (upcoming/past); wired into dashboard tab in `page.tsx`; 8 i18n keys added (en+es); 3 backend + 3 frontend tests.
 
-#### NC-224 [ ] Payments section
+#### NC-224 [x] Payments section
 Reuse existing `agent.salesPayments` tRPC query (already returns amount, currency, status, customerName, dueDate, paidAt with LEFT JOIN customers). Build `DataTable` UI with status badges mapped to real `paymentStatusSchema` enum (`pending | sent | viewed | paid | overdue | cancelled`). Badge colors: teal=paid, gold=pending/sent/viewed, sunset=overdue/cancelled. Row click → inbox deep link.
 **Files:** `sales/payments-section.tsx`, i18n
 **Depends on:** NC-221
+**Done:** Added `conversationId` to `salesPayments` select in `agent.ts`; created `payments-section.tsx` with `PaymentStatusBadge` (6-value enum colors) and `DataTable` (4 cols: customer, amount, status, due); wired into dashboard tab; 6 i18n keys added (en+es); 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
-#### NC-225 [ ] Follow-ups section
+#### NC-225 [x] Follow-ups section
 New `salesFollowups` tRPC query (module_executions filtered by `send_followup` + LEFT JOIN customers). Simple card list.
 **Files:** `agent.ts`, `sales/followups-section.tsx`, i18n
 **Depends on:** NC-221
+**Done:** Added `salesFollowups` tenantProcedure to `agent.ts` (JSONB extracts `followup_status`, `scheduled_at`, `channel`, `message_template`; LEFT JOIN leads + customers); created `followups-section.tsx` with `FollowupStatusBadge` (queued/sent/processed/failed) and `CardFeed`; wired into dashboard tab after PaymentsSection; 8 i18n keys (en+es); 3 backend tests (`agent-followups.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
-#### NC-226 [ ] i18n audit for all Dashboard sections (en + es)
+#### NC-226 [x] i18n audit for all Dashboard sections (en + es)
 Final pass ensuring all NC-221→NC-229 strings are in both locale files. Tab labels, column headers, empty states, status labels.
 **Files:** `en.json`, `es.json`
 **Depends on:** NC-222, NC-223, NC-224, NC-225, NC-228, NC-229
+**DONE.** Both `en.json` and `es.json` verified in sync for all NC-221→NC-229 keys under `agentWorkspace`. No new keys needed.
 
-#### NC-227 [ ] Wire Performance + Activity into Dashboard tab
+#### NC-227 [x] Wire Performance + Activity into Dashboard tab
 Move existing `AgentPerformance` and `AgentActivity` components into Dashboard tab. Remove redundant "Recent Activity" from Setup tab.
 **Files:** `agents/[id]/page.tsx`
 **Depends on:** NC-221
+**DONE.** Added `AgentPerformance` + `AgentActivity` imports; removed `activityFeed` query, `recentEvents`, `eventLabel`, `Activity` import, and Recent Activity section (#5) from Setup tab; wired both components into Dashboard tab (performance first, activity last). Type-check passes.
 
-#### NC-228 [ ] Pending Approvals section with approve/reject actions
+#### NC-228 [x] Pending Approvals section with approve/reject actions
 Reuse existing `module.pendingExecutions` query (already supports `artifactId` filter), `module.approve` mutation (race-safe atomic transition + module re-execution), and `module.reject` mutation (includes `processRejection()` learning feedback loop). Do NOT create duplicate routes in `agent.ts`. Build UI: list with inline Approve/Reject buttons per pending item. Reject flow: reason picker (required, enum: `false_positive | wrong_target | bad_timing | incorrect_data | policy_violation`) + optional free-text field (max 500 chars) → calls `module.reject({ executionId, reason, freeText })`. This is the key UI for the progressive autonomy model (draft_and_approve → fully_autonomous graduation).
 **Files:** `sales/approvals-section.tsx`, i18n
 **Depends on:** NC-221
+**DONE.** Created `approvals-section.tsx` (Card list with Approve/Reject buttons + expandable reject form with 5-reason select + optional freeText); wired as first section in Dashboard tab in `agents/[id]/page.tsx`; 8 i18n keys (en+es); 4 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
-#### NC-229 [ ] Trust graduation card on Dashboard tab
+#### NC-229 [x] Trust graduation card on Dashboard tab
 Show autonomy progress card at top of Dashboard: "N of M modules fully autonomous" with per-module status (suggest_only → draft_and_approve → fully_autonomous). For modules on `draft_and_approve`, show approval streak ("12 approved in a row — ready to graduate?") computed from recent `module_executions` (count consecutive `status='executed'` with no `rejected` in last 20). CTA links to Setup → Modules to change autonomy level. This makes the progressive trust model visible and encourages graduation.
 **Files:** `sales/trust-graduation-card.tsx`, i18n (en+es)
 **Depends on:** NC-221
+**DONE.** Added `moduleStreaks` tenantProcedure to `agent.ts` (queries `artifact_modules` for `draft_and_approve` modules, fetches last 20 executions per slug, computes consecutive streak in JS); created `trust-graduation-card.tsx` (progress bar, per-module badges, streak pills, "ready to graduate?" badge at streak≥10, CTA); wired as first card in Dashboard tab in `page.tsx`; 6 i18n keys (en+es); 3 backend tests (`agent-streaks.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
-#### NC-230 [ ] Visual polish pass on agent workspace
+#### NC-230 [x] Visual polish pass on agent workspace
 Improve visual hierarchy and feel of the workspace page. Both tabs. Specifics: section header icons (consistent with sidebar icon set), spacing hierarchy (hero sections vs secondary), loading skeletons for all Dashboard sections, subtle bg tint differentiation (Dashboard sections get a slightly different card feel than Setup forms), status color consistency audit across all badge/dot/pill components. Follow existing design system (CSS vars, Jost/DM Sans, 8px grid). No new dependencies.
 **Files:** `agents/[id]/page.tsx`, section components, i18n if needed
 **Depends on:** NC-226 (after all sections exist)
+**DONE.** Added icon+cardClassName props to DataTable+CardFeed primitives; added lucide-react icons (FileText, Calendar, CreditCard, Send, CheckCircle2, Award, Activity, BarChart3, User, SlidersHorizontal) to all Dashboard sections; bg-sand/20 tint on all Dashboard cards; performance-panel wrapped in Card+CardHeader; Identity/Personality section header icons; space-y-6 + border-t divider in Dashboard tab; autonomy badge colors normalized to /15 opacity tint pattern. Type-check passes.
 
 ## Manual / Blocked — Not for NC
 

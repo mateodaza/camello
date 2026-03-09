@@ -5,9 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface CardFeedProps<T> {
   title?: string;
+  icon?: ReactNode;
+  cardClassName?: string;
   items: T[] | undefined;
   renderCard: (item: T, index: number) => ReactNode;
   isLoading: boolean;
@@ -23,6 +26,8 @@ interface CardFeedProps<T> {
 
 export function CardFeed<T>({
   title,
+  icon,
+  cardClassName,
   items,
   renderCard,
   isLoading,
@@ -37,8 +42,8 @@ export function CardFeed<T>({
 }: CardFeedProps<T>) {
   if (isLoading) {
     return (
-      <Card>
-        {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+      <Card className={cn(cardClassName)}>
+        {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
         <CardContent className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-lg" />
@@ -50,8 +55,8 @@ export function CardFeed<T>({
 
   if (isError && error) {
     return (
-      <Card>
-        {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+      <Card className={cn(cardClassName)}>
+        {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
         <CardContent>
           <QueryError error={error} onRetry={onRetry} />
         </CardContent>
@@ -62,8 +67,8 @@ export function CardFeed<T>({
   const list = items ?? [];
 
   return (
-    <Card>
-      {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+    <Card className={cn(cardClassName)}>
+      {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
       <CardContent>
         {list.length === 0 ? (
           <div className="py-8 text-center">

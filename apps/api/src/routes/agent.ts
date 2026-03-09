@@ -294,6 +294,7 @@ export const agentRouter = router({
         // LEFT JOIN leads to enrich each quote with leadId + customerId.
         // Safe because idx_leads_conversation_unique ensures at most one lead
         // per non-null conversation_id (migration 0015).
+        // LEFT JOIN customers to surface the customer name in the UI.
         return db
           .select({
             id: moduleExecutions.id,
@@ -303,13 +304,82 @@ export const agentRouter = router({
             createdAt: moduleExecutions.createdAt,
             leadId: leads.id,
             customerId: leads.customerId,
+            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            amount: sql<string | null>`${moduleExecutions.output}->>'total'`,
+            quoteStatus: sql<string | null>`${moduleExecutions.output}->>'status'`,
           })
           .from(moduleExecutions)
           .leftJoin(leads, eq(leads.conversationId, moduleExecutions.conversationId))
+          .leftJoin(customers, eq(customers.id, leads.customerId))
           .where(and(
             eq(moduleExecutions.artifactId, input.artifactId),
             eq(moduleExecutions.tenantId, ctx.tenantId),
             eq(moduleExecutions.moduleSlug, 'send_quote'),
+          ))
+          .orderBy(desc(moduleExecutions.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+      });
+    }),
+
+  salesMeetings: tenantProcedure
+    .input(paginatedInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        return db
+          .select({
+            id: moduleExecutions.id,
+            output: moduleExecutions.output,
+            status: moduleExecutions.status,
+            conversationId: moduleExecutions.conversationId,
+            createdAt: moduleExecutions.createdAt,
+            leadId: leads.id,
+            customerId: leads.customerId,
+            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            datetime: sql<string | null>`${moduleExecutions.output}->>'datetime'`,
+            topic: sql<string | null>`${moduleExecutions.input}->>'topic'`,
+            booked: sql<boolean | null>`(${moduleExecutions.output}->>'booked')::boolean`,
+          })
+          .from(moduleExecutions)
+          .leftJoin(leads, eq(leads.conversationId, moduleExecutions.conversationId))
+          .leftJoin(customers, eq(customers.id, leads.customerId))
+          .where(and(
+            eq(moduleExecutions.artifactId, input.artifactId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+            eq(moduleExecutions.moduleSlug, 'book_meeting'),
+          ))
+          .orderBy(desc(moduleExecutions.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+      });
+    }),
+
+  salesFollowups: tenantProcedure
+    .input(paginatedInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        return db
+          .select({
+            id: moduleExecutions.id,
+            output: moduleExecutions.output,
+            status: moduleExecutions.status,
+            conversationId: moduleExecutions.conversationId,
+            createdAt: moduleExecutions.createdAt,
+            leadId: leads.id,
+            customerId: leads.customerId,
+            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            followupStatus: sql<string | null>`${moduleExecutions.output}->>'followup_status'`,
+            scheduledAt: sql<string | null>`${moduleExecutions.output}->>'scheduled_at'`,
+            channel: sql<string | null>`${moduleExecutions.output}->>'channel'`,
+            messageTemplate: sql<string | null>`${moduleExecutions.input}->>'message_template'`,
+          })
+          .from(moduleExecutions)
+          .leftJoin(leads, eq(leads.conversationId, moduleExecutions.conversationId))
+          .leftJoin(customers, eq(customers.id, leads.customerId))
+          .where(and(
+            eq(moduleExecutions.artifactId, input.artifactId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+            eq(moduleExecutions.moduleSlug, 'send_followup'),
           ))
           .orderBy(desc(moduleExecutions.createdAt))
           .limit(input.limit)
@@ -916,6 +986,7 @@ export const agentRouter = router({
             paidAt: payments.paidAt,
             createdAt: payments.createdAt,
             customerName: customers.name,
+            conversationId: payments.conversationId,
           })
           .from(payments)
           .leftJoin(customers, eq(payments.customerId, customers.id))
@@ -2376,6 +2447,53 @@ export const agentRouter = router({
           lastSeenAt: new Date(r.last_seen_at as string),
           lastTopic: (r.last_topic as string | null) ?? null,
         }));
+      });
+    }),
+
+  // =========================================================================
+  // moduleStreaks — approval streak per draft_and_approve module (NC-229)
+  // =========================================================================
+
+  moduleStreaks: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const draftModules = await db
+          .select({ slug: modules.slug })
+          .from(artifactModules)
+          .innerJoin(modules, eq(artifactModules.moduleId, modules.id))
+          .where(and(
+            eq(artifactModules.artifactId, input.artifactId),
+            eq(artifactModules.tenantId, ctx.tenantId),
+            eq(artifactModules.autonomyLevel, 'draft_and_approve'),
+          ));
+
+        if (draftModules.length === 0) return [];
+
+        const results = await Promise.all(
+          draftModules.map(async ({ slug }) => {
+            const execs = await db
+              .select({ status: moduleExecutions.status })
+              .from(moduleExecutions)
+              .where(and(
+                eq(moduleExecutions.artifactId, input.artifactId),
+                eq(moduleExecutions.tenantId, ctx.tenantId),
+                eq(moduleExecutions.moduleSlug, slug),
+                inArray(moduleExecutions.status, ['executed', 'rejected']),
+              ))
+              .orderBy(desc(moduleExecutions.createdAt))
+              .limit(20);
+
+            let streak = 0;
+            for (const e of execs) {
+              if (e.status === 'executed') streak++;
+              else break;
+            }
+            return { moduleSlug: slug, streak };
+          }),
+        );
+
+        return results;
       });
     }),
 

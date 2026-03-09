@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { MessageSquare, BookOpen, Activity, Settings, LayoutDashboard } from 'lucide-react';
+import { MessageSquare, BookOpen, Settings, LayoutDashboard, User, SlidersHorizontal } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/hooks/use-toast';
 import { QueryError } from '@/components/query-error';
@@ -13,6 +13,14 @@ import { WorkspaceShell } from '@/components/agent-workspace/workspace-shell';
 import { ModuleSettings } from '@/components/agent-workspace/module-settings';
 import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
 import { AgentSettingsPanel } from '@/components/agent-workspace/agent-settings-panel';
+import { QuotesSection } from '@/components/agent-workspace/sales/quotes-section';
+import { MeetingsSection } from '@/components/agent-workspace/sales/meetings-section';
+import { PaymentsSection } from '@/components/agent-workspace/sales/payments-section';
+import { FollowupsSection } from '@/components/agent-workspace/sales/followups-section';
+import { AgentPerformance } from '@/components/agent-workspace/performance-panel';
+import { AgentActivity } from '@/components/agent-workspace/agent-activity';
+import { ApprovalsSection } from '@/components/agent-workspace/sales/approvals-section';
+import { TrustGraduationCard } from '@/components/agent-workspace/sales/trust-graduation-card';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -43,7 +51,6 @@ export default function AgentConfigPage() {
     { retry: 2 },
   );
   const knowledgeList = trpc.knowledge.list.useQuery({});
-  const activityFeed = trpc.agent.dashboardActivityFeed.useQuery({ artifactId: id });
 
   const [activeTab, setActiveTab] = useState<'setup' | 'dashboard'>('setup');
 
@@ -123,17 +130,8 @@ export default function AgentConfigPage() {
   }
 
   const { artifact, boundModules } = workspace.data!;
-  const recentEvents = (activityFeed.data?.events ?? []).slice(0, 5);
   const knowledgeCount = knowledgeList.data?.length ?? 0;
   const isCustom = artifact.type === 'custom';
-
-  function eventLabel(eventType: string): string {
-    if (eventType === 'new_lead') return t('configEventNewLead');
-    if (eventType === 'conversation_resolved') return t('configEventConvResolved');
-    if (eventType === 'approval_needed') return t('configEventApprovalNeeded');
-    if (eventType === 'deal_closed') return t('configEventDealClosed');
-    return eventType;
-  }
 
   const sectionClass = 'rounded-xl border border-charcoal/8 bg-cream p-5';
   const labelClass = 'mb-1 block text-xs font-medium text-charcoal';
@@ -187,9 +185,12 @@ export default function AgentConfigPage() {
         <>
       {/* 1. Agent Identity */}
       <div className={sectionClass}>
-        <h2 className="mb-4 font-heading text-base font-semibold text-charcoal">
-          {t('configIdentityTitle')}
-        </h2>
+        <div className="mb-4 flex items-center gap-2">
+          <User className="h-4 w-4 text-teal" />
+          <h2 className="font-heading text-base font-semibold text-charcoal">
+            {t('configIdentityTitle')}
+          </h2>
+        </div>
         <div className="space-y-3">
           <div>
             <label className={labelClass}>{ta('agentName')}</label>
@@ -231,9 +232,12 @@ export default function AgentConfigPage() {
 
       {/* 2. Personality */}
       <div className={sectionClass}>
-        <h2 className="mb-4 font-heading text-base font-semibold text-charcoal">
-          {t('configPersonalityTitle')}
-        </h2>
+        <div className="mb-4 flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-teal" />
+          <h2 className="font-heading text-base font-semibold text-charcoal">
+            {t('configPersonalityTitle')}
+          </h2>
+        </div>
         <div className="space-y-3">
           <div>
             <label className={labelClass}>{ta('instructions')}</label>
@@ -333,31 +337,7 @@ export default function AgentConfigPage() {
         </p>
       </div>
 
-      {/* 5. Recent Activity */}
-      <div className={sectionClass}>
-        <div className="mb-4 flex items-center gap-2">
-          <Activity className="h-4 w-4 text-teal" />
-          <h2 className="font-heading text-base font-semibold text-charcoal">
-            {t('configActivityTitle')}
-          </h2>
-        </div>
-        {recentEvents.length === 0 ? (
-          <p className="text-sm text-dune">{t('configActivityEmpty')}</p>
-        ) : (
-          <ul className="space-y-2">
-            {recentEvents.map((event) => (
-              <li key={event.id} className="flex items-center justify-between text-sm">
-                <span className="text-charcoal">{eventLabel(event.eventType)}</span>
-                <span className="text-xs text-dune">
-                  {new Date(event.createdAt).toLocaleDateString()}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* 6. Settings */}
+      {/* 5. Settings */}
       <WorkspaceSectionErrorBoundary key="settings-panel">
         <AgentSettingsPanel artifactId={id} />
       </WorkspaceSectionErrorBoundary>
@@ -366,10 +346,25 @@ export default function AgentConfigPage() {
 
       {/* === Dashboard Tab === */}
       {activeTab === 'dashboard' && (
-        <div className="space-y-4">
-          <div className={sectionClass}>
-            <p className="text-sm text-dune">{t('dashboardPlaceholder')}</p>
-          </div>
+        <div className="space-y-6">
+          <TrustGraduationCard
+            artifactId={id}
+            boundModules={boundModules.map((m) => ({
+              moduleId: m.moduleId,
+              slug: m.slug,
+              name: m.name,
+              autonomyLevel: m.autonomyLevel,
+            }))}
+            onGoToModules={() => setActiveTab('setup')}
+          />
+          <ApprovalsSection artifactId={id} />
+          <div className="border-t border-charcoal/8" />
+          <AgentPerformance artifactId={id} />
+          <QuotesSection artifactId={id} />
+          <MeetingsSection artifactId={id} />
+          <PaymentsSection artifactId={id} />
+          <FollowupsSection artifactId={id} />
+          <AgentActivity artifactId={id} />
         </div>
       )}
     </WorkspaceShell>

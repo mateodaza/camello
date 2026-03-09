@@ -387,3 +387,573 @@ describe('MetricsGrid', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Render Tests — QuotesSection
+// ---------------------------------------------------------------------------
+
+describe('QuotesSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  it('renders enriched data columns from salesQuotes', async () => {
+    setQueryMock('agent.salesQuotes', [
+      {
+        id: 'q1',
+        output: { total: '1500.00', status: 'sent' },
+        status: 'executed',
+        conversationId: 'conv-abc',
+        createdAt: new Date('2025-01-01'),
+        leadId: 'lead-1',
+        customerId: 'cust-1',
+        customerName: 'Acme Corp',
+        amount: '1500.00',
+        quoteStatus: 'sent',
+      },
+      {
+        id: 'q2',
+        output: {},
+        status: 'executed',
+        conversationId: 'conv-def',
+        createdAt: new Date('2025-01-02'),
+        leadId: null,
+        customerId: null,
+        customerName: null,
+        amount: null,
+        quoteStatus: null,
+      },
+    ]);
+
+    const { QuotesSection } = await import('@/components/agent-workspace/sales/quotes-section');
+    render(createElement(QuotesSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('$1500.00')).toBeInTheDocument();
+    // null customerName renders as dash
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders empty state when salesQuotes returns []', async () => {
+    setQueryMock('agent.salesQuotes', []);
+
+    const { QuotesSection } = await import('@/components/agent-workspace/sales/quotes-section');
+    render(createElement(QuotesSection as any, { artifactId: 'test-artifact-id' }));
+
+    // next-intl mock returns the key as-is
+    expect(screen.getByText('quotesEmptyTitle')).toBeInTheDocument();
+    expect(screen.getByText('quotesEmptyDescription')).toBeInTheDocument();
+  });
+
+  it('row click deep-links to inbox; no-conversationId row skips navigation', async () => {
+    const mockPush = vi.fn();
+    const nav = await import('next/navigation');
+    vi.spyOn(nav, 'useRouter').mockReturnValue({ push: mockPush } as any);
+
+    setQueryMock('agent.salesQuotes', [
+      {
+        id: 'q1',
+        output: {},
+        status: 'executed',
+        conversationId: 'conv-abc',
+        createdAt: new Date('2025-01-01'),
+        leadId: null,
+        customerId: null,
+        customerName: 'Click Me',
+        amount: null,
+        quoteStatus: null,
+      },
+      {
+        id: 'q2',
+        output: {},
+        status: 'executed',
+        conversationId: null,
+        createdAt: new Date('2025-01-02'),
+        leadId: null,
+        customerId: null,
+        customerName: 'No Nav',
+        amount: null,
+        quoteStatus: null,
+      },
+    ]);
+
+    const { QuotesSection } = await import('@/components/agent-workspace/sales/quotes-section');
+    render(createElement(QuotesSection as any, { artifactId: 'test-artifact-id' }));
+
+    const rows = screen.getAllByRole('row').filter((r) => !r.querySelector('th'));
+    // Click first row (has conversationId)
+    fireEvent.click(rows[0]!);
+    expect(mockPush).toHaveBeenCalledWith('/dashboard/conversations?selected=conv-abc');
+
+    // Click second row (no conversationId) — push should not be called again
+    mockPush.mockClear();
+    fireEvent.click(rows[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Render Tests — MeetingsSection
+// ---------------------------------------------------------------------------
+
+describe('MeetingsSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  it('renders meeting cards with customerName, topic, and date', async () => {
+    setQueryMock('agent.salesMeetings', [
+      {
+        id: 'm1',
+        output: { booked: true, datetime: '2099-06-15T10:00:00.000Z' },
+        status: 'executed',
+        conversationId: 'conv-m1',
+        createdAt: new Date('2025-06-01'),
+        leadId: 'lead-1',
+        customerId: 'cust-1',
+        customerName: 'Acme Corp',
+        datetime: '2099-06-15T10:00:00.000Z',
+        topic: 'Product demo',
+        booked: true,
+      },
+    ]);
+
+    const { MeetingsSection } = await import('@/components/agent-workspace/sales/meetings-section');
+    render(createElement(MeetingsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('Product demo')).toBeInTheDocument();
+    // Confirmed badge
+    expect(screen.getByText('meetingStatusConfirmed')).toBeInTheDocument();
+  });
+
+  it('renders empty state for upcoming when salesMeetings returns []', async () => {
+    setQueryMock('agent.salesMeetings', []);
+
+    const { MeetingsSection } = await import('@/components/agent-workspace/sales/meetings-section');
+    render(createElement(MeetingsSection as any, { artifactId: 'test-artifact-id' }));
+
+    // next-intl mock returns the key as-is
+    expect(screen.getByText('meetingsUpcomingEmptyTitle')).toBeInTheDocument();
+    expect(screen.getByText('meetingsUpcomingEmptyDescription')).toBeInTheDocument();
+  });
+
+  it('row click deep-links to inbox; row without conversationId skips navigation', async () => {
+    const mockPush = vi.fn();
+    const nav = await import('next/navigation');
+    vi.spyOn(nav, 'useRouter').mockReturnValue({ push: mockPush } as any);
+
+    setQueryMock('agent.salesMeetings', [
+      {
+        id: 'm1',
+        output: { booked: true, datetime: '2099-06-15T10:00:00.000Z' },
+        status: 'executed',
+        conversationId: 'conv-m1',
+        createdAt: new Date('2025-06-01'),
+        leadId: null,
+        customerId: null,
+        customerName: 'Click Me',
+        datetime: '2099-06-15T10:00:00.000Z',
+        topic: 'Demo',
+        booked: true,
+      },
+      {
+        id: 'm2',
+        output: { booked: false },
+        status: 'executed',
+        conversationId: null,
+        createdAt: new Date('2025-05-01'),
+        leadId: null,
+        customerId: null,
+        customerName: 'No Nav',
+        datetime: null,
+        topic: 'Intro',
+        booked: false,
+      },
+    ]);
+
+    const { MeetingsSection } = await import('@/components/agent-workspace/sales/meetings-section');
+    render(createElement(MeetingsSection as any, { artifactId: 'test-artifact-id' }));
+
+    const buttons = screen.getAllByRole('button');
+    // Click first button (has conversationId)
+    fireEvent.click(buttons[0]!);
+    expect(mockPush).toHaveBeenCalledWith('/dashboard/conversations?selected=conv-m1');
+
+    // Click second button (no conversationId) — push should not be called again
+    mockPush.mockClear();
+    fireEvent.click(buttons[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Render Tests — PaymentsSection
+// ---------------------------------------------------------------------------
+
+describe('PaymentsSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  it('renders data rows from salesPayments', async () => {
+    setQueryMock('agent.salesPayments', [
+      {
+        id: 'p1',
+        amount: '500.00',
+        currency: 'USD',
+        status: 'paid',
+        customerName: 'Acme Corp',
+        dueDate: new Date('2025-06-01'),
+        paidAt: new Date('2025-05-30'),
+        conversationId: 'conv-p1',
+        description: 'Invoice #1',
+        leadId: 'lead-1',
+        quoteExecutionId: null,
+        createdAt: new Date('2025-05-01'),
+      },
+    ]);
+
+    const { PaymentsSection } = await import(
+      '@/components/agent-workspace/sales/payments-section'
+    );
+    render(createElement(PaymentsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('USD 500.00')).toBeInTheDocument();
+    // status badge uses translation key as-is in test env
+    expect(screen.getByText('paymentStatusPaid')).toBeInTheDocument();
+  });
+
+  it('renders empty state when salesPayments returns []', async () => {
+    setQueryMock('agent.salesPayments', []);
+
+    const { PaymentsSection } = await import(
+      '@/components/agent-workspace/sales/payments-section'
+    );
+    render(createElement(PaymentsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('paymentsEmptyTitle')).toBeInTheDocument();
+    expect(screen.getByText('paymentsEmptyDescription')).toBeInTheDocument();
+  });
+
+  it('row click deep-links to inbox; null conversationId skips push', async () => {
+    const mockPush = vi.fn();
+    const nav = await import('next/navigation');
+    vi.spyOn(nav, 'useRouter').mockReturnValue({ push: mockPush } as any);
+
+    setQueryMock('agent.salesPayments', [
+      {
+        id: 'p1',
+        amount: '100.00',
+        currency: 'USD',
+        status: 'pending',
+        customerName: 'Click Me',
+        dueDate: null,
+        paidAt: null,
+        conversationId: 'conv-p1',
+        description: 'Invoice #2',
+        leadId: null,
+        quoteExecutionId: null,
+        createdAt: new Date('2025-05-01'),
+      },
+      {
+        id: 'p2',
+        amount: '200.00',
+        currency: 'USD',
+        status: 'pending',
+        customerName: 'No Nav',
+        dueDate: null,
+        paidAt: null,
+        conversationId: null,
+        description: 'Invoice #3',
+        leadId: null,
+        quoteExecutionId: null,
+        createdAt: new Date('2025-05-02'),
+      },
+    ]);
+
+    const { PaymentsSection } = await import(
+      '@/components/agent-workspace/sales/payments-section'
+    );
+    render(createElement(PaymentsSection as any, { artifactId: 'test-artifact-id' }));
+
+    const rows = screen.getAllByRole('row').filter((r) => !r.querySelector('th'));
+    // Click first row (has conversationId)
+    fireEvent.click(rows[0]!);
+    expect(mockPush).toHaveBeenCalledWith('/dashboard/conversations?selected=conv-p1');
+
+    // Click second row (no conversationId) — push should not be called again
+    mockPush.mockClear();
+    fireEvent.click(rows[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Render Tests — FollowupsSection
+// ---------------------------------------------------------------------------
+
+describe('FollowupsSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  it('renders card with customerName and status badge', async () => {
+    setQueryMock('agent.salesFollowups', [
+      {
+        id: 'f1',
+        output: { followup_status: 'queued', scheduled_at: '2025-06-01T10:00:00.000Z', channel: 'whatsapp' },
+        status: 'executed',
+        conversationId: 'conv-f1',
+        createdAt: new Date('2025-06-01'),
+        leadId: 'lead-1',
+        customerId: 'cust-1',
+        customerName: 'Acme Corp',
+        followupStatus: 'queued',
+        scheduledAt: '2025-06-01T10:00:00.000Z',
+        channel: 'whatsapp',
+        messageTemplate: 'gentle_reminder',
+      },
+    ]);
+
+    const { FollowupsSection } = await import('@/components/agent-workspace/sales/followups-section');
+    render(createElement(FollowupsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('followupStatusQueued')).toBeInTheDocument();
+  });
+
+  it('renders empty state when data is []', async () => {
+    setQueryMock('agent.salesFollowups', []);
+
+    const { FollowupsSection } = await import('@/components/agent-workspace/sales/followups-section');
+    render(createElement(FollowupsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('followupsEmptyTitle')).toBeInTheDocument();
+    expect(screen.getByText('followupsEmptyDescription')).toBeInTheDocument();
+  });
+
+  it('card click deep-links to inbox; null conversationId skips navigation', async () => {
+    const mockPush = vi.fn();
+    const nav = await import('next/navigation');
+    vi.spyOn(nav, 'useRouter').mockReturnValue({ push: mockPush } as any);
+
+    setQueryMock('agent.salesFollowups', [
+      {
+        id: 'f1',
+        output: {},
+        status: 'executed',
+        conversationId: 'conv-f1',
+        createdAt: new Date('2025-06-01'),
+        leadId: null,
+        customerId: null,
+        customerName: 'Click Me',
+        followupStatus: 'sent',
+        scheduledAt: '2025-06-01T10:00:00.000Z',
+        channel: 'whatsapp',
+        messageTemplate: 'gentle_reminder',
+      },
+      {
+        id: 'f2',
+        output: {},
+        status: 'executed',
+        conversationId: null,
+        createdAt: new Date('2025-06-02'),
+        leadId: null,
+        customerId: null,
+        customerName: 'No Nav',
+        followupStatus: 'queued',
+        scheduledAt: null,
+        channel: null,
+        messageTemplate: null,
+      },
+    ]);
+
+    const { FollowupsSection } = await import('@/components/agent-workspace/sales/followups-section');
+    render(createElement(FollowupsSection as any, { artifactId: 'test-artifact-id' }));
+
+    const buttons = screen.getAllByRole('button');
+    // Click first button (has conversationId)
+    fireEvent.click(buttons[0]!);
+    expect(mockPush).toHaveBeenCalledWith('/dashboard/conversations?selected=conv-f1');
+
+    // Click second button (no conversationId) — push should not be called again
+    mockPush.mockClear();
+    fireEvent.click(buttons[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Render Tests — ApprovalsSection
+// ---------------------------------------------------------------------------
+
+describe('ApprovalsSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  const pendingItem = {
+    id: 'exec-1',
+    moduleId: 'mod-uuid',
+    moduleSlug: 'book_meeting',
+    artifactId: 'test-artifact-id',
+    tenantId: 'tenant-uuid',
+    conversationId: 'conv-abc',
+    input: { topic: 'Demo call' },
+    output: null,
+    status: 'pending',
+    approvedBy: null,
+    executedAt: null,
+    durationMs: null,
+    createdAt: new Date('2025-06-01'),
+  };
+
+  it('renders pending items with module name and approve/reject buttons', async () => {
+    setQueryMock('module.pendingExecutions', [pendingItem]);
+
+    const { ApprovalsSection } = await import(
+      '@/components/agent-workspace/sales/approvals-section'
+    );
+    render(createElement(ApprovalsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('moduleBookMeeting')).toBeInTheDocument();
+    expect(screen.getByText('approve')).toBeInTheDocument();
+    expect(screen.getByText('reject')).toBeInTheDocument();
+  });
+
+  it('renders empty state when no pending executions', async () => {
+    setQueryMock('module.pendingExecutions', []);
+
+    const { ApprovalsSection } = await import(
+      '@/components/agent-workspace/sales/approvals-section'
+    );
+    render(createElement(ApprovalsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('approvalsEmpty')).toBeInTheDocument();
+    expect(screen.getByText('approvalsEmptyDesc')).toBeInTheDocument();
+  });
+
+  it('Approve button calls module.approve mutation with executionId', async () => {
+    setQueryMock('module.pendingExecutions', [{ ...pendingItem, id: 'exec-1' }]);
+    setMutationMock('module.approve');
+
+    const { ApprovalsSection } = await import(
+      '@/components/agent-workspace/sales/approvals-section'
+    );
+    render(createElement(ApprovalsSection as any, { artifactId: 'test-artifact-id' }));
+
+    fireEvent.click(screen.getByText('approve'));
+
+    expect(mutationMocks.get('module.approve')?.mutate).toHaveBeenCalledWith(
+      { executionId: 'exec-1' },
+    );
+  });
+
+  it('Reject flow: selecting reason + confirm calls module.reject', async () => {
+    setQueryMock('module.pendingExecutions', [{ ...pendingItem, id: 'exec-1' }]);
+    setMutationMock('module.reject');
+
+    const { ApprovalsSection } = await import(
+      '@/components/agent-workspace/sales/approvals-section'
+    );
+    render(createElement(ApprovalsSection as any, { artifactId: 'test-artifact-id' }));
+
+    // Click reject to expand the form
+    fireEvent.click(screen.getByText('reject'));
+
+    // Select a reason
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'bad_timing' } });
+
+    // Confirm
+    fireEvent.click(screen.getByText('rejectConfirm'));
+
+    expect(mutationMocks.get('module.reject')?.mutate).toHaveBeenCalledWith(
+      { executionId: 'exec-1', reason: 'bad_timing', freeText: undefined },
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Render Tests — TrustGraduationCard
+// ---------------------------------------------------------------------------
+
+describe('TrustGraduationCard', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  const makeModule = (slug: string, autonomyLevel: string) => ({
+    moduleId: `mod-${slug}`,
+    slug,
+    name: slug.replace(/_/g, ' '),
+    autonomyLevel,
+  });
+
+  it('Test 1: renders "N of M modules fully autonomous" with correct count', async () => {
+    setQueryMock('agent.moduleStreaks', []);
+
+    const { TrustGraduationCard } = await import(
+      '@/components/agent-workspace/sales/trust-graduation-card'
+    );
+    render(createElement(TrustGraduationCard as any, {
+      artifactId: 'test-artifact-id',
+      boundModules: [
+        makeModule('qualify_lead', 'fully_autonomous'),
+        makeModule('send_quote', 'fully_autonomous'),
+        makeModule('book_meeting', 'draft_and_approve'),
+      ],
+      onGoToModules: vi.fn(),
+    }));
+
+    // trustProgress key with {autonomous:2, total:3}
+    expect(screen.getByText('trustProgress:{"autonomous":2,"total":3}')).toBeInTheDocument();
+  });
+
+  it('Test 2: shows streak badge for draft_and_approve module with streak > 0', async () => {
+    setQueryMock('agent.moduleStreaks', [{ moduleSlug: 'send_quote', streak: 5 }]);
+
+    const { TrustGraduationCard } = await import(
+      '@/components/agent-workspace/sales/trust-graduation-card'
+    );
+    render(createElement(TrustGraduationCard as any, {
+      artifactId: 'test-artifact-id',
+      boundModules: [makeModule('send_quote', 'draft_and_approve')],
+      onGoToModules: vi.fn(),
+    }));
+
+    // trustStreakCount with {count: 5}
+    expect(screen.getByText('trustStreakCount:{"count":5}')).toBeInTheDocument();
+  });
+
+  it('Test 3: shows ready-to-graduate indicator when streak >= 10', async () => {
+    setQueryMock('agent.moduleStreaks', [{ moduleSlug: 'book_meeting', streak: 12 }]);
+
+    const { TrustGraduationCard } = await import(
+      '@/components/agent-workspace/sales/trust-graduation-card'
+    );
+    render(createElement(TrustGraduationCard as any, {
+      artifactId: 'test-artifact-id',
+      boundModules: [makeModule('book_meeting', 'draft_and_approve')],
+      onGoToModules: vi.fn(),
+    }));
+
+    expect(screen.getByText('trustStreakReady')).toBeInTheDocument();
+  });
+});
