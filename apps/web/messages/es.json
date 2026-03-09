@@ -504,7 +504,10 @@
     "configEventNewLead": "Nuevo lead calificado",
     "configEventConvResolved": "Conversación resuelta",
     "configEventApprovalNeeded": "Aprobación requerida",
-    "configEventDealClosed": "Trato cerrado"
+    "configEventDealClosed": "Trato cerrado",
+    "tabSetup": "Configuración",
+    "tabDashboard": "Panel",
+    "dashboardPlaceholder": "Las secciones del panel aparecerán aquí a medida que se construyan."
   },
   "knowledge": {
     "pageTitle": "Conocimiento",

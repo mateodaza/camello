@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { MessageSquare, BookOpen, Activity } from 'lucide-react';
+import { MessageSquare, BookOpen, Activity, Settings, LayoutDashboard } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/hooks/use-toast';
 import { QueryError } from '@/components/query-error';
@@ -44,6 +44,8 @@ export default function AgentConfigPage() {
   );
   const knowledgeList = trpc.knowledge.list.useQuery({});
   const activityFeed = trpc.agent.dashboardActivityFeed.useQuery({ artifactId: id });
+
+  const [activeTab, setActiveTab] = useState<'setup' | 'dashboard'>('setup');
 
   // --- Identity form state ---
   const [name, setName] = useState('');
@@ -152,6 +154,37 @@ export default function AgentConfigPage() {
         </Link>
       </div>
 
+      {/* Tab bar */}
+      <div className="flex gap-1 rounded-lg bg-charcoal/5 p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('setup')}
+          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'setup'
+              ? 'bg-white text-charcoal shadow-sm'
+              : 'text-dune hover:text-charcoal'
+          }`}
+        >
+          <Settings className="h-4 w-4" />
+          {t('tabSetup')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'dashboard'
+              ? 'bg-white text-charcoal shadow-sm'
+              : 'text-dune hover:text-charcoal'
+          }`}
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          {t('tabDashboard')}
+        </button>
+      </div>
+
+      {/* === Setup Tab === */}
+      {activeTab === 'setup' && (
+        <>
       {/* 1. Agent Identity */}
       <div className={sectionClass}>
         <h2 className="mb-4 font-heading text-base font-semibold text-charcoal">
@@ -328,6 +361,17 @@ export default function AgentConfigPage() {
       <WorkspaceSectionErrorBoundary key="settings-panel">
         <AgentSettingsPanel artifactId={id} />
       </WorkspaceSectionErrorBoundary>
+        </>
+      )}
+
+      {/* === Dashboard Tab === */}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-4">
+          <div className={sectionClass}>
+            <p className="text-sm text-dune">{t('dashboardPlaceholder')}</p>
+          </div>
+        </div>
+      )}
     </WorkspaceShell>
   );
 }

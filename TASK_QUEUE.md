@@ -338,8 +338,8 @@ Final task. Write smoke tests covering the end-to-end inbox loop and produce a s
 
 > **Sprint goal:** Complete the Sales agent operational loop. Surface all module outputs (quotes, meetings, payments, follow-ups) in the Agent Workspace Dashboard tab, with inline approval actions. Progressive autonomy: 70% manual review → fully autonomous over time. Trust graduation card makes the autonomy model visible. Visual polish pass at the end. See `SALES_DASHBOARD_PLAN.md` for full architecture.
 
-#### NC-221 [ ] Tab navigation on agent workspace
-Add Setup/Dashboard tab bar to `/dashboard/agents/[id]`. Move current 6 config sections under Setup. Dashboard tab renders placeholder.
+#### NC-221 [x] Tab navigation on agent workspace
+**DONE.** Added `activeTab` state + pill-style tab bar (Setup/Dashboard) to `agents/[id]/page.tsx`. All 6 config sections wrapped under Setup tab conditional. Dashboard tab renders placeholder. 3 i18n keys added (en+es). Type-check passes.
 **Files:** `agents/[id]/page.tsx`, i18n (en+es)
 **Depends on:** —
 
