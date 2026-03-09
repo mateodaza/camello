@@ -23,6 +23,8 @@ interface FilterDef {
 
 interface DataTableProps<T> {
   title?: string;
+  icon?: ReactNode;
+  cardClassName?: string;
   columns: ColumnDef<T>[];
   data: T[] | undefined;
   isLoading: boolean;
@@ -41,6 +43,8 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({
   title,
+  icon,
+  cardClassName,
   columns,
   data,
   isLoading,
@@ -58,8 +62,8 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
-      <Card>
-        {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+      <Card className={cn(cardClassName)}>
+        {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
         <CardContent className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-10 rounded" />
@@ -71,8 +75,8 @@ export function DataTable<T>({
 
   if (isError && error) {
     return (
-      <Card>
-        {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+      <Card className={cn(cardClassName)}>
+        {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
         <CardContent>
           <QueryError error={error} onRetry={onRetry} />
         </CardContent>
@@ -83,8 +87,8 @@ export function DataTable<T>({
   const rows = data ?? [];
 
   return (
-    <Card>
-      {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+    <Card className={cn(cardClassName)}>
+      {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
       <CardContent>
         {/* Filters */}
         {filters && filters.length > 0 && (

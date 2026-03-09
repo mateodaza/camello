@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { Send } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { CardFeed } from '../primitives/card-feed';
 
@@ -86,6 +87,8 @@ export function FollowupsSection({ artifactId }: FollowupsSectionProps) {
   return (
     <CardFeed
       title={t('followupsTitle')}
+      icon={<Send className="h-4 w-4 text-teal" />}
+      cardClassName="bg-sand/20"
       items={followups.data ?? []}
       isLoading={followups.isLoading}
       isError={followups.isError}

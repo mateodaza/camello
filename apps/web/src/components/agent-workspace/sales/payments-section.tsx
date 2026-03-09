@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { CreditCard } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { DataTable } from '../primitives/data-table';
 
@@ -81,6 +82,8 @@ export function PaymentsSection({ artifactId }: PaymentsSectionProps) {
   return (
     <DataTable
       title={t('paymentsTitle')}
+      icon={<CreditCard className="h-4 w-4 text-teal" />}
+      cardClassName="bg-sand/20"
       columns={columns}
       data={payments.data}
       isLoading={payments.isLoading}

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { FileText } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { DataTable } from '../primitives/data-table';
 
@@ -70,6 +71,8 @@ export function QuotesSection({ artifactId }: QuotesSectionProps) {
   return (
     <DataTable
       title={t('quotesTitle')}
+      icon={<FileText className="h-4 w-4 text-teal" />}
+      cardClassName="bg-sand/20"
       columns={columns}
       data={quotes.data}
       isLoading={quotes.isLoading}

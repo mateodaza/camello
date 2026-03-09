@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { Calendar } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { CardFeed } from '../primitives/card-feed';
 
@@ -77,6 +78,8 @@ export function MeetingsSection({ artifactId }: MeetingsSectionProps) {
     <>
       <CardFeed
         title={t('meetingsUpcoming')}
+        icon={<Calendar className="h-4 w-4 text-teal" />}
+        cardClassName="bg-sand/20"
         items={upcoming}
         isLoading={meetings.isLoading}
         isError={meetings.isError}
@@ -89,6 +92,8 @@ export function MeetingsSection({ artifactId }: MeetingsSectionProps) {
       {!meetings.isLoading && !meetings.isError && (
         <CardFeed
           title={t('meetingsPast')}
+          icon={<Calendar className="h-4 w-4 text-teal" />}
+          cardClassName="bg-sand/20"
           items={past}
           isLoading={false}
           isError={false}

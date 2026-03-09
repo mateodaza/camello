@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { CheckCircle2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +39,8 @@ export function ApprovalsSection({ artifactId }: ApprovalsSectionProps) {
   const router = useRouter();
   const { addToast } = useToast();
 
+  const cardCls = 'bg-sand/20';
+
   const [expandedRejectId, setExpandedRejectId] = useState<string | null>(null);
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [rejectFreeTexts, setRejectFreeTexts] = useState<Record<string, string>>({});
@@ -64,11 +67,18 @@ export function ApprovalsSection({ artifactId }: ApprovalsSectionProps) {
 
   type PendingExecution = NonNullable<typeof pendingExec.data>[number];
 
+  const approvalsHeader = (
+    <span className="flex items-center gap-2">
+      <CheckCircle2 className="h-4 w-4 text-teal" />
+      {t('approvalsTitle')}
+    </span>
+  );
+
   if (pendingExec.isLoading) {
     return (
-      <Card>
+      <Card className={cardCls}>
         <CardHeader>
-          <CardTitle>{t('approvalsTitle')}</CardTitle>
+          <CardTitle>{approvalsHeader}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -81,9 +91,9 @@ export function ApprovalsSection({ artifactId }: ApprovalsSectionProps) {
 
   if (pendingExec.isError) {
     return (
-      <Card>
+      <Card className={cardCls}>
         <CardHeader>
-          <CardTitle>{t('approvalsTitle')}</CardTitle>
+          <CardTitle>{approvalsHeader}</CardTitle>
         </CardHeader>
         <CardContent>
           <QueryError error={pendingExec.error} onRetry={() => pendingExec.refetch()} />
@@ -96,9 +106,9 @@ export function ApprovalsSection({ artifactId }: ApprovalsSectionProps) {
 
   if (items.length === 0) {
     return (
-      <Card>
+      <Card className={cardCls}>
         <CardHeader>
-          <CardTitle>{t('approvalsTitle')}</CardTitle>
+          <CardTitle>{approvalsHeader}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -111,9 +121,9 @@ export function ApprovalsSection({ artifactId }: ApprovalsSectionProps) {
   }
 
   return (
-    <Card>
+    <Card className={cardCls}>
       <CardHeader>
-        <CardTitle>{t('approvalsTitle')}</CardTitle>
+        <CardTitle>{approvalsHeader}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {items.map((item: PendingExecution) => {

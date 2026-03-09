@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { MessageSquare, BookOpen, Settings, LayoutDashboard } from 'lucide-react';
+import { MessageSquare, BookOpen, Settings, LayoutDashboard, User, SlidersHorizontal } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/hooks/use-toast';
 import { QueryError } from '@/components/query-error';
@@ -185,9 +185,12 @@ export default function AgentConfigPage() {
         <>
       {/* 1. Agent Identity */}
       <div className={sectionClass}>
-        <h2 className="mb-4 font-heading text-base font-semibold text-charcoal">
-          {t('configIdentityTitle')}
-        </h2>
+        <div className="mb-4 flex items-center gap-2">
+          <User className="h-4 w-4 text-teal" />
+          <h2 className="font-heading text-base font-semibold text-charcoal">
+            {t('configIdentityTitle')}
+          </h2>
+        </div>
         <div className="space-y-3">
           <div>
             <label className={labelClass}>{ta('agentName')}</label>
@@ -229,9 +232,12 @@ export default function AgentConfigPage() {
 
       {/* 2. Personality */}
       <div className={sectionClass}>
-        <h2 className="mb-4 font-heading text-base font-semibold text-charcoal">
-          {t('configPersonalityTitle')}
-        </h2>
+        <div className="mb-4 flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-teal" />
+          <h2 className="font-heading text-base font-semibold text-charcoal">
+            {t('configPersonalityTitle')}
+          </h2>
+        </div>
         <div className="space-y-3">
           <div>
             <label className={labelClass}>{ta('instructions')}</label>
@@ -340,7 +346,7 @@ export default function AgentConfigPage() {
 
       {/* === Dashboard Tab === */}
       {activeTab === 'dashboard' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <TrustGraduationCard
             artifactId={id}
             boundModules={boundModules.map((m) => ({
@@ -352,6 +358,7 @@ export default function AgentConfigPage() {
             onGoToModules={() => setActiveTab('setup')}
           />
           <ApprovalsSection artifactId={id} />
+          <div className="border-t border-charcoal/8" />
           <AgentPerformance artifactId={id} />
           <QuotesSection artifactId={id} />
           <MeetingsSection artifactId={id} />

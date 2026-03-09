@@ -366,10 +366,11 @@ New `salesFollowups` tRPC query (module_executions filtered by `send_followup` +
 **Depends on:** NC-221
 **Done:** Added `salesFollowups` tenantProcedure to `agent.ts` (JSONB extracts `followup_status`, `scheduled_at`, `channel`, `message_template`; LEFT JOIN leads + customers); created `followups-section.tsx` with `FollowupStatusBadge` (queued/sent/processed/failed) and `CardFeed`; wired into dashboard tab after PaymentsSection; 8 i18n keys (en+es); 3 backend tests (`agent-followups.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
-#### NC-226 [ ] i18n audit for all Dashboard sections (en + es)
+#### NC-226 [x] i18n audit for all Dashboard sections (en + es)
 Final pass ensuring all NC-221→NC-229 strings are in both locale files. Tab labels, column headers, empty states, status labels.
 **Files:** `en.json`, `es.json`
 **Depends on:** NC-222, NC-223, NC-224, NC-225, NC-228, NC-229
+**DONE.** Both `en.json` and `es.json` verified in sync for all NC-221→NC-229 keys under `agentWorkspace`. No new keys needed.
 
 #### NC-227 [x] Wire Performance + Activity into Dashboard tab
 Move existing `AgentPerformance` and `AgentActivity` components into Dashboard tab. Remove redundant "Recent Activity" from Setup tab.
@@ -389,10 +390,11 @@ Show autonomy progress card at top of Dashboard: "N of M modules fully autonomou
 **Depends on:** NC-221
 **DONE.** Added `moduleStreaks` tenantProcedure to `agent.ts` (queries `artifact_modules` for `draft_and_approve` modules, fetches last 20 executions per slug, computes consecutive streak in JS); created `trust-graduation-card.tsx` (progress bar, per-module badges, streak pills, "ready to graduate?" badge at streak≥10, CTA); wired as first card in Dashboard tab in `page.tsx`; 6 i18n keys (en+es); 3 backend tests (`agent-streaks.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
-#### NC-230 [ ] Visual polish pass on agent workspace
+#### NC-230 [x] Visual polish pass on agent workspace
 Improve visual hierarchy and feel of the workspace page. Both tabs. Specifics: section header icons (consistent with sidebar icon set), spacing hierarchy (hero sections vs secondary), loading skeletons for all Dashboard sections, subtle bg tint differentiation (Dashboard sections get a slightly different card feel than Setup forms), status color consistency audit across all badge/dot/pill components. Follow existing design system (CSS vars, Jost/DM Sans, 8px grid). No new dependencies.
 **Files:** `agents/[id]/page.tsx`, section components, i18n if needed
 **Depends on:** NC-226 (after all sections exist)
+**DONE.** Added icon+cardClassName props to DataTable+CardFeed primitives; added lucide-react icons (FileText, Calendar, CreditCard, Send, CheckCircle2, Award, Activity, BarChart3, User, SlidersHorizontal) to all Dashboard sections; bg-sand/20 tint on all Dashboard cards; performance-panel wrapped in Card+CardHeader; Identity/Personality section header icons; space-y-6 + border-t divider in Dashboard tab; autonomy badge colors normalized to /15 opacity tint pattern. Type-check passes.
 
 ## Manual / Blocked — Not for NC
 

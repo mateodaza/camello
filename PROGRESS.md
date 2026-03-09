@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-230 | Visual polish pass on agent workspace | Mar 9 | Added `icon`+`cardClassName` props to `DataTable`+`CardFeed` primitives; lucide-react icons (FileText, Calendar, CreditCard, Send, CheckCircle2, Award, Activity, BarChart3, User, SlidersHorizontal) on all Dashboard sections; `bg-sand/20` tint on all Dashboard cards; `performance-panel.tsx` wrapped in `Card`+`CardHeader`+`CardContent`+`Skeleton`; Identity/Personality section header icons in Setup tab; `space-y-6`+`border-t` divider in Dashboard tab; autonomy badge colors normalized to `/15` tint pattern. NC-226 verified (all locale keys in sync). Type-check passes. |
 | NC-229 | Trust Graduation Card on Dashboard tab | Mar 9 | Added `moduleStreaks` tenantProcedure to `agent.ts` (queries `artifact_modules` for `draft_and_approve` modules, fetches last 20 executions per slug, computes consecutive streak in JS); created `trust-graduation-card.tsx` (progress bar, per-module badges with autonomy level, streak pills, "ready to graduate?" badge at streak≥10, CTA that switches to Setup tab); wired as first card in Dashboard tab in `page.tsx`; 6 i18n keys (en+es); 3 backend tests (`agent-streaks.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes. |
 | NC-228 | Pending Approvals section with approve/reject actions | Mar 9 | Created `approvals-section.tsx` (Card list, Approve/Reject inline buttons, expandable reject form with 5-enum reason select + optional freeText textarea); wired as first section in Dashboard tab; 8 i18n keys (en+es); 4 frontend tests in `agent-workspace.test.ts`. Type-check passes. |
 | NC-227 | Wire Performance + Activity into Dashboard tab | Mar 9 | Removed `activityFeed` query + `recentEvents` + `eventLabel` + `Activity` import + Recent Activity section from Setup tab; added `AgentPerformance` (top) + `AgentActivity` (bottom) to Dashboard tab in `agents/[id]/page.tsx`. Type-check passes. |
@@ -903,3 +904,4 @@
 - **NC-227** — 2026-03-09 — `53df1f4` — Session: 20260309-172346-camello
 - **NC-228** — 2026-03-09 — `d3cbe01` — Session: 20260309-172346-camello
 - **NC-229** — 2026-03-09 — `fcd2c50` — Session: 20260309-172346-camello
+- **NC-230** — 2026-03-09 — `0e18d5f` — Session: 20260309-172346-camello

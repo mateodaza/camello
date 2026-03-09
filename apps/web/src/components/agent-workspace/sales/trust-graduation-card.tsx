@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { Award } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,13 +38,18 @@ export function TrustGraduationCard({
     (streaksQuery.data ?? []).map((s) => [s.moduleSlug, s.streak]),
   );
 
+  const trustHeader = (
+    <span className="flex items-center gap-2">
+      <Award className="h-4 w-4 text-teal" />
+      <span className="font-heading text-base font-semibold text-charcoal">{t('trustTitle')}</span>
+    </span>
+  );
+
   if (total === 0) {
     return (
-      <Card>
+      <Card className="bg-sand/20">
         <CardHeader>
-          <CardTitle className="font-heading text-base font-semibold text-charcoal">
-            {t('trustTitle')}
-          </CardTitle>
+          <CardTitle>{trustHeader}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-dune">{t('trustEmpty')}</p>
@@ -53,11 +59,9 @@ export function TrustGraduationCard({
   }
 
   return (
-    <Card>
+    <Card className="bg-sand/20">
       <CardHeader>
-        <CardTitle className="font-heading text-base font-semibold text-charcoal">
-          {t('trustTitle')}
-        </CardTitle>
+        <CardTitle>{trustHeader}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Progress summary */}
@@ -79,9 +83,9 @@ export function TrustGraduationCard({
             const streak = streakMap.get(mod.slug) ?? 0;
             const isDraftAndApprove = mod.autonomyLevel === 'draft_and_approve';
 
-            let badgeBg = 'bg-charcoal/30 text-white';
-            if (mod.autonomyLevel === 'fully_autonomous') badgeBg = 'bg-teal text-white';
-            else if (mod.autonomyLevel === 'draft_and_approve') badgeBg = 'bg-gold text-charcoal';
+            let badgeBg = 'bg-charcoal/10 text-dune';
+            if (mod.autonomyLevel === 'fully_autonomous') badgeBg = 'bg-teal/15 text-teal';
+            else if (mod.autonomyLevel === 'draft_and_approve') badgeBg = 'bg-gold/15 text-gold';
 
             let autonomyKey: 'autonomyFullyAutonomous' | 'autonomyDraftAndApprove' | 'autonomySuggestOnly' =
               'autonomySuggestOnly';

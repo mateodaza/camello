@@ -1,7 +1,10 @@
 'use client';
 
 import { useTranslations, useLocale } from 'next-intl';
+import { BarChart3 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { BarChartCss } from './primitives/bar-chart-css';
 import { Sparkline } from './primitives/sparkline';
 
@@ -28,26 +31,41 @@ export function AgentPerformance({ artifactId }: { artifactId: string }) {
     { retry: 2 },
   );
 
+  const perfHeader = (
+    <span className="flex items-center gap-2">
+      <BarChart3 className="h-4 w-4 text-teal" />
+      {t('performanceTitle')}
+    </span>
+  );
+
   if (query.isLoading) {
     return (
-      <div className="rounded-lg border border-charcoal/10 bg-cream p-4">
-        <div className="h-4 w-32 animate-pulse rounded bg-charcoal/10" />
-      </div>
+      <Card className="bg-sand/20">
+        <CardHeader><CardTitle>{perfHeader}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-8 rounded" />
+          <Skeleton className="h-24 rounded" />
+          <Skeleton className="h-12 rounded" />
+        </CardContent>
+      </Card>
     );
   }
 
   if (query.isError || !query.data) {
     return (
-      <div className="rounded-lg border border-charcoal/10 bg-cream p-4 space-y-2">
-        <p className="text-sm text-sunset">{t('errorLoading')}</p>
-        <button
-          type="button"
-          className="text-xs text-teal hover:underline min-h-[36px]"
-          onClick={() => query.refetch()}
-        >
-          {t('retry')}
-        </button>
-      </div>
+      <Card className="bg-sand/20">
+        <CardHeader><CardTitle>{perfHeader}</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-sunset">{t('errorLoading')}</p>
+          <button
+            type="button"
+            className="text-xs text-teal hover:underline min-h-[36px]"
+            onClick={() => query.refetch()}
+          >
+            {t('retry')}
+          </button>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -57,15 +75,19 @@ export function AgentPerformance({ artifactId }: { artifactId: string }) {
 
   if (hasNoConversations && hasNoModules) {
     return (
-      <div className="rounded-lg border border-charcoal/10 bg-cream p-4 space-y-1">
-        <p className="text-sm font-semibold text-charcoal">{t('performanceTitle')}</p>
-        <p className="text-xs text-dune">{t('performanceNoData')}</p>
-      </div>
+      <Card className="bg-sand/20">
+        <CardHeader><CardTitle>{perfHeader}</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-xs text-dune">{t('performanceNoData')}</p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <section className="space-y-5">
+    <Card className="bg-sand/20">
+      <CardHeader><CardTitle>{perfHeader}</CardTitle></CardHeader>
+      <CardContent className="space-y-5">
       {/* A. Response Time Summary */}
       {!hasNoConversations && (
         <div className="flex gap-6">
@@ -134,6 +156,7 @@ export function AgentPerformance({ artifactId }: { artifactId: string }) {
           />
         </div>
       )}
-    </section>
+      </CardContent>
+    </Card>
   );
 }
