@@ -371,10 +371,11 @@ Final pass ensuring all NC-221→NC-229 strings are in both locale files. Tab la
 **Files:** `en.json`, `es.json`
 **Depends on:** NC-222, NC-223, NC-224, NC-225, NC-228, NC-229
 
-#### NC-227 [ ] Wire Performance + Activity into Dashboard tab
+#### NC-227 [x] Wire Performance + Activity into Dashboard tab
 Move existing `AgentPerformance` and `AgentActivity` components into Dashboard tab. Remove redundant "Recent Activity" from Setup tab.
 **Files:** `agents/[id]/page.tsx`
 **Depends on:** NC-221
+**DONE.** Added `AgentPerformance` + `AgentActivity` imports; removed `activityFeed` query, `recentEvents`, `eventLabel`, `Activity` import, and Recent Activity section (#5) from Setup tab; wired both components into Dashboard tab (performance first, activity last). Type-check passes.
 
 #### NC-228 [ ] Pending Approvals section with approve/reject actions
 Reuse existing `module.pendingExecutions` query (already supports `artifactId` filter), `module.approve` mutation (race-safe atomic transition + module re-execution), and `module.reject` mutation (includes `processRejection()` learning feedback loop). Do NOT create duplicate routes in `agent.ts`. Build UI: list with inline Approve/Reject buttons per pending item. Reject flow: reason picker (required, enum: `false_positive | wrong_target | bad_timing | incorrect_data | policy_violation`) + optional free-text field (max 500 chars) → calls `module.reject({ executionId, reason, freeText })`. This is the key UI for the progressive autonomy model (draft_and_approve → fully_autonomous graduation).
