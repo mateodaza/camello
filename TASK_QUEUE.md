@@ -6,29 +6,16 @@
 > After completing a task: mark `[x]`, add summary line, update `PROGRESS.md`, commit together.
 > When starting a new sprint: update the goal below, add new tasks, collapse old completed tasks.
 
-> **Current sprint:** Workspace v2 — Conversation-Centric Inbox
-> Replace the complex per-archetype workspace with a 3-panel conversation inbox. Owner sees sales, agent activity, and numbers from one screen. Inspired by Botly (clean metrics) + Customer Support Dashboard (3-panel inbox). Key additions: owner chat intervention on escalated conversations, auto visitor naming, book_meeting hours fix.
+> **Current sprint:** Sales Agent Dashboard (NC-221 → NC-230)
+> Inbox sprint (NC-201→NC-220) is complete. This sprint adds a Dashboard tab to the Agent Workspace that surfaces all module outputs (quotes, meetings, payments, follow-ups) with inline approval actions. Progressive autonomy model: start 70% manual review, graduate to fully autonomous over time. See `SALES_DASHBOARD_PLAN.md` for full architecture.
 
 ### Sprint guardrails
 
-**Must ship first (core v2 loop):**
-- Inbox route at `/dashboard/conversations`
-- Query-param deep link contract: `?selected=<conversationId>`
-- Left list + center thread + right customer context
-- `conversation.activity` timeline from real module executions / stage changes
-- `conversation.replyAsOwner` for escalated conversations only
+**Foundation:** The inbox (NC-201→NC-220) is the shared operational layer. This sprint extends the Agent Workspace config page with an operational Dashboard tab — it does NOT replace or compete with the inbox.
 
-**Do not build before the inbox works end-to-end:**
-- New chart work
-- Fancy gestures beyond simple mobile back navigation
-- New per-archetype workspace surfaces
-- Cleanup deletions that break existing navigation before the inbox replacement is live
+**Reuse rule for NC:** Before writing new backend routes, check `apps/api/src/routes/module.ts` and `apps/api/src/routes/agent.ts` for existing queries/mutations. Key existing backends: `module.pendingExecutions`, `module.approve`, `module.reject` (with `processRejection()` learning feedback loop), `agent.salesQuotes`, `agent.salesPayments`. Extend only if fields are missing — do NOT duplicate.
 
-**Execution rule for NC:** prove `/dashboard/conversations` can replace the current operational loop first. Simplification and deletion tasks come after the inbox + redirect contract are working.
-
-**Architecture note:** this sprint does **not** remove workspaces as a product concept. It establishes the inbox as the shared operational layer for conversation-first agents, while preserving the idea of specialized workspaces for output-first, task-first, or document-first agents. Sales is the reference implementation for the conversation-centric path. See `WORKSPACE_ARCHITECTURE.md`.
-
-**Decision rule for NC:** if a task requires interpretation about inbox vs workspace vs analytics responsibilities, consult `WORKSPACE_ARCHITECTURE.md` first, then `GENERALIST_PLATFORM_SPEC.md`. Do not default to "everything becomes inbox" or "everything becomes config-only." Build the operational surface that matches the agent's unit of work.
+**Decision rule for NC:** if a task requires interpretation about inbox vs workspace vs analytics responsibilities, consult `WORKSPACE_ARCHITECTURE.md` first, then `GENERALIST_PLATFORM_SPEC.md`.
 
 ## Completed (previous sprints)
 
@@ -346,6 +333,60 @@ Final task. Write smoke tests covering the end-to-end inbox loop and produce a s
 **Depends on:** NC-214, NC-216, NC-217, NC-218, NC-219
 
 **Done:** Created `apps/api/src/__tests__/inbox-smoke.test.ts` — 8 tests across AC 1–4 using `createCallerFactory` pattern; fixed mock paths (non-routes file uses `../` not `../../`). Updated `PROGRESS.md` with Sprint Summary. Type-check passes.
+
+## Sales Agent Dashboard Sprint (NC-221 → NC-230)
+
+> **Sprint goal:** Complete the Sales agent operational loop. Surface all module outputs (quotes, meetings, payments, follow-ups) in the Agent Workspace Dashboard tab, with inline approval actions. Progressive autonomy: 70% manual review → fully autonomous over time. Trust graduation card makes the autonomy model visible. Visual polish pass at the end. See `SALES_DASHBOARD_PLAN.md` for full architecture.
+
+#### NC-221 [ ] Tab navigation on agent workspace
+Add Setup/Dashboard tab bar to `/dashboard/agents/[id]`. Move current 6 config sections under Setup. Dashboard tab renders placeholder.
+**Files:** `agents/[id]/page.tsx`, i18n (en+es)
+**Depends on:** —
+
+#### NC-222 [ ] Quotes section
+Reuse existing `agent.salesQuotes` tRPC query. **Backend gap:** current query returns raw `output` JSONB but no customer label or normalized amount/status fields. First enrich `salesQuotes` to LEFT JOIN customers for `customerName` and extract `output->>'total'` as `amount`, `output->>'status'` as `quoteStatus`. Then build `DataTable` UI with columns: Customer | Amount | Status | Date. Row click → deep link to conversation in inbox.
+**Files:** `agent.ts` (enrich query), `sales/quotes-section.tsx`, i18n
+**Depends on:** NC-221
+
+#### NC-223 [ ] Meetings section
+New `salesMeetings` tRPC query (module_executions filtered by `book_meeting` + LEFT JOIN customers). CardFeed UI with upcoming/past sort.
+**Files:** `agent.ts`, `sales/meetings-section.tsx`, i18n
+**Depends on:** NC-221
+
+#### NC-224 [ ] Payments section
+Reuse existing `agent.salesPayments` tRPC query (already returns amount, currency, status, customerName, dueDate, paidAt with LEFT JOIN customers). Build `DataTable` UI with status badges mapped to real `paymentStatusSchema` enum (`pending | sent | viewed | paid | overdue | cancelled`). Badge colors: teal=paid, gold=pending/sent/viewed, sunset=overdue/cancelled. Row click → inbox deep link.
+**Files:** `sales/payments-section.tsx`, i18n
+**Depends on:** NC-221
+
+#### NC-225 [ ] Follow-ups section
+New `salesFollowups` tRPC query (module_executions filtered by `send_followup` + LEFT JOIN customers). Simple card list.
+**Files:** `agent.ts`, `sales/followups-section.tsx`, i18n
+**Depends on:** NC-221
+
+#### NC-226 [ ] i18n audit for all Dashboard sections (en + es)
+Final pass ensuring all NC-221→NC-229 strings are in both locale files. Tab labels, column headers, empty states, status labels.
+**Files:** `en.json`, `es.json`
+**Depends on:** NC-222, NC-223, NC-224, NC-225, NC-228, NC-229
+
+#### NC-227 [ ] Wire Performance + Activity into Dashboard tab
+Move existing `AgentPerformance` and `AgentActivity` components into Dashboard tab. Remove redundant "Recent Activity" from Setup tab.
+**Files:** `agents/[id]/page.tsx`
+**Depends on:** NC-221
+
+#### NC-228 [ ] Pending Approvals section with approve/reject actions
+Reuse existing `module.pendingExecutions` query (already supports `artifactId` filter), `module.approve` mutation (race-safe atomic transition + module re-execution), and `module.reject` mutation (includes `processRejection()` learning feedback loop). Do NOT create duplicate routes in `agent.ts`. Build UI: list with inline Approve/Reject buttons per pending item. Reject flow: reason picker (required, enum: `false_positive | wrong_target | bad_timing | incorrect_data | policy_violation`) + optional free-text field (max 500 chars) → calls `module.reject({ executionId, reason, freeText })`. This is the key UI for the progressive autonomy model (draft_and_approve → fully_autonomous graduation).
+**Files:** `sales/approvals-section.tsx`, i18n
+**Depends on:** NC-221
+
+#### NC-229 [ ] Trust graduation card on Dashboard tab
+Show autonomy progress card at top of Dashboard: "N of M modules fully autonomous" with per-module status (suggest_only → draft_and_approve → fully_autonomous). For modules on `draft_and_approve`, show approval streak ("12 approved in a row — ready to graduate?") computed from recent `module_executions` (count consecutive `status='executed'` with no `rejected` in last 20). CTA links to Setup → Modules to change autonomy level. This makes the progressive trust model visible and encourages graduation.
+**Files:** `sales/trust-graduation-card.tsx`, i18n (en+es)
+**Depends on:** NC-221
+
+#### NC-230 [ ] Visual polish pass on agent workspace
+Improve visual hierarchy and feel of the workspace page. Both tabs. Specifics: section header icons (consistent with sidebar icon set), spacing hierarchy (hero sections vs secondary), loading skeletons for all Dashboard sections, subtle bg tint differentiation (Dashboard sections get a slightly different card feel than Setup forms), status color consistency audit across all badge/dot/pill components. Follow existing design system (CSS vars, Jost/DM Sans, 8px grid). No new dependencies.
+**Files:** `agents/[id]/page.tsx`, section components, i18n if needed
+**Depends on:** NC-226 (after all sections exist)
 
 ## Manual / Blocked — Not for NC
 
