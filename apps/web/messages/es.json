@@ -507,7 +507,19 @@
     "configEventDealClosed": "Trato cerrado",
     "tabSetup": "Configuración",
     "tabDashboard": "Panel",
-    "dashboardPlaceholder": "Las secciones del panel aparecerán aquí a medida que se construyan."
+    "dashboardPlaceholder": "Las secciones del panel aparecerán aquí a medida que se construyan.",
+    "quotesTitle": "Cotizaciones",
+    "quotesColCustomer": "Cliente",
+    "quotesColAmount": "Monto",
+    "quotesColStatus": "Estado",
+    "quotesColDate": "Fecha",
+    "quotesEmptyTitle": "Sin cotizaciones aún",
+    "quotesEmptyDescription": "Las cotizaciones enviadas por este agente aparecerán aquí.",
+    "quoteStatusSent": "Enviada",
+    "quoteStatusAccepted": "Aceptada",
+    "quoteStatusRejected": "Rechazada",
+    "quoteStatusExpired": "Expirada",
+    "quoteStatusPending": "Pendiente"
   },
   "knowledge": {
     "pageTitle": "Conocimiento",

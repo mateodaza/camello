@@ -507,7 +507,19 @@
     "configEventDealClosed": "Deal closed",
     "tabSetup": "Setup",
     "tabDashboard": "Dashboard",
-    "dashboardPlaceholder": "Dashboard sections will appear here as they are built."
+    "dashboardPlaceholder": "Dashboard sections will appear here as they are built.",
+    "quotesTitle": "Quotes",
+    "quotesColCustomer": "Customer",
+    "quotesColAmount": "Amount",
+    "quotesColStatus": "Status",
+    "quotesColDate": "Date",
+    "quotesEmptyTitle": "No quotes yet",
+    "quotesEmptyDescription": "Quotes sent by this agent will appear here.",
+    "quoteStatusSent": "Sent",
+    "quoteStatusAccepted": "Accepted",
+    "quoteStatusRejected": "Rejected",
+    "quoteStatusExpired": "Expired",
+    "quoteStatusPending": "Pending"
   },
   "knowledge": {
     "pageTitle": "Knowledge",

@@ -294,6 +294,7 @@ export const agentRouter = router({
         // LEFT JOIN leads to enrich each quote with leadId + customerId.
         // Safe because idx_leads_conversation_unique ensures at most one lead
         // per non-null conversation_id (migration 0015).
+        // LEFT JOIN customers to surface the customer name in the UI.
         return db
           .select({
             id: moduleExecutions.id,
@@ -303,9 +304,13 @@ export const agentRouter = router({
             createdAt: moduleExecutions.createdAt,
             leadId: leads.id,
             customerId: leads.customerId,
+            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            amount: sql<string | null>`${moduleExecutions.output}->>'total'`,
+            quoteStatus: sql<string | null>`${moduleExecutions.output}->>'status'`,
           })
           .from(moduleExecutions)
           .leftJoin(leads, eq(leads.conversationId, moduleExecutions.conversationId))
+          .leftJoin(customers, eq(customers.id, leads.customerId))
           .where(and(
             eq(moduleExecutions.artifactId, input.artifactId),
             eq(moduleExecutions.tenantId, ctx.tenantId),

@@ -343,9 +343,9 @@ Final task. Write smoke tests covering the end-to-end inbox loop and produce a s
 **Files:** `agents/[id]/page.tsx`, i18n (en+es)
 **Depends on:** —
 
-#### NC-222 [ ] Quotes section
-Reuse existing `agent.salesQuotes` tRPC query. **Backend gap:** current query returns raw `output` JSONB but no customer label or normalized amount/status fields. First enrich `salesQuotes` to LEFT JOIN customers for `customerName` and extract `output->>'total'` as `amount`, `output->>'status'` as `quoteStatus`. Then build `DataTable` UI with columns: Customer | Amount | Status | Date. Row click → deep link to conversation in inbox.
-**Files:** `agent.ts` (enrich query), `sales/quotes-section.tsx`, i18n
+#### NC-222 [x] Quotes section
+**DONE.** Enriched `agent.salesQuotes` with LEFT JOIN customers + COALESCE(`displayName`, `name`) + JSONB extraction for `amount` and `quoteStatus`. Built `QuotesSection` using `DataTable` (Customer | Amount | Status | Date), row-click deep-links to inbox. 6 tests (3 backend + 3 frontend). i18n keys added (en+es). Type-check passes.
+**Files:** `agent.ts`, `sales/quotes-section.tsx`, `agent-quotes.test.ts`, `agent-workspace.test.ts`, i18n (en+es), `agents/[id]/page.tsx`
 **Depends on:** NC-221
 
 #### NC-223 [ ] Meetings section

@@ -387,3 +387,110 @@ describe('MetricsGrid', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Render Tests — QuotesSection
+// ---------------------------------------------------------------------------
+
+describe('QuotesSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  it('renders enriched data columns from salesQuotes', async () => {
+    setQueryMock('agent.salesQuotes', [
+      {
+        id: 'q1',
+        output: { total: '1500.00', status: 'sent' },
+        status: 'executed',
+        conversationId: 'conv-abc',
+        createdAt: new Date('2025-01-01'),
+        leadId: 'lead-1',
+        customerId: 'cust-1',
+        customerName: 'Acme Corp',
+        amount: '1500.00',
+        quoteStatus: 'sent',
+      },
+      {
+        id: 'q2',
+        output: {},
+        status: 'executed',
+        conversationId: 'conv-def',
+        createdAt: new Date('2025-01-02'),
+        leadId: null,
+        customerId: null,
+        customerName: null,
+        amount: null,
+        quoteStatus: null,
+      },
+    ]);
+
+    const { QuotesSection } = await import('@/components/agent-workspace/sales/quotes-section');
+    render(createElement(QuotesSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('$1500.00')).toBeInTheDocument();
+    // null customerName renders as dash
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders empty state when salesQuotes returns []', async () => {
+    setQueryMock('agent.salesQuotes', []);
+
+    const { QuotesSection } = await import('@/components/agent-workspace/sales/quotes-section');
+    render(createElement(QuotesSection as any, { artifactId: 'test-artifact-id' }));
+
+    // next-intl mock returns the key as-is
+    expect(screen.getByText('quotesEmptyTitle')).toBeInTheDocument();
+    expect(screen.getByText('quotesEmptyDescription')).toBeInTheDocument();
+  });
+
+  it('row click deep-links to inbox; no-conversationId row skips navigation', async () => {
+    const mockPush = vi.fn();
+    const nav = await import('next/navigation');
+    vi.spyOn(nav, 'useRouter').mockReturnValue({ push: mockPush } as any);
+
+    setQueryMock('agent.salesQuotes', [
+      {
+        id: 'q1',
+        output: {},
+        status: 'executed',
+        conversationId: 'conv-abc',
+        createdAt: new Date('2025-01-01'),
+        leadId: null,
+        customerId: null,
+        customerName: 'Click Me',
+        amount: null,
+        quoteStatus: null,
+      },
+      {
+        id: 'q2',
+        output: {},
+        status: 'executed',
+        conversationId: null,
+        createdAt: new Date('2025-01-02'),
+        leadId: null,
+        customerId: null,
+        customerName: 'No Nav',
+        amount: null,
+        quoteStatus: null,
+      },
+    ]);
+
+    const { QuotesSection } = await import('@/components/agent-workspace/sales/quotes-section');
+    render(createElement(QuotesSection as any, { artifactId: 'test-artifact-id' }));
+
+    const rows = screen.getAllByRole('row').filter((r) => !r.querySelector('th'));
+    // Click first row (has conversationId)
+    fireEvent.click(rows[0]!);
+    expect(mockPush).toHaveBeenCalledWith('/dashboard/conversations?selected=conv-abc');
+
+    // Click second row (no conversationId) — push should not be called again
+    mockPush.mockClear();
+    fireEvent.click(rows[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+});
