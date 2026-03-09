@@ -888,3 +888,72 @@ describe('ApprovalsSection', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Render Tests — TrustGraduationCard
+// ---------------------------------------------------------------------------
+
+describe('TrustGraduationCard', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  const makeModule = (slug: string, autonomyLevel: string) => ({
+    moduleId: `mod-${slug}`,
+    slug,
+    name: slug.replace(/_/g, ' '),
+    autonomyLevel,
+  });
+
+  it('Test 1: renders "N of M modules fully autonomous" with correct count', async () => {
+    setQueryMock('agent.moduleStreaks', []);
+
+    const { TrustGraduationCard } = await import(
+      '@/components/agent-workspace/sales/trust-graduation-card'
+    );
+    render(createElement(TrustGraduationCard as any, {
+      artifactId: 'test-artifact-id',
+      boundModules: [
+        makeModule('qualify_lead', 'fully_autonomous'),
+        makeModule('send_quote', 'fully_autonomous'),
+        makeModule('book_meeting', 'draft_and_approve'),
+      ],
+      onGoToModules: vi.fn(),
+    }));
+
+    // trustProgress key with {autonomous:2, total:3}
+    expect(screen.getByText('trustProgress:{"autonomous":2,"total":3}')).toBeInTheDocument();
+  });
+
+  it('Test 2: shows streak badge for draft_and_approve module with streak > 0', async () => {
+    setQueryMock('agent.moduleStreaks', [{ moduleSlug: 'send_quote', streak: 5 }]);
+
+    const { TrustGraduationCard } = await import(
+      '@/components/agent-workspace/sales/trust-graduation-card'
+    );
+    render(createElement(TrustGraduationCard as any, {
+      artifactId: 'test-artifact-id',
+      boundModules: [makeModule('send_quote', 'draft_and_approve')],
+      onGoToModules: vi.fn(),
+    }));
+
+    // trustStreakCount with {count: 5}
+    expect(screen.getByText('trustStreakCount:{"count":5}')).toBeInTheDocument();
+  });
+
+  it('Test 3: shows ready-to-graduate indicator when streak >= 10', async () => {
+    setQueryMock('agent.moduleStreaks', [{ moduleSlug: 'book_meeting', streak: 12 }]);
+
+    const { TrustGraduationCard } = await import(
+      '@/components/agent-workspace/sales/trust-graduation-card'
+    );
+    render(createElement(TrustGraduationCard as any, {
+      artifactId: 'test-artifact-id',
+      boundModules: [makeModule('book_meeting', 'draft_and_approve')],
+      onGoToModules: vi.fn(),
+    }));
+
+    expect(screen.getByText('trustStreakReady')).toBeInTheDocument();
+  });
+});

@@ -2450,4 +2450,51 @@ export const agentRouter = router({
       });
     }),
 
+  // =========================================================================
+  // moduleStreaks — approval streak per draft_and_approve module (NC-229)
+  // =========================================================================
+
+  moduleStreaks: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const draftModules = await db
+          .select({ slug: modules.slug })
+          .from(artifactModules)
+          .innerJoin(modules, eq(artifactModules.moduleId, modules.id))
+          .where(and(
+            eq(artifactModules.artifactId, input.artifactId),
+            eq(artifactModules.tenantId, ctx.tenantId),
+            eq(artifactModules.autonomyLevel, 'draft_and_approve'),
+          ));
+
+        if (draftModules.length === 0) return [];
+
+        const results = await Promise.all(
+          draftModules.map(async ({ slug }) => {
+            const execs = await db
+              .select({ status: moduleExecutions.status })
+              .from(moduleExecutions)
+              .where(and(
+                eq(moduleExecutions.artifactId, input.artifactId),
+                eq(moduleExecutions.tenantId, ctx.tenantId),
+                eq(moduleExecutions.moduleSlug, slug),
+                inArray(moduleExecutions.status, ['executed', 'rejected']),
+              ))
+              .orderBy(desc(moduleExecutions.createdAt))
+              .limit(20);
+
+            let streak = 0;
+            for (const e of execs) {
+              if (e.status === 'executed') streak++;
+              else break;
+            }
+            return { moduleSlug: slug, streak };
+          }),
+        );
+
+        return results;
+      });
+    }),
+
 });

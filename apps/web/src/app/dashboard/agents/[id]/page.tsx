@@ -20,6 +20,7 @@ import { FollowupsSection } from '@/components/agent-workspace/sales/followups-s
 import { AgentPerformance } from '@/components/agent-workspace/performance-panel';
 import { AgentActivity } from '@/components/agent-workspace/agent-activity';
 import { ApprovalsSection } from '@/components/agent-workspace/sales/approvals-section';
+import { TrustGraduationCard } from '@/components/agent-workspace/sales/trust-graduation-card';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -340,6 +341,16 @@ export default function AgentConfigPage() {
       {/* === Dashboard Tab === */}
       {activeTab === 'dashboard' && (
         <div className="space-y-4">
+          <TrustGraduationCard
+            artifactId={id}
+            boundModules={boundModules.map((m) => ({
+              moduleId: m.moduleId,
+              slug: m.slug,
+              name: m.name,
+              autonomyLevel: m.autonomyLevel,
+            }))}
+            onGoToModules={() => setActiveTab('setup')}
+          />
           <ApprovalsSection artifactId={id} />
           <AgentPerformance artifactId={id} />
           <QuotesSection artifactId={id} />

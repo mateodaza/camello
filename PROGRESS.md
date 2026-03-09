@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-229 | Trust Graduation Card on Dashboard tab | Mar 9 | Added `moduleStreaks` tenantProcedure to `agent.ts` (queries `artifact_modules` for `draft_and_approve` modules, fetches last 20 executions per slug, computes consecutive streak in JS); created `trust-graduation-card.tsx` (progress bar, per-module badges with autonomy level, streak pills, "ready to graduate?" badge at streak≥10, CTA that switches to Setup tab); wired as first card in Dashboard tab in `page.tsx`; 6 i18n keys (en+es); 3 backend tests (`agent-streaks.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes. |
 | NC-228 | Pending Approvals section with approve/reject actions | Mar 9 | Created `approvals-section.tsx` (Card list, Approve/Reject inline buttons, expandable reject form with 5-enum reason select + optional freeText textarea); wired as first section in Dashboard tab; 8 i18n keys (en+es); 4 frontend tests in `agent-workspace.test.ts`. Type-check passes. |
 | NC-227 | Wire Performance + Activity into Dashboard tab | Mar 9 | Removed `activityFeed` query + `recentEvents` + `eventLabel` + `Activity` import + Recent Activity section from Setup tab; added `AgentPerformance` (top) + `AgentActivity` (bottom) to Dashboard tab in `agents/[id]/page.tsx`. Type-check passes. |
 | NC-225 | Follow-ups section | Mar 9 | Added `salesFollowups` tenantProcedure to `agent.ts` (JSONB extracts `followup_status`, `scheduled_at`, `channel`, `message_template`; LEFT JOIN leads+customers); created `followups-section.tsx` (`FollowupStatusBadge` + `CardFeed`); wired into dashboard tab; 8 i18n keys (en+es); 3 backend + 3 frontend tests. Type-check passes. |
@@ -901,3 +902,4 @@
 - **NC-225** — 2026-03-09 — `682875d` — Session: 20260309-172346-camello
 - **NC-227** — 2026-03-09 — `53df1f4` — Session: 20260309-172346-camello
 - **NC-228** — 2026-03-09 — `d3cbe01` — Session: 20260309-172346-camello
+- **NC-229** — 2026-03-09 — `fcd2c50` — Session: 20260309-172346-camello

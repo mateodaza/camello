@@ -548,7 +548,13 @@
     "rejectReasonFalsePositive": "False positive",
     "rejectReasonWrongTarget": "Wrong target",
     "rejectReasonIncorrectData": "Incorrect data",
-    "rejectReasonPolicyViolation": "Policy violation"
+    "rejectReasonPolicyViolation": "Policy violation",
+    "trustTitle": "Trust Graduation",
+    "trustProgress": "{autonomous} of {total} modules fully autonomous",
+    "trustGoToModules": "Configure Modules",
+    "trustStreakCount": "{count} approved in a row",
+    "trustStreakReady": "Ready to graduate?",
+    "trustEmpty": "No modules configured yet"
   },
   "knowledge": {
     "pageTitle": "Knowledge",

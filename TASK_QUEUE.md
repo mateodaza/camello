@@ -383,10 +383,11 @@ Reuse existing `module.pendingExecutions` query (already supports `artifactId` f
 **Depends on:** NC-221
 **DONE.** Created `approvals-section.tsx` (Card list with Approve/Reject buttons + expandable reject form with 5-reason select + optional freeText); wired as first section in Dashboard tab in `agents/[id]/page.tsx`; 8 i18n keys (en+es); 4 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
-#### NC-229 [ ] Trust graduation card on Dashboard tab
+#### NC-229 [x] Trust graduation card on Dashboard tab
 Show autonomy progress card at top of Dashboard: "N of M modules fully autonomous" with per-module status (suggest_only → draft_and_approve → fully_autonomous). For modules on `draft_and_approve`, show approval streak ("12 approved in a row — ready to graduate?") computed from recent `module_executions` (count consecutive `status='executed'` with no `rejected` in last 20). CTA links to Setup → Modules to change autonomy level. This makes the progressive trust model visible and encourages graduation.
 **Files:** `sales/trust-graduation-card.tsx`, i18n (en+es)
 **Depends on:** NC-221
+**DONE.** Added `moduleStreaks` tenantProcedure to `agent.ts` (queries `artifact_modules` for `draft_and_approve` modules, fetches last 20 executions per slug, computes consecutive streak in JS); created `trust-graduation-card.tsx` (progress bar, per-module badges, streak pills, "ready to graduate?" badge at streak≥10, CTA); wired as first card in Dashboard tab in `page.tsx`; 6 i18n keys (en+es); 3 backend tests (`agent-streaks.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
 #### NC-230 [ ] Visual polish pass on agent workspace
 Improve visual hierarchy and feel of the workspace page. Both tabs. Specifics: section header icons (consistent with sidebar icon set), spacing hierarchy (hero sections vs secondary), loading skeletons for all Dashboard sections, subtle bg tint differentiation (Dashboard sections get a slightly different card feel than Setup forms), status color consistency audit across all badge/dot/pill components. Follow existing design system (CSS vars, Jost/DM Sans, 8px grid). No new dependencies.
