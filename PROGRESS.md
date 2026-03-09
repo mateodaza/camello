@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-224 | Payments section | Mar 9 | Added `conversationId` to `salesPayments` select in `agent.ts`; created `payments-section.tsx` with `PaymentStatusBadge` (6-value enum, teal/gold/sunset colors) and `DataTable` (4 cols: customer, amount, status, due date); wired into dashboard tab after MeetingsSection; 6 i18n keys (en+es); 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes. |
 | NC-223 | Meetings section | Mar 9 | Added `salesMeetings` tRPC procedure to `agent.ts` (JSONB extracts `datetime`, `topic`, `booked` from `module_executions`); created `meetings-section.tsx` with two `CardFeed` sections (upcoming/past split via `useMemo`); wired into dashboard tab; 8 i18n keys (en+es); 3 backend tests (`agent-meetings.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes. |
 | NC-222 | Quotes section | Mar 9 | Enriched `agent.salesQuotes` with LEFT JOIN customers + COALESCE(`displayName`, `name`) + JSONB extraction for `amount`/`quoteStatus`. Built `QuotesSection` (`DataTable`, 4 columns, `QuoteStatusBadge`, row-click inbox deep-link). 6 tests (3 backend + 3 frontend). 12 i18n keys (en+es). Type-check passes. |
 | NC-221 | Tab navigation on agent workspace | Mar 9 | Added `activeTab` state + pill-style tab bar (Setup/Dashboard) to `agents/[id]/page.tsx`. 6 config sections wrapped under Setup conditional. Dashboard tab renders placeholder. 3 i18n keys (en+es). Type-check passes. |
@@ -893,3 +894,4 @@
 - **NC-220** — 2026-03-08 — `de906d6` — Session: 20260308-190114-camello
 - **NC-222** — 2026-03-09 — `a572f32` — Session: 20260309-172346-camello
 - **NC-223** — 2026-03-09 — `53a8ae3` — Session: 20260309-172346-camello
+- **NC-224** — 2026-03-09 — `6da3a06` — Session: 20260309-172346-camello

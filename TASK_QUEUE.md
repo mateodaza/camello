@@ -354,10 +354,11 @@ New `salesMeetings` tRPC query (module_executions filtered by `book_meeting` + L
 **Depends on:** NC-221
 **Done:** Added `salesMeetings` tRPC procedure to `agent.ts`; created `meetings-section.tsx` with two `CardFeed` sections (upcoming/past); wired into dashboard tab in `page.tsx`; 8 i18n keys added (en+es); 3 backend + 3 frontend tests.
 
-#### NC-224 [ ] Payments section
+#### NC-224 [x] Payments section
 Reuse existing `agent.salesPayments` tRPC query (already returns amount, currency, status, customerName, dueDate, paidAt with LEFT JOIN customers). Build `DataTable` UI with status badges mapped to real `paymentStatusSchema` enum (`pending | sent | viewed | paid | overdue | cancelled`). Badge colors: teal=paid, gold=pending/sent/viewed, sunset=overdue/cancelled. Row click → inbox deep link.
 **Files:** `sales/payments-section.tsx`, i18n
 **Depends on:** NC-221
+**Done:** Added `conversationId` to `salesPayments` select in `agent.ts`; created `payments-section.tsx` with `PaymentStatusBadge` (6-value enum colors) and `DataTable` (4 cols: customer, amount, status, due); wired into dashboard tab; 6 i18n keys added (en+es); 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
 #### NC-225 [ ] Follow-ups section
 New `salesFollowups` tRPC query (module_executions filtered by `send_followup` + LEFT JOIN customers). Simple card list.

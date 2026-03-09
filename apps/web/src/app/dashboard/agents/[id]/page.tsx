@@ -15,6 +15,7 @@ import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/work
 import { AgentSettingsPanel } from '@/components/agent-workspace/agent-settings-panel';
 import { QuotesSection } from '@/components/agent-workspace/sales/quotes-section';
 import { MeetingsSection } from '@/components/agent-workspace/sales/meetings-section';
+import { PaymentsSection } from '@/components/agent-workspace/sales/payments-section';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -371,6 +372,7 @@ export default function AgentConfigPage() {
         <div className="space-y-4">
           <QuotesSection artifactId={id} />
           <MeetingsSection artifactId={id} />
+          <PaymentsSection artifactId={id} />
         </div>
       )}
     </WorkspaceShell>

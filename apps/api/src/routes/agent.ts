@@ -953,6 +953,7 @@ export const agentRouter = router({
             paidAt: payments.paidAt,
             createdAt: payments.createdAt,
             customerName: customers.name,
+            conversationId: payments.conversationId,
           })
           .from(payments)
           .leftJoin(customers, eq(payments.customerId, customers.id))

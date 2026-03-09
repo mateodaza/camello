@@ -592,3 +592,109 @@ describe('MeetingsSection', () => {
     vi.restoreAllMocks();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Render Tests — PaymentsSection
+// ---------------------------------------------------------------------------
+
+describe('PaymentsSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  it('renders data rows from salesPayments', async () => {
+    setQueryMock('agent.salesPayments', [
+      {
+        id: 'p1',
+        amount: '500.00',
+        currency: 'USD',
+        status: 'paid',
+        customerName: 'Acme Corp',
+        dueDate: new Date('2025-06-01'),
+        paidAt: new Date('2025-05-30'),
+        conversationId: 'conv-p1',
+        description: 'Invoice #1',
+        leadId: 'lead-1',
+        quoteExecutionId: null,
+        createdAt: new Date('2025-05-01'),
+      },
+    ]);
+
+    const { PaymentsSection } = await import(
+      '@/components/agent-workspace/sales/payments-section'
+    );
+    render(createElement(PaymentsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('USD 500.00')).toBeInTheDocument();
+    // status badge uses translation key as-is in test env
+    expect(screen.getByText('paymentStatusPaid')).toBeInTheDocument();
+  });
+
+  it('renders empty state when salesPayments returns []', async () => {
+    setQueryMock('agent.salesPayments', []);
+
+    const { PaymentsSection } = await import(
+      '@/components/agent-workspace/sales/payments-section'
+    );
+    render(createElement(PaymentsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('paymentsEmptyTitle')).toBeInTheDocument();
+    expect(screen.getByText('paymentsEmptyDescription')).toBeInTheDocument();
+  });
+
+  it('row click deep-links to inbox; null conversationId skips push', async () => {
+    const mockPush = vi.fn();
+    const nav = await import('next/navigation');
+    vi.spyOn(nav, 'useRouter').mockReturnValue({ push: mockPush } as any);
+
+    setQueryMock('agent.salesPayments', [
+      {
+        id: 'p1',
+        amount: '100.00',
+        currency: 'USD',
+        status: 'pending',
+        customerName: 'Click Me',
+        dueDate: null,
+        paidAt: null,
+        conversationId: 'conv-p1',
+        description: 'Invoice #2',
+        leadId: null,
+        quoteExecutionId: null,
+        createdAt: new Date('2025-05-01'),
+      },
+      {
+        id: 'p2',
+        amount: '200.00',
+        currency: 'USD',
+        status: 'pending',
+        customerName: 'No Nav',
+        dueDate: null,
+        paidAt: null,
+        conversationId: null,
+        description: 'Invoice #3',
+        leadId: null,
+        quoteExecutionId: null,
+        createdAt: new Date('2025-05-02'),
+      },
+    ]);
+
+    const { PaymentsSection } = await import(
+      '@/components/agent-workspace/sales/payments-section'
+    );
+    render(createElement(PaymentsSection as any, { artifactId: 'test-artifact-id' }));
+
+    const rows = screen.getAllByRole('row').filter((r) => !r.querySelector('th'));
+    // Click first row (has conversationId)
+    fireEvent.click(rows[0]!);
+    expect(mockPush).toHaveBeenCalledWith('/dashboard/conversations?selected=conv-p1');
+
+    // Click second row (no conversationId) — push should not be called again
+    mockPush.mockClear();
+    fireEvent.click(rows[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+});

@@ -527,7 +527,13 @@
     "meetingsPastEmptyTitle": "Sin reuniones pasadas",
     "meetingsPastEmptyDescription": "Las reuniones completadas aparecerán aquí.",
     "meetingStatusConfirmed": "Confirmada",
-    "meetingStatusPending": "Pendiente"
+    "meetingStatusPending": "Pendiente",
+    "paymentsColCustomer": "Cliente",
+    "paymentsColAmount": "Monto",
+    "paymentsColStatus": "Estado",
+    "paymentsColDue": "Vencimiento",
+    "paymentsEmptyTitle": "Sin pagos aún",
+    "paymentsEmptyDescription": "Los pagos procesados por este agente aparecerán aquí."
   },
   "knowledge": {
     "pageTitle": "Conocimiento",
