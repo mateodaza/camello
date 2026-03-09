@@ -16,6 +16,7 @@ import { AgentSettingsPanel } from '@/components/agent-workspace/agent-settings-
 import { QuotesSection } from '@/components/agent-workspace/sales/quotes-section';
 import { MeetingsSection } from '@/components/agent-workspace/sales/meetings-section';
 import { PaymentsSection } from '@/components/agent-workspace/sales/payments-section';
+import { FollowupsSection } from '@/components/agent-workspace/sales/followups-section';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -373,6 +374,7 @@ export default function AgentConfigPage() {
           <QuotesSection artifactId={id} />
           <MeetingsSection artifactId={id} />
           <PaymentsSection artifactId={id} />
+          <FollowupsSection artifactId={id} />
         </div>
       )}
     </WorkspaceShell>

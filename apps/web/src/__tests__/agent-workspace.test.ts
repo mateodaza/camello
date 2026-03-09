@@ -698,3 +698,101 @@ describe('PaymentsSection', () => {
     vi.restoreAllMocks();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Render Tests — FollowupsSection
+// ---------------------------------------------------------------------------
+
+describe('FollowupsSection', () => {
+  beforeEach(() => {
+    queryMocks.clear();
+    mutationMocks.clear();
+  });
+
+  it('renders card with customerName and status badge', async () => {
+    setQueryMock('agent.salesFollowups', [
+      {
+        id: 'f1',
+        output: { followup_status: 'queued', scheduled_at: '2025-06-01T10:00:00.000Z', channel: 'whatsapp' },
+        status: 'executed',
+        conversationId: 'conv-f1',
+        createdAt: new Date('2025-06-01'),
+        leadId: 'lead-1',
+        customerId: 'cust-1',
+        customerName: 'Acme Corp',
+        followupStatus: 'queued',
+        scheduledAt: '2025-06-01T10:00:00.000Z',
+        channel: 'whatsapp',
+        messageTemplate: 'gentle_reminder',
+      },
+    ]);
+
+    const { FollowupsSection } = await import('@/components/agent-workspace/sales/followups-section');
+    render(createElement(FollowupsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('followupStatusQueued')).toBeInTheDocument();
+  });
+
+  it('renders empty state when data is []', async () => {
+    setQueryMock('agent.salesFollowups', []);
+
+    const { FollowupsSection } = await import('@/components/agent-workspace/sales/followups-section');
+    render(createElement(FollowupsSection as any, { artifactId: 'test-artifact-id' }));
+
+    expect(screen.getByText('followupsEmptyTitle')).toBeInTheDocument();
+    expect(screen.getByText('followupsEmptyDescription')).toBeInTheDocument();
+  });
+
+  it('card click deep-links to inbox; null conversationId skips navigation', async () => {
+    const mockPush = vi.fn();
+    const nav = await import('next/navigation');
+    vi.spyOn(nav, 'useRouter').mockReturnValue({ push: mockPush } as any);
+
+    setQueryMock('agent.salesFollowups', [
+      {
+        id: 'f1',
+        output: {},
+        status: 'executed',
+        conversationId: 'conv-f1',
+        createdAt: new Date('2025-06-01'),
+        leadId: null,
+        customerId: null,
+        customerName: 'Click Me',
+        followupStatus: 'sent',
+        scheduledAt: '2025-06-01T10:00:00.000Z',
+        channel: 'whatsapp',
+        messageTemplate: 'gentle_reminder',
+      },
+      {
+        id: 'f2',
+        output: {},
+        status: 'executed',
+        conversationId: null,
+        createdAt: new Date('2025-06-02'),
+        leadId: null,
+        customerId: null,
+        customerName: 'No Nav',
+        followupStatus: 'queued',
+        scheduledAt: null,
+        channel: null,
+        messageTemplate: null,
+      },
+    ]);
+
+    const { FollowupsSection } = await import('@/components/agent-workspace/sales/followups-section');
+    render(createElement(FollowupsSection as any, { artifactId: 'test-artifact-id' }));
+
+    const buttons = screen.getAllByRole('button');
+    // Click first button (has conversationId)
+    fireEvent.click(buttons[0]!);
+    expect(mockPush).toHaveBeenCalledWith('/dashboard/conversations?selected=conv-f1');
+
+    // Click second button (no conversationId) — push should not be called again
+    mockPush.mockClear();
+    fireEvent.click(buttons[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
+});

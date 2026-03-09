@@ -360,10 +360,11 @@ Reuse existing `agent.salesPayments` tRPC query (already returns amount, currenc
 **Depends on:** NC-221
 **Done:** Added `conversationId` to `salesPayments` select in `agent.ts`; created `payments-section.tsx` with `PaymentStatusBadge` (6-value enum colors) and `DataTable` (4 cols: customer, amount, status, due); wired into dashboard tab; 6 i18n keys added (en+es); 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
-#### NC-225 [ ] Follow-ups section
+#### NC-225 [x] Follow-ups section
 New `salesFollowups` tRPC query (module_executions filtered by `send_followup` + LEFT JOIN customers). Simple card list.
 **Files:** `agent.ts`, `sales/followups-section.tsx`, i18n
 **Depends on:** NC-221
+**Done:** Added `salesFollowups` tenantProcedure to `agent.ts` (JSONB extracts `followup_status`, `scheduled_at`, `channel`, `message_template`; LEFT JOIN leads + customers); created `followups-section.tsx` with `FollowupStatusBadge` (queued/sent/processed/failed) and `CardFeed`; wired into dashboard tab after PaymentsSection; 8 i18n keys (en+es); 3 backend tests (`agent-followups.test.ts`) + 3 frontend tests appended to `agent-workspace.test.ts`. Type-check passes.
 
 #### NC-226 [ ] i18n audit for all Dashboard sections (en + es)
 Final pass ensuring all NC-221→NC-229 strings are in both locale files. Tab labels, column headers, empty states, status labels.

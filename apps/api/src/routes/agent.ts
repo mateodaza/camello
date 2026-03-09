@@ -354,6 +354,39 @@ export const agentRouter = router({
       });
     }),
 
+  salesFollowups: tenantProcedure
+    .input(paginatedInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        return db
+          .select({
+            id: moduleExecutions.id,
+            output: moduleExecutions.output,
+            status: moduleExecutions.status,
+            conversationId: moduleExecutions.conversationId,
+            createdAt: moduleExecutions.createdAt,
+            leadId: leads.id,
+            customerId: leads.customerId,
+            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            followupStatus: sql<string | null>`${moduleExecutions.output}->>'followup_status'`,
+            scheduledAt: sql<string | null>`${moduleExecutions.output}->>'scheduled_at'`,
+            channel: sql<string | null>`${moduleExecutions.output}->>'channel'`,
+            messageTemplate: sql<string | null>`${moduleExecutions.input}->>'message_template'`,
+          })
+          .from(moduleExecutions)
+          .leftJoin(leads, eq(leads.conversationId, moduleExecutions.conversationId))
+          .leftJoin(customers, eq(customers.id, leads.customerId))
+          .where(and(
+            eq(moduleExecutions.artifactId, input.artifactId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+            eq(moduleExecutions.moduleSlug, 'send_followup'),
+          ))
+          .orderBy(desc(moduleExecutions.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+      });
+    }),
+
   salesFunnel: tenantProcedure
     .input(artifactIdInput)
     .query(async ({ ctx, input }) => {

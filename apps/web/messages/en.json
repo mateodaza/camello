@@ -533,7 +533,14 @@
     "paymentsColStatus": "Status",
     "paymentsColDue": "Due Date",
     "paymentsEmptyTitle": "No payments yet",
-    "paymentsEmptyDescription": "Payments processed by this agent will appear here."
+    "paymentsEmptyDescription": "Payments processed by this agent will appear here.",
+    "followupsTitle": "Follow-ups",
+    "followupsEmptyTitle": "No follow-ups yet",
+    "followupsEmptyDescription": "Follow-up messages scheduled by this agent will appear here.",
+    "followupStatusQueued": "Queued",
+    "followupStatusSent": "Sent",
+    "followupStatusProcessed": "Processed",
+    "followupStatusFailed": "Failed"
   },
   "knowledge": {
     "pageTitle": "Knowledge",
