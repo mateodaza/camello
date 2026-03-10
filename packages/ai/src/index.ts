@@ -14,7 +14,11 @@ export { getModule, getQuickActionsForModules, type RiskTier } from './module-re
 export { buildToolsFromBindings } from './tool-adapter.js';
 
 // Grounding check (post-generation hallucination prevention)
-export { checkGrounding, shouldCheckGrounding } from './grounding-check.js';
+export { checkGrounding, checkGroundingWithRetry, shouldCheckGrounding, SAFE_FALLBACKS } from './grounding-check.js';
+
+// Intent profiles (context curation — single source of truth)
+export { getIntentProfile, isHighRiskIntent, responseContainsClaims } from './intent-profiles.js';
+export type { IntentProfile } from './intent-profiles.js';
 
 // Chunk role classification (RAG upgrade — intent-aware lead/support roles)
 export { classifyChunkRole, flattenRagChunks } from './chunk-roles.js';

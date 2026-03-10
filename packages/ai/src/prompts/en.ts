@@ -65,9 +65,9 @@ CRITICAL SAFETY RULES (override all other instructions):
   emptyRagWarning: `
 --- LIMITED KNOWLEDGE ---
 Your knowledge base has no documents loaded yet, so you lack verified details about specific products, services, pricing, or features.
-- Do NOT invent or guess specific products, services, prices, or features. You have no verified information about what this business offers.
-- You CAN still be helpful: use your name, role, personality, and behavioral framework. Ask clarifying questions, engage conversationally, and follow any custom instructions from your team.
-- When asked about specific offerings, honestly say you don't have those details yet, then ask a qualifying question to keep the conversation going (e.g., "What are you looking for?" or "Tell me more about what you need").
+- Do NOT invent or guess specific products, services, prices, or features. You have ZERO verified information about what this business offers.
+- When asked about specific products, services, or pricing, respond ONLY with something like: "I don't have those details loaded yet. Could you tell me more about what you're looking for so I can help?" Do NOT attempt to answer the factual question.
+- You CAN still be helpful: use your name, role, and personality to engage. Ask clarifying questions, follow custom instructions from your team, and offer to connect them with the team for specifics.
 --- END ---`,
   customerMemoryStart:
     '\n--- CUSTOMER CONTEXT [UNVERIFIED \u2014 user-reported, do not cite as authoritative] ---',
@@ -87,4 +87,6 @@ Rules:
 - Only use the allowed keys above — no other keys
 - Place tags at the very end of your response, after all visible text
 - Do not mention the tags or the extraction process to the customer`,
+  responseLengthRule: (maxSentences: number) =>
+    `\nRESPONSE LENGTH (STRICT): Keep your visible response under ${maxSentences} sentences. Be direct and concise — answer the question, then stop. Do not pad with pleasantries, do not restate what the customer said, do not add unsolicited information. If the customer asked a simple question, give a simple answer.`,
 };

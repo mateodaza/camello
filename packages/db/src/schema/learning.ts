@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, numeric, integer, timestamp, index, check, customType } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, numeric, integer, timestamp, index, check, customType, jsonb } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from './tenants.js';
 import { artifacts } from './artifacts.js';
@@ -68,6 +68,7 @@ export const interactionLogs = pgTable('interaction_logs', {
   costUsd: numeric('cost_usd', { precision: 10, scale: 6 }).notNull(),
   latencyMs: integer('latency_ms').notNull(),
   resolutionType: text('resolution_type'),
+  contextCuration: jsonb('context_curation'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
   index('idx_interaction_logs_tenant_date').on(table.tenantId, table.createdAt),
