@@ -326,6 +326,11 @@ export const conversationRouter = router({
       message: z.string().min(1).max(4000),
     }))
     .mutation(async ({ ctx, input }) => {
+      // Step 0 — Require authenticated user
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Authentication required.' });
+      }
+
       // Step 1 — Authorization: check tenant_members for role = 'owner'
       const memberRows = await ctx.tenantDb.query(async (db) => {
         return db

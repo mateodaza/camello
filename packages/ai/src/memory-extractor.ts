@@ -174,6 +174,7 @@ export function parseMemoryTags(
   const now = new Date().toISOString();
   const seen = new Set<string>();
 
+  MEMORY_TAG_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = MEMORY_TAG_RE.exec(responseText)) !== null) {
     const key = match[1].toLowerCase();

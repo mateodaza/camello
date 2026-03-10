@@ -39,9 +39,12 @@ export function useChat(token: string, apiUrl: string, language: string): UseCha
   const [error, setError] = useState<string | null>(null);
   const [inputDisabled, setInputDisabled] = useState(false);
 
+  const isSendingRef = useRef(false);
+  isSendingRef.current = isSending;
+
   const send = useCallback(
     async (text: string, existingConversationId?: string) => {
-      if (isSending || inputDisabled) return;
+      if (isSendingRef.current || inputDisabled) return;
       setIsSending(true);
       setError(null);
 
@@ -165,8 +168,6 @@ export function useChat(token: string, apiUrl: string, language: string): UseCha
   // ---------------------------------------------------------------------------
   const knownServerIdsRef = useRef<Set<string>>(new Set());
   const bootstrappedRef = useRef(false);
-  const isSendingRef = useRef(false);
-  isSendingRef.current = isSending;
 
   useEffect(() => {
     if (!token || bootstrappedRef.current) return;

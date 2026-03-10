@@ -739,7 +739,7 @@ export const agentRouter = router({
       // idx_notifications_stale_dedup handles dedup atomically.
       if (result.staleLeads.length > 0) {
         void ctx.tenantDb.query(async (db) => {
-          await Promise.all(
+          const results = await Promise.allSettled(
             result.staleLeads.map((lead) =>
               db.insert(ownerNotifications).values({
                 tenantId: ctx.tenantId,
@@ -756,8 +756,12 @@ export const agentRouter = router({
               }).onConflictDoNothing()
             )
           );
+          const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+          if (failures.length > 0) {
+            console.warn(`[agent.salesAlerts] ${failures.length}/${results.length} stale notification inserts failed`);
+          }
         }).catch((err: unknown) => {
-          console.warn('[agent.salesAlerts] stale notification insert failed:', err instanceof Error ? err.message : String(err));
+          console.warn('[agent.salesAlerts] stale notification batch failed:', err instanceof Error ? err.message : String(err));
         });
       }
 
@@ -1141,7 +1145,7 @@ export const agentRouter = router({
             conversationId: leads.conversationId,
             stage: leads.stage,
             score: leads.score,
-            customerName: customers.name,
+            customerName: sql<string>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
           })
           .from(leads)
           .innerJoin(conversations, eq(leads.conversationId, conversations.id))
@@ -1151,7 +1155,7 @@ export const agentRouter = router({
             eq(conversations.artifactId, input.artifactId),
             sql`${leads.stage} NOT IN ('closed_won', 'closed_lost')`,
           ))
-          .orderBy(asc(customers.name));
+          .orderBy(sql`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`);
       });
     }),
 
