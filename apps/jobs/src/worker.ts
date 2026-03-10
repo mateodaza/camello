@@ -3,6 +3,7 @@ import cron, { type ScheduledTask } from 'node-cron';
 import { runLearningDecay } from './jobs/learning-decay.js';
 import { runMetricsRollup } from './jobs/metrics-rollup.js';
 import { runUrlIngestion } from './jobs/url-ingestion.js';
+import { runProcessFollowups } from './jobs/process-followups.js';
 import { claimJobRun, completeJobRun, getLastCompletedPeriod, releaseJobRun } from './lib/job-lock.js';
 import { servicePool } from './lib/service-db.js';
 import { log } from './lib/logger.js';
@@ -209,6 +210,13 @@ export function createWorker() {
         }, { timezone: 'UTC' })
       );
 
+      // Follow-up queue — every 5 minutes (no ledger, SKIP LOCKED is idempotent)
+      tasks.push(
+        cron.schedule('*/5 * * * *', () => {
+          void safeRun('process-followups', runProcessFollowups);
+        }, { timezone: 'UTC' })
+      );
+
       // Metrics rollup — daily at 2:00 AM UTC
       tasks.push(
         cron.schedule('0 2 * * *', () => {
@@ -226,7 +234,7 @@ export function createWorker() {
         }, { timezone: 'UTC' })
       );
 
-      log.info('Worker started — 3 cron schedules registered');
+      log.info('Worker started — 4 cron schedules registered');
 
       // Graceful shutdown
       const shutdown = () => {

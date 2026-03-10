@@ -1,14 +1,185 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
-import { localDateStr, thirtyDaysAgoStr, fmtCost, fmtMicroCost, fmtInt, fmtDateTime } from '@/lib/format';
+import { localDateStr, thirtyDaysAgoStr, fmtCost, fmtMicroCost, fmtInt, fmtDateTime, fmtMoney } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatCard, Metric } from '@/components/stat-card';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
+import { BarChartCss } from '@/components/agent-workspace/primitives/bar-chart-css';
+import { AgentPerformance } from '@/components/agent-workspace/performance-panel';
+import { stageKey } from '@/components/agent-workspace/sales/constants';
+
+// ---------------------------------------------------------------------------
+// DeltaBadge — period-over-period comparison badge (inlined from registry/sales)
+// ---------------------------------------------------------------------------
+
+interface DeltaBadgeProps {
+  current: number;
+  pct: number | null;
+  format?: 'count' | 'currency';
+  locale?: string;
+}
+
+function DeltaBadge({ current, pct, format = 'count', locale }: DeltaBadgeProps) {
+  const t = useTranslations('agentWorkspace');
+
+  if (pct === null && current === 0) {
+    return <span className="text-xs text-dune">—</span>;
+  }
+  if (pct === null && current > 0) {
+    const text = format === 'currency'
+      ? t('salesComparisonBadgeCurrencyNew', { amount: fmtMoney(current, locale ?? 'en') })
+      : t('salesComparisonBadgeCountNew', { count: current });
+    return <span className="text-xs font-medium text-teal">{text}</span>;
+  }
+  if (pct === null || pct === 0) {
+    return <span className="text-xs text-dune">—</span>;
+  }
+  if (pct > 0) {
+    return <span className="text-xs font-medium text-teal">↑{pct}%</span>;
+  }
+  return <span className="text-xs font-medium" style={{ color: 'var(--color-sunset)' }}>↓{Math.abs(pct)}%</span>;
+}
+
+// ---------------------------------------------------------------------------
+// ForecastCard — 30-day revenue forecast (inlined from registry/sales)
+// ---------------------------------------------------------------------------
+
+interface ForecastData {
+  totalForecast: number;
+  stages: Array<{
+    stage: string;
+    leadCount: number;
+    pipelineValue: number;
+    conversionRate: number;
+    isFallback: boolean;
+    forecastValue: number;
+  }>;
+}
+
+function ForecastCard({ artifactId: _artifactId, salesForecast }: { artifactId: string; salesForecast: ForecastData | undefined }) {
+  const t = useTranslations('agentWorkspace');
+  const locale = useLocale();
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">{t('salesForecast30d')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="font-heading text-2xl font-bold tabular-nums text-charcoal">
+          {fmtMoney(salesForecast?.totalForecast ?? 0, locale)}
+        </p>
+        {salesForecast && salesForecast.stages.length > 0 ? (
+          <div className="mt-3 space-y-2">
+            {salesForecast.stages.map((s) => (
+              <div key={s.stage} className="flex items-center justify-between text-sm">
+                <span className="text-dune">
+                  {t(`salesStage${stageKey(s.stage)}` as Parameters<typeof t>[0])}
+                </span>
+                <span className="text-dune">
+                  {Math.round(s.conversionRate * 100)}%
+                  {s.isFallback && (
+                    <span className="ml-1 text-xs text-dune/70">({t('salesForecastEstimated')})</span>
+                  )}
+                </span>
+                <span className="tabular-nums text-charcoal">{fmtMoney(s.forecastValue, locale)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-dune">{t('salesForecastEmpty')}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SalesComparisonSection — week-over-week deltas for a sales agent
+// ---------------------------------------------------------------------------
+
+function SalesComparisonSection({ artifactId }: { artifactId: string }) {
+  const taw = useTranslations('agentWorkspace');
+  const locale = useLocale();
+  const comparison = trpc.agent.salesComparison.useQuery({ artifactId });
+
+  return (
+    <Card>
+      <CardContent className="pt-5">
+        <div className="grid grid-cols-2 divide-x divide-charcoal/10 sm:grid-cols-4">
+          <div className="px-4 first:pl-0 last:pr-0">
+            <p className="text-xs font-medium text-dune">{taw('salesComparisonNewLeads')}</p>
+            <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+              {comparison.data?.thisWeek.newLeads ?? 0}
+            </p>
+            <div className="mt-0.5">
+              <DeltaBadge
+                current={comparison.data?.thisWeek.newLeads ?? 0}
+                pct={comparison.data?.deltas.newLeads ?? null}
+              />
+            </div>
+          </div>
+          <div className="px-4 first:pl-0 last:pr-0">
+            <p className="text-xs font-medium text-dune">{taw('salesComparisonWonDeals')}</p>
+            <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+              {comparison.data?.thisWeek.wonDeals ?? 0}
+            </p>
+            <div className="mt-0.5">
+              <DeltaBadge
+                current={comparison.data?.thisWeek.wonDeals ?? 0}
+                pct={comparison.data?.deltas.wonDeals ?? null}
+              />
+            </div>
+          </div>
+          <div className="px-4 first:pl-0 last:pr-0">
+            <p className="text-xs font-medium text-dune">{taw('salesComparisonRevenue')}</p>
+            <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+              {fmtMoney(comparison.data?.thisWeek.totalRevenue ?? 0, locale)}
+            </p>
+            <div className="mt-0.5">
+              <DeltaBadge
+                current={comparison.data?.thisWeek.totalRevenue ?? 0}
+                pct={comparison.data?.deltas.totalRevenue ?? null}
+                format="currency"
+                locale={locale}
+              />
+            </div>
+          </div>
+          <div className="px-4 first:pl-0 last:pr-0">
+            <p className="text-xs font-medium text-dune">{taw('salesComparisonConversations')}</p>
+            <p className="mt-1 font-heading text-2xl font-bold tabular-nums text-charcoal">
+              {comparison.data?.thisWeek.conversations ?? 0}
+            </p>
+            <div className="mt-0.5">
+              <DeltaBadge
+                current={comparison.data?.thisWeek.conversations ?? 0}
+                pct={comparison.data?.deltas.conversations ?? null}
+              />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ForecastSection — 30-day forecast for a sales agent
+// ---------------------------------------------------------------------------
+
+function ForecastSection({ artifactId }: { artifactId: string }) {
+  const salesForecast = trpc.agent.salesForecast.useQuery({ artifactId });
+  return <ForecastCard artifactId={artifactId} salesForecast={salesForecast.data} />;
+}
+
+// ---------------------------------------------------------------------------
+// AnalyticsPage
+// ---------------------------------------------------------------------------
 
 export default function AnalyticsPage() {
   const t = useTranslations('analytics');
@@ -24,27 +195,40 @@ export default function AnalyticsPage() {
   const validTo = from <= to ? to : from;
   const dateSwapped = from > to;
 
-  // --- Artifact filters ---
-  const [metricsArtifactId, setMetricsArtifactId] = useState('');
-  const [logsArtifactId, setLogsArtifactId] = useState('');
+  // --- Unified agent selector ---
+  const [selectedArtifactId, setSelectedArtifactId] = useState('');
 
-  // --- Primary query: overview stats ---
+  // --- Queries ---
   const overview = trpc.analytics.overview.useQuery({ from: validFrom, to: validTo });
-
-  // --- Secondary queries ---
   const artifacts = trpc.artifact.list.useQuery({ activeOnly: false });
 
   const artifactMetrics = trpc.analytics.artifactMetrics.useQuery(
-    { artifactId: metricsArtifactId, from: validFrom, to: validTo },
-    { enabled: !!metricsArtifactId },
+    { artifactId: selectedArtifactId, from: validFrom, to: validTo },
+    { enabled: !!selectedArtifactId },
   );
 
   const recentLogs = trpc.analytics.recentLogs.useQuery({
-    artifactId: logsArtifactId || undefined,
+    artifactId: selectedArtifactId || undefined,
     limit: 50,
   });
 
   const usageRecords = trpc.analytics.usage.useQuery({ limit: 6 });
+
+  // --- Derived ---
+  const selectedArtifact = artifacts.data?.find((a) => a.id === selectedArtifactId);
+  const isSalesAgent = selectedArtifact?.type === 'sales';
+
+  const intentBars = useMemo(() => {
+    if (!selectedArtifactId || !recentLogs.data) return [];
+    const freq: Record<string, number> = {};
+    for (const log of recentLogs.data) {
+      if (log.intent) freq[log.intent] = (freq[log.intent] ?? 0) + 1;
+    }
+    return Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([label, value]) => ({ label, value }));
+  }, [recentLogs.data, selectedArtifactId]);
 
   // --- Primary query gate ---
   if (overview.isLoading) return (
@@ -100,6 +284,27 @@ export default function AnalyticsPage() {
         )}
       </div>
 
+      {/* Unified agent selector */}
+      <div className="flex flex-wrap items-center gap-3">
+        {artifacts.isLoading ? (
+          <span className="text-sm text-dune">{t('loadingArtifacts')}</span>
+        ) : (
+          <select
+            value={selectedArtifactId}
+            onChange={(e) => setSelectedArtifactId(e.target.value)}
+            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+          >
+            <option value="">{t('allAgents')}</option>
+            {artifacts.data?.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        )}
+        {!selectedArtifactId && (
+          <span className="text-sm text-dune">{t('agentSpecificPrompt')}</span>
+        )}
+      </div>
+
       {/* ===== SECTION A: Overview Stats ===== */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title={t('totalConversations')} value={total} />
@@ -124,29 +329,52 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {/* ===== SECTION B: Per-Artifact Metrics ===== */}
-      <div className="space-y-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('artifactMetrics')}</h2>
-          {artifacts.isLoading ? (
-            <span className="text-sm text-dune">{t('loadingArtifacts')}</span>
-          ) : (
-            <select
-              value={metricsArtifactId}
-              onChange={(e) => setMetricsArtifactId(e.target.value)}
-              className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-            >
-              <option value="">{t('selectArtifact')}</option>
-              {artifacts.data?.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+      {/* ===== AGENT-SPECIFIC SECTIONS ===== */}
+      {selectedArtifactId && (
+        <div className="space-y-8">
+          {/* Performance */}
+          <div className="space-y-3">
+            <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionPerformance')}</h2>
+            <AgentPerformance artifactId={selectedArtifactId} />
+          </div>
+
+          {/* Top Intents */}
+          {intentBars.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionIntents')}</h2>
+              <Card>
+                <CardContent className="pt-5">
+                  <BarChartCss bars={intentBars} ariaLabel={t('sectionIntents')} />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Sales Comparison (sales agents only) */}
+          {isSalesAgent && (
+            <div className="space-y-3">
+              <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionSalesComparison')}</h2>
+              <SalesComparisonSection artifactId={selectedArtifactId} />
+            </div>
+          )}
+
+          {/* Revenue Forecast (sales agents only) */}
+          {isSalesAgent && (
+            <div className="space-y-3">
+              <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionForecast')}</h2>
+              <ForecastSection artifactId={selectedArtifactId} />
+            </div>
           )}
         </div>
+      )}
+
+      {/* ===== SECTION B: Per-Artifact Metrics ===== */}
+      <div className="space-y-3">
+        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('artifactMetrics')}</h2>
 
         {artifactMetrics.isError && <QueryError error={artifactMetrics.error} onRetry={() => artifactMetrics.refetch()} />}
 
-        {!metricsArtifactId ? (
+        {!selectedArtifactId ? (
           <p className="text-dune">{t('selectArtifactMsg')}</p>
         ) : artifactMetrics.isLoading ? (
           <div className="text-dune">{t('loadingMetrics')}</div>
@@ -184,23 +412,7 @@ export default function AnalyticsPage() {
 
       {/* ===== SECTION C: Recent Interaction Logs ===== */}
       <div className="space-y-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('recentInteractions')}</h2>
-          {artifacts.isLoading ? (
-            <span className="text-sm text-dune">{tc('loading')}</span>
-          ) : (
-            <select
-              value={logsArtifactId}
-              onChange={(e) => setLogsArtifactId(e.target.value)}
-              className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-            >
-              <option value="">{t('selectArtifact')}</option>
-              {artifacts.data?.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          )}
-        </div>
+        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('recentInteractions')}</h2>
 
         {recentLogs.isError && <QueryError error={recentLogs.error} onRetry={() => recentLogs.refetch()} />}
 

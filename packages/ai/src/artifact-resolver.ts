@@ -68,32 +68,19 @@ export function createArtifactResolver(deps: ResolverDeps): ArtifactResolver {
     async resolve(input: ArtifactResolverInput): Promise<ArtifactResolverOutput> {
       const { tenantId, channel, intent } = input;
 
-      // 1. EXISTING CONVERSATION: if customer has an active conversation, continue with its artifact
-      if (!input.existingConversationId) {
-        const active = await deps.findActiveConversation(input.customerId);
-        if (active) {
-          return {
-            artifactId: active.artifactId,
-            artifactName: active.artifactName,
-            artifactType: active.artifactType,
-            source: 'existing_conversation',
-            conversationId: active.conversationId,
-            isNewConversation: false,
-          };
-        }
-      } else {
-        // Caller already knows the conversation — but we still look up the assigned artifact
-        const active = await deps.findActiveConversation(input.customerId);
-        if (active && active.conversationId === input.existingConversationId) {
-          return {
-            artifactId: active.artifactId,
-            artifactName: active.artifactName,
-            artifactType: active.artifactType,
-            source: 'existing_conversation',
-            conversationId: active.conversationId,
-            isNewConversation: false,
-          };
-        }
+      // 1. EXISTING CONVERSATION: if customer has an active conversation, continue with its artifact.
+      //    Always check — even when existingConversationId is provided, because that conversation
+      //    may have been resolved/escalated since the client last saw it.
+      const active = await deps.findActiveConversation(input.customerId);
+      if (active) {
+        return {
+          artifactId: active.artifactId,
+          artifactName: active.artifactName,
+          artifactType: active.artifactType,
+          source: 'existing_conversation',
+          conversationId: active.conversationId,
+          isNewConversation: false,
+        };
       }
 
       // 2. ROUTING RULES: match channel + intent + confidence

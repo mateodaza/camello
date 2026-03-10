@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { modules, moduleExecutions, learnings, learningAuditLogs } from '@camello/db';
 import { getModule, processRejection, generateEmbedding } from '@camello/ai';
 import type { ModuleExecutionContext, RejectionReason } from '@camello/shared/types';
 import { MODULE_TIMEOUT_MS } from '@camello/shared/constants';
+import { insertPaymentForQuote } from '../lib/insert-payment-for-quote.js';
 
 export const moduleRouter = router({
   /** List global module catalog. Uses tenantProcedure for auth, but modules table has no RLS. */
@@ -127,6 +129,9 @@ export const moduleRouter = router({
           insertModuleExecution: async () => '',
           updateModuleExecution: async () => {},
           updateConversationStatus: async () => {},
+          getLeadByConversation: async () => null,
+          checkModuleExecutionExists: async () => false,
+          checkQueuedFollowupExists: async () => false,
         },
       };
 
@@ -146,6 +151,17 @@ export const moduleRouter = router({
             .where(eq(moduleExecutions.id, input.executionId));
         });
 
+        // Auto-create pending payment when owner approves a send_quote
+        if (moduleRow.slug === 'send_quote') {
+          await insertPaymentForQuote(ctx.tenantDb, {
+            tenantId: ctx.tenantId,
+            artifactId: execution.artifactId,
+            conversationId: execution.conversationId,
+            quoteExecutionId: execution.id,
+            output: output as { total: string; currency: string; quote_id: string },
+          });
+        }
+
         return { ...execution, status: 'executed' as const, output, durationMs };
       } catch (error) {
         const durationMs = Date.now() - startTime;
@@ -160,6 +176,77 @@ export const moduleRouter = router({
 
         return { ...execution, status: 'failed' as const, output: { error: errorMessage }, durationMs };
       }
+    }),
+
+  /**
+   * Update a draft_content execution output with approve/edit/discard action.
+   * Lifecycle lives entirely in output JSONB (draft_status field). Status column unchanged.
+   */
+  updateDraft: tenantProcedure
+    .input(z.object({
+      executionId: z.string().uuid(),
+      action: z.enum(['approve', 'edit', 'discard']),
+      output: z.record(z.unknown()).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Step 1: Fetch execution
+      const execution = await ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .select({
+            id: moduleExecutions.id,
+            output: moduleExecutions.output,
+            status: moduleExecutions.status,
+            moduleSlug: moduleExecutions.moduleSlug,
+          })
+          .from(moduleExecutions)
+          .where(and(
+            eq(moduleExecutions.id, input.executionId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+          ))
+          .limit(1);
+        return rows[0] ?? null;
+      });
+
+      // Step 2: Validate
+      if (!execution) {
+        throw new TRPCError({ code: 'NOT_FOUND' });
+      }
+      if (execution.status !== 'executed') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Execution must have status executed' });
+      }
+      if (execution.moduleSlug !== 'draft_content') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only draft_content executions supported' });
+      }
+
+      // Step 3: Compute new output
+      const existingOutput = (execution.output ?? {}) as Record<string, unknown>;
+      let newOutput: Record<string, unknown>;
+      if (input.action === 'approve') {
+        newOutput = { ...existingOutput, draft_status: 'approved' };
+      } else if (input.action === 'discard') {
+        newOutput = { ...existingOutput, draft_status: 'discarded' };
+      } else {
+        // edit
+        if (!input.output) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'output is required for edit action' });
+        }
+        newOutput = { ...existingOutput, ...input.output, draft_status: 'approved' };
+      }
+
+      // Step 4: Persist updated output
+      const updated = await ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .update(moduleExecutions)
+          .set({ output: newOutput })
+          .where(and(
+            eq(moduleExecutions.id, input.executionId),
+            eq(moduleExecutions.tenantId, ctx.tenantId),
+          ))
+          .returning();
+        return rows[0] ?? null;
+      });
+
+      return updated;
     }),
 
   /**

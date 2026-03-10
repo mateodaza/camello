@@ -71,6 +71,8 @@ export const leads = pgTable('leads', {
   timeline: text('timeline'),
   summary: text('summary'),
   closeReason: text('close_reason'),
+  sourceChannel: text('source_channel'),
+  sourcePage:    text('source_page'),
   qualifiedAt: timestamp('qualified_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   convertedAt: timestamp('converted_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -83,6 +85,32 @@ export const leads = pgTable('leads', {
   uniqueIndex('idx_leads_conversation_unique').on(table.conversationId).where(sql`conversation_id IS NOT NULL`),
   check('leads_score_values', sql`score IN ('hot', 'warm', 'cold')`),
   check('leads_stage_values', sql`stage IN ('new', 'qualifying', 'proposal', 'negotiation', 'closed_won', 'closed_lost')`),
+]);
+
+export const leadNotes = pgTable('lead_notes', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  tenantId:  uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  leadId:    uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  author:    text('author').notNull(),
+  content:   text('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_lead_notes_lead').on(table.leadId, table.createdAt),
+  index('idx_lead_notes_tenant').on(table.tenantId, table.createdAt),
+  check('lead_notes_author_values',  sql`author IN ('owner', 'system')`),
+  check('lead_notes_content_length', sql`char_length(content) <= 500`),
+]);
+
+export const leadStageChanges = pgTable('lead_stage_changes', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  tenantId:  uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  leadId:    uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  fromStage: text('from_stage').notNull(),
+  toStage:   text('to_stage').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_lead_stage_changes_lead').on(table.leadId, table.createdAt),
+  index('idx_lead_stage_changes_tenant').on(table.tenantId, table.createdAt),
 ]);
 
 // artifact_id is the immutable ownership key (set once, never re-derived).

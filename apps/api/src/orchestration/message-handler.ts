@@ -15,6 +15,7 @@ import {
   moduleExecutions,
   leads,
   customers,
+  ownerNotifications,
 } from '@camello/db';
 import {
   classifyIntent,
@@ -29,6 +30,9 @@ import {
   shouldCheckGrounding,
   flattenRagChunks,
   parseMemoryFacts,
+  mergeMemoryFacts,
+  parseMemoryTags,
+  stripMemoryTags,
   sanitizeFactValue,
   MAX_INJECTED_FACTS,
 } from '@camello/ai';
@@ -372,18 +376,30 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     }));
   });
 
+  // 6b-1. Enrich book_meeting bindings with businessHours from artifact.personality.hours
+  const artifactHours =
+    (artifact.personality as Record<string, unknown>)?.hours as string | undefined;
+
+  const enrichedModules: ArtifactModuleBinding[] = artifactHours
+    ? boundModules.map((m) =>
+        m.moduleSlug === 'book_meeting'
+          ? { ...m, configOverrides: { ...m.configOverrides, businessHours: artifactHours } }
+          : m,
+      )
+    : boundModules;
+
   // 6c. Build module DB callbacks (DI — keeps @camello/ai free of @camello/db)
   const moduleDbCallbacks: ModuleDbCallbacks = {
     insertLead: async (data) => {
       return tenantDb.query(async (db) => {
-        const { estimatedValue, ...rest } = data;
+        const { estimatedValue, sourceChannel, sourcePage, ...rest } = data;
         const numericValue = estimatedValue != null ? String(estimatedValue) : null;
         // Upsert: idx_leads_conversation_unique enforces one lead per conversation.
         // Re-qualification enriches the existing row. qualifiedAt is NOT updated —
         // it records the original qualification timestamp.
         const [row] = await db
           .insert(leads)
-          .values({ ...rest, estimatedValue: numericValue })
+          .values({ ...rest, estimatedValue: numericValue, sourceChannel, sourcePage })
           .onConflictDoUpdate({
             target: leads.conversationId,
             targetWhere: sql`conversation_id IS NOT NULL`,
@@ -396,6 +412,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
               timeline: rest.timeline ?? null,
               summary: rest.summary ?? null,
               updatedAt: new Date(),
+              // sourceChannel + sourcePage intentionally omitted: first-write-wins
             },
           })
           .returning({ id: leads.id });
@@ -424,9 +441,99 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           .where(and(eq(conversations.id, convId), eq(conversations.tenantId, tenantId)));
       });
     },
+    insertOwnerNotification: async (data) => {
+      await tenantDb.query(async (db) => {
+        await db.insert(ownerNotifications).values(data);
+      });
+    },
+    getLeadByConversation: async (convId) => {
+      const [row] = await tenantDb.query(async (db) =>
+        db.select({ stage: leads.stage })
+          .from(leads)
+          .where(eq(leads.conversationId, convId))
+          .limit(1),
+      );
+      return row ?? null;
+    },
+    checkModuleExecutionExists: async (convId, moduleSlug) => {
+      const [row] = await tenantDb.query(async (db) =>
+        db.select({ id: moduleExecutions.id })
+          .from(moduleExecutions)
+          .where(
+            and(
+              eq(moduleExecutions.conversationId, convId),
+              eq(moduleExecutions.moduleSlug, moduleSlug),
+            ),
+          )
+          .limit(1),
+      );
+      return row != null;
+    },
+    checkQueuedFollowupExists: async (convId) => {
+      const rows = await tenantDb.query(async (db) =>
+        db.select({ output: moduleExecutions.output })
+          .from(moduleExecutions)
+          .where(
+            and(
+              eq(moduleExecutions.conversationId, convId),
+              eq(moduleExecutions.moduleSlug, 'send_followup'),
+              eq(moduleExecutions.status, 'executed'),
+            ),
+          ),
+      );
+      return rows.some(
+        (r) =>
+          r.output != null &&
+          (r.output as Record<string, unknown>).followup_status === 'queued',
+      );
+    },
+    scheduleFollowupExecution: async (data) => {
+      await tenantDb.query(async (db) => {
+        const [modRow] = await db
+          .select({ id: modules.id })
+          .from(modules)
+          .where(eq(modules.slug, 'send_followup'))
+          .limit(1);
+        if (!modRow) return; // module not seeded yet — skip silently
+        // ON CONFLICT DO NOTHING: if a concurrent qualify_lead already inserted a
+        // queued row (race condition), the unique partial index prevents duplicates.
+        await db.insert(moduleExecutions).values({
+          moduleId: modRow.id,
+          moduleSlug: 'send_followup',
+          artifactId: data.artifactId,
+          tenantId: data.tenantId,
+          conversationId: data.conversationId,
+          input: { message_template: 'gentle_reminder' },
+          output: {
+            followup_status: 'queued',
+            scheduled_at: data.scheduledAt.toISOString(),
+            channel: 'pending',
+            followup_number: 1,
+          },
+          status: 'executed',
+          durationMs: 0,
+        }).onConflictDoNothing();
+      });
+    },
   };
 
   // 6d. Build approval notifier (non-blocking — guardrail #4)
+  function buildApprovalBody(moduleSlug: string, input: unknown): string {
+    const i = (input ?? {}) as Record<string, unknown>;
+    if (moduleSlug === 'send_quote') {
+      const total = i.total ?? i.amount;
+      const currency = (i.currency as string | undefined) ?? '';
+      if (total) return `Send quote: ${[currency, String(total)].filter(Boolean).join(' ')}`;
+    }
+    if (moduleSlug === 'collect_payment') {
+      const amount = i.amount;
+      const currency = (i.currency as string | undefined) ?? '';
+      if (amount) return `Collect payment: ${[currency, String(amount)].filter(Boolean).join(' ')}`;
+    }
+    if (moduleSlug === 'book_meeting') return 'Schedule a meeting with this lead';
+    return `Action: ${moduleSlug.replace(/_/g, ' ')}`;
+  }
+
   const onApprovalNeeded = async (executionId: string, moduleSlug: string, input: unknown) => {
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -436,6 +543,24 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       type: 'broadcast',
       event: 'approval_needed',
       payload: { executionId, moduleSlug, input, conversationId, artifactId: resolved.artifactId },
+    });
+
+    // Persist owner notification (non-blocking — separate tenantDb.query call)
+    tenantDb.query(async (db) => {
+      await db.insert(ownerNotifications).values({
+        tenantId,
+        artifactId: resolved.artifactId,
+        type: 'approval_needed',
+        title: `Approval needed: ${moduleSlug.replace(/_/g, ' ')}`,
+        body: buildApprovalBody(moduleSlug, input),
+        metadata: {
+          conversationId,
+          executionId,
+          moduleSlug,
+        },
+      });
+    }).catch((err: unknown) => {
+      console.warn('[handleMessage] approval_needed notification failed:', err instanceof Error ? err.message : String(err));
     });
   };
 
@@ -510,7 +635,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     ragContext: ragResult.directContext,
     proactiveContext: ragResult.proactiveContext,
     learnings: artifactLearnings.map((l) => l.content),
-    modules: boundModules.map((m) => ({
+    modules: enrichedModules.map((m) => ({
       name: m.moduleName,
       slug: m.moduleSlug,
       description: m.moduleDescription,
@@ -555,8 +680,8 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
 
   // 12. Build tools (if artifact has bound modules) and call LLM
   const client = createLLMClient();
-  const tools = boundModules.length > 0
-    ? buildToolsFromBindings(boundModules, {
+  const tools = enrichedModules.length > 0
+    ? buildToolsFromBindings(enrichedModules, {
         tenantId,
         artifactId: resolved.artifactId,
         conversationId,
@@ -564,6 +689,10 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
         triggerMessageId,
         db: moduleDbCallbacks,
         onApprovalNeeded,
+        channel,
+        metadata: conversationMetadata
+          ? { sourcePage: conversationMetadata.sourcePage }
+          : undefined,
       })
     : undefined;
 
@@ -634,6 +763,12 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     }
   }
 
+  // 12c. Parse + strip LLM memory tags from response (before saving)
+  const memoryTagFacts = parseMemoryTags(responseText, conversationId);
+  if (memoryTagFacts.length > 0) {
+    responseText = stripMemoryTags(responseText);
+  }
+
   // Totals (main + grounding for persisted metrics)
   const latencyMs = Date.now() - startTime;
   const tokensIn = mainTokensIn + groundingTokensIn;
@@ -677,6 +812,46 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       .set({ updatedAt: new Date() })
       .where(eq(conversations.id, conversationId));
   });
+
+  // 16. Fire-and-forget: persist LLM-extracted memory tags + sync name
+  if (memoryTagFacts.length > 0) {
+    setImmediate(async () => {
+      try {
+        const custRow = await tenantDb.query(async (db) => {
+          const rows = await db
+            .select({ memory: customers.memory, name: customers.name, email: customers.email, phone: customers.phone })
+            .from(customers)
+            .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+            .limit(1);
+          return rows[0];
+        });
+
+        const merged = mergeMemoryFacts(parseMemoryFacts(custRow?.memory), memoryTagFacts);
+        const memoryPayload = JSON.stringify({ facts: merged, updatedAt: new Date().toISOString() });
+
+        // Sync extracted facts to top-level columns (only if column is currently empty)
+        const syncFields: Record<string, string> = {};
+        const nameFact = merged.find((f) => f.key === 'name');
+        if (nameFact && !custRow?.name) syncFields.name = nameFact.value;
+        const emailFact = merged.find((f) => f.key === 'email');
+        if (emailFact && !custRow?.email) syncFields.email = emailFact.value;
+        const phoneFact = merged.find((f) => f.key === 'phone');
+        if (phoneFact && !custRow?.phone) syncFields.phone = phoneFact.value;
+
+        await tenantDb.query(async (db) => {
+          await db
+            .update(customers)
+            .set({
+              memory: sql`${memoryPayload}::jsonb`,
+              ...syncFields,
+            })
+            .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)));
+        });
+      } catch (err) {
+        console.error('[customer-memory] tag persistence failed (non-blocking):', err);
+      }
+    });
+  }
 
   trace.finalize({
     modelUsed: modelId,

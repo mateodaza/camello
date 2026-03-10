@@ -1,5 +1,5 @@
 import { tool, type CoreTool } from 'ai';
-import type { ArtifactModuleBinding, ModuleDbCallbacks, ModuleExecutionContext } from '@camello/shared/types';
+import type { ArtifactModuleBinding, Channel, ModuleDbCallbacks, ModuleExecutionContext } from '@camello/shared/types';
 import { MODULE_TIMEOUT_MS } from '@camello/shared/constants';
 import { getModule, type ModuleDefinition } from './module-registry.js';
 
@@ -17,6 +17,8 @@ export interface ToolAdapterDeps {
   db: ModuleDbCallbacks;
   /** Broadcast approval notification. Must be non-blocking (errors swallowed). */
   onApprovalNeeded?: (executionId: string, moduleSlug: string, input: unknown) => Promise<void>;
+  channel?: Channel;
+  metadata?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +122,8 @@ async function executeModuleTool(
     autonomyLevel: binding.autonomyLevel,
     configOverrides: binding.configOverrides,
     db: deps.db,
+    channel: deps.channel,
+    metadata: deps.metadata,
   };
 
   try {

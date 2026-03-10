@@ -35,4 +35,6 @@ export interface PromptTemplates {
   customerMemoryStart: string;
   customerMemoryInstruction: string;
   customerMemoryEnd: string;
+  /** Instruction for LLM to emit structured memory tags when it learns customer info. */
+  memoryExtraction: string;
 }

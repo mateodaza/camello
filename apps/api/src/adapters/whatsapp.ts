@@ -3,6 +3,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { db } from '@camello/db';
 import { webhookEvents, customers } from '@camello/db';
 import { createTenantDb } from '@camello/db';
+import type { TenantDb } from '@camello/db';
 import type { CanonicalMessage } from '@camello/shared/types';
 import type { ChannelAdapter, ChannelConfig } from './types.js';
 
@@ -64,27 +65,49 @@ export async function resolveTenantByPhoneNumberId(
 // ---------------------------------------------------------------------------
 
 export async function findOrCreateWhatsAppCustomer(
+  tenantDb: TenantDb,
   tenantId: string,
   waId: string,
   profileName?: string,
 ): Promise<string> {
-  const tenantDb = createTenantDb(tenantId);
-  return tenantDb.query(async (qdb) => {
-    const rows = await qdb
+  return tenantDb.transaction(async (tx) => {
+    // Serialize display_name assignment per tenant
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`);
+
+    const nameValue = profileName ?? null;
+
+    const rows = await tx
       .insert(customers)
       .values({
         tenantId,
         channel: 'whatsapp',
         externalId: waId,
-        name: profileName ?? waId,
+        name: nameValue,
         phone: waId,
       })
       .onConflictDoUpdate({
         target: [customers.tenantId, customers.channel, customers.externalId],
         set: { lastSeenAt: new Date() },
       })
-      .returning({ id: customers.id });
-    return rows[0].id;
+      .returning({ id: customers.id, xmax: sql<string>`xmax` });
+
+    const row = rows[0];
+    // xmax=0 means fresh INSERT; non-zero means ON CONFLICT DO UPDATE
+    const isNewInsert = String(row.xmax) === '0';
+
+    if (isNewInsert && nameValue === null) {
+      const countRows = await tx
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), sql`${customers.displayName} IS NOT NULL`));
+      const seq = Number(countRows[0]?.count ?? 0);
+      await tx
+        .update(customers)
+        .set({ displayName: `Visitor ${seq + 1}` })
+        .where(and(eq(customers.id, row.id), eq(customers.tenantId, tenantId)));
+    }
+
+    return row.id;
   });
 }
 

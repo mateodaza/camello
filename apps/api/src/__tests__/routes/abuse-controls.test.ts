@@ -42,6 +42,8 @@ vi.mock('@camello/ai', () => ({
   parseMemoryFacts: () => [],
   sanitizeFactValue: (v: string) => v,
   MAX_INJECTED_FACTS: 6,
+  parseMemoryTags: vi.fn(() => []),
+  stripMemoryTags: vi.fn((text: string) => text),
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));

@@ -43,7 +43,7 @@ export default function OnboardingPage() {
 
   // Check if already onboarded (org exists + tenant provisioned)
   const status = trpc.onboarding.getStatus.useQuery(undefined, {
-    enabled: !!tenantId,
+    enabled: isLoaded && !!organization,
     retry: false,
   });
   const saveStep = trpc.onboarding.saveStep.useMutation();
@@ -118,7 +118,7 @@ export default function OnboardingPage() {
     <div>
       <h1 className="mb-2 text-center font-heading text-2xl font-bold text-charcoal">{t('title')}</h1>
       <p className="mb-6 text-center text-sm text-dune">
-        {step <= 4 ? t('subtitle1') : t('subtitle2')}
+        {step <= 3 ? t('subtitle1') : t('subtitle2')}
       </p>
 
       <WizardProgress currentStep={step} />
@@ -195,6 +195,7 @@ export default function OnboardingPage() {
           agentName={suggestion?.agentName ?? 'your agent'}
           businessDescription={businessDescription}
           alreadySeeded={businessDescriptionSeeded}
+          archetype={suggestion?.agentType}
           onSeeded={() => {
             setBusinessDescriptionSeeded(true);
             if (tenantId) {

@@ -219,6 +219,22 @@ describe('agent.updateLeadStage', () => {
             }),
           }),
         }),
+        // After closed_won update, source fetches lead meta for notification
+        select: () => ({
+          from: () => ({
+            leftJoin: () => ({
+              where: () => ({
+                limit: () => [{ artifactId: ARTIFACT_ID, conversationId: CONVERSATION_ID, estimatedValue: null }],
+              }),
+            }),
+          }),
+        }),
+        // Then inserts ownerNotification
+        insert: () => ({
+          values: () => ({
+            catch: () => Promise.resolve(),
+          }),
+        }),
       };
       return fn(mockDb);
     });
@@ -272,10 +288,12 @@ describe('agent.supportTickets', () => {
       const mockDb = {
         select: () => ({
           from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => ({
-                  offset: () => fakeRows,
+            leftJoin: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: () => ({
+                    offset: () => fakeRows,
+                  }),
                 }),
               }),
             }),
@@ -296,10 +314,12 @@ describe('agent.supportTickets', () => {
       const mockDb = {
         select: () => ({
           from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => ({
-                  offset: () => [],
+            leftJoin: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: () => ({
+                    offset: () => [],
+                  }),
                 }),
               }),
             }),
@@ -326,10 +346,12 @@ describe('agent.supportTickets', () => {
       const mockDb = {
         select: () => ({
           from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => ({
-                  offset: () => page,
+            leftJoin: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: () => ({
+                    offset: () => page,
+                  }),
                 }),
               }),
             }),
@@ -776,5 +798,307 @@ describe('agent.marketingInterestMap', () => {
 
     expect(result).toHaveLength(2);
     expect(result[0].topic).toBe('Product A');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performanceMetrics
+// ---------------------------------------------------------------------------
+
+function lastNDays(n: number): string[] {
+  const days: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+describe('agent.performanceMetrics', () => {
+  it('prefers rollup resolutionsCount over raw convMap.resolved for resolution rate', async () => {
+    const rollupRows    = [{ date: '2026-03-07', resolutionsCount: 8 }];
+    const convRows      = [
+      { date: '2026-03-07', total: 10, resolved: 5, avgResponseMs: 3500 },
+      { date: '2026-03-08', total:  8, resolved: 4, avgResponseMs: 4000 },
+    ];
+    const moduleCountRows = [
+      { moduleSlug: 'qualify_lead', count: 15 },
+      { moduleSlug: 'book_meeting', count:  6 },
+    ];
+
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      callIndex = 0;
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return { from: () => ({ where: () => ({ orderBy: () => rollupRows }) }) };
+          }
+          if (callIndex === 2) {
+            return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => convRows }) }) }) };
+          }
+          return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => moduleCountRows }) }) }) };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
+
+    const rate07 = result.dailyResolutionRate.find(d => d.date === '2026-03-07');
+    const rate08 = result.dailyResolutionRate.find(d => d.date === '2026-03-08');
+    expect(rate07?.rate).toBe(80); // 8/10 × 100 from rollup, NOT 50 from convMap
+    expect(rate08?.rate).toBe(50); // fallback: 4/8 × 100 — no rollup row for this date
+
+    // Weighted: (3500×5 + 4000×4) / 9 = 33500/9 ≈ 3722
+    expect(result.avgResponseTime7d).toBe(3722);
+
+    const vol07 = result.dailyConversationVolume.find(d => d.date === '2026-03-07');
+    expect(vol07?.count).toBe(10); // always from convMap.total
+
+    expect(result.moduleExecutionCounts[0].slug).toBe('qualify_lead');
+  });
+
+  it('falls back to convMap.resolved when no rollup row exists for a date', async () => {
+    const rollupRows      = [] as Any[];
+    const convRows        = [{ date: '2026-03-08', total: 20, resolved: 15, avgResponseMs: 2000 }];
+    const moduleCountRows = [] as Any[];
+
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      callIndex = 0;
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return { from: () => ({ where: () => ({ orderBy: () => rollupRows }) }) };
+          }
+          if (callIndex === 2) {
+            return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => convRows }) }) }) };
+          }
+          return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => moduleCountRows }) }) }) };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
+
+    const rate08 = result.dailyResolutionRate.find(d => d.date === '2026-03-08');
+    expect(rate08?.rate).toBe(75); // fallback: 15/20 × 100
+
+    expect(result.avgResponseTime7d).toBeGreaterThan(0);
+
+    const vol08 = result.dailyConversationVolume.find(d => d.date === '2026-03-08');
+    expect(vol08?.count).toBe(20);
+  });
+
+  it('computes weighted response time from conversations (rollup avgLatencyMs not used)', async () => {
+    const rollupRows = [
+      { date: '2026-03-07', resolutionsCount: 5 },
+      { date: '2026-03-08', resolutionsCount: 4 },
+    ];
+    const convRows = [
+      { date: '2026-03-07', total: 10, resolved: 5, avgResponseMs: 3500 },
+      { date: '2026-03-08', total:  8, resolved: 4, avgResponseMs: 4000 },
+    ];
+    const moduleCountRows = [] as Any[];
+
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      callIndex = 0;
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return { from: () => ({ where: () => ({ orderBy: () => rollupRows }) }) };
+          }
+          if (callIndex === 2) {
+            return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => convRows }) }) }) };
+          }
+          return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => moduleCountRows }) }) }) };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
+
+    // Weighted: (3500×5 + 4000×4) / 9 = 33500/9 ≈ 3722 (confirms no integer pre-rounding drift)
+    expect(result.avgResponseTime7d).toBe(3722);
+    expect(result.avgResponseTime30d).toBe(3722);
+    expect(result.dailyResponseTime).toHaveLength(14);
+  });
+
+  it('returns all-zeros when both rollup and conversations are empty', async () => {
+    const rollupRows      = [] as Any[];
+    const convRows        = [] as Any[];
+    const moduleCountRows = [] as Any[];
+
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      callIndex = 0;
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return { from: () => ({ where: () => ({ orderBy: () => rollupRows }) }) };
+          }
+          if (callIndex === 2) {
+            return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => convRows }) }) }) };
+          }
+          return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => moduleCountRows }) }) }) };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
+
+    expect(result.avgResponseTime7d).toBe(0);
+    expect(result.avgResponseTime30d).toBe(0);
+    expect(result.dailyResponseTime).toHaveLength(14);
+    expect(result.dailyResponseTime.every(d => d.avgMs === 0)).toBe(true);
+    expect(result.dailyConversationVolume).toHaveLength(30);
+    expect(result.dailyConversationVolume.every(d => d.count === 0)).toBe(true);
+    expect(result.dailyResolutionRate).toHaveLength(30);
+    expect(result.dailyResolutionRate.every(d => d.rate === 0)).toBe(true);
+    expect(result.moduleExecutionCounts).toHaveLength(0);
+  });
+
+  it('module counts are all-time (no date limit)', async () => {
+    const rollupRows      = [{ date: '2026-03-08', resolutionsCount: 1 }];
+    const convRows        = [{ date: '2026-03-08', total: 2, resolved: 1, avgResponseMs: 5000 }];
+    const moduleCountRows = [{ moduleSlug: 'escalate_to_human', count: 200 }];
+
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      callIndex = 0;
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return { from: () => ({ where: () => ({ orderBy: () => rollupRows }) }) };
+          }
+          if (callIndex === 2) {
+            return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => convRows }) }) }) };
+          }
+          return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => moduleCountRows }) }) }) };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
+
+    expect(result.moduleExecutionCounts[0].count).toBe(200);
+    expect(result.moduleExecutionCounts[0].slug).toBe('escalate_to_human');
+  });
+
+  it('zero-day has rate 0 (no division by zero)', async () => {
+    const rollupRows      = [] as Any[];
+    const convRows        = [{ date: '2026-03-08', total: 0, resolved: 0, avgResponseMs: 0 }];
+    const moduleCountRows = [] as Any[];
+
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      callIndex = 0;
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return { from: () => ({ where: () => ({ orderBy: () => rollupRows }) }) };
+          }
+          if (callIndex === 2) {
+            return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => convRows }) }) }) };
+          }
+          return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => moduleCountRows }) }) }) };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
+
+    const rate08 = result.dailyResolutionRate.find(d => d.date === '2026-03-08');
+    expect(rate08?.rate).toBe(0); // total > 0 guard prevents division
+  });
+
+  it('module usage shown when conversations empty but modules exist', async () => {
+    const rollupRows      = [] as Any[];
+    const convRows        = [] as Any[];
+    const moduleCountRows = [{ moduleSlug: 'capture_interest', count: 42 }];
+
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      callIndex = 0;
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return { from: () => ({ where: () => ({ orderBy: () => rollupRows }) }) };
+          }
+          if (callIndex === 2) {
+            return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => convRows }) }) }) };
+          }
+          return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => moduleCountRows }) }) }) };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
+
+    expect(result.dailyConversationVolume.every(d => d.count === 0)).toBe(true);
+    expect(result.moduleExecutionCounts).toHaveLength(1);
+    expect(result.moduleExecutionCounts[0].slug).toBe('capture_interest');
+    expect(result.moduleExecutionCounts[0].count).toBe(42);
+  });
+
+  it('weighted avg correctly weights high-volume day over low-volume day', async () => {
+    const today     = lastNDays(14)[13];
+    const yesterday = lastNDays(14)[12];
+
+    const rollupRows      = [] as Any[];
+    const convRows        = [
+      { date: yesterday, total: 1,  resolved: 1,  avgResponseMs: 1000 },
+      { date: today,     total: 99, resolved: 99, avgResponseMs: 2000 },
+    ];
+    const moduleCountRows = [] as Any[];
+
+    let callIndex = 0;
+    const db = mockTenantDb(async (fn: Any) => {
+      callIndex = 0;
+      const mockDb = {
+        select: () => {
+          callIndex++;
+          if (callIndex === 1) {
+            return { from: () => ({ where: () => ({ orderBy: () => rollupRows }) }) };
+          }
+          if (callIndex === 2) {
+            return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => convRows }) }) }) };
+          }
+          return { from: () => ({ where: () => ({ groupBy: () => ({ orderBy: () => moduleCountRows }) }) }) };
+        },
+      };
+      return fn(mockDb);
+    });
+
+    const caller = createCaller(makeCtx(db));
+    const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
+
+    // Weighted: (1000×1 + 2000×99) / 100 = 199000/100 = 1990
+    // Unweighted: (1000 + 2000) / 2 = 1500 — WRONG
+    expect(result.avgResponseTime7d).toBe(1990);
+    expect(result.avgResponseTime7d).not.toBe(1500);
   });
 });

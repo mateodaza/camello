@@ -31,3 +31,5 @@ supabase/.temp/
 # Debug
 npm-debug.log*
 pnpm-debug.log*
+.claude/settings.json
+.claude/settings.json

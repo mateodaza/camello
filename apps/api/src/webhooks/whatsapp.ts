@@ -108,7 +108,9 @@ whatsappRoutes.post('/webhook', async (c) => {
   setImmediate(async () => {
     try {
       // a. Find-or-create customer
+      const tenantDb = createTenantDb(tenantId);
       const customerId = await findOrCreateWhatsAppCustomer(
+        tenantDb,
         tenantId,
         contact.waId,
         contact.name,
@@ -118,7 +120,6 @@ whatsappRoutes.post('/webhook', async (c) => {
       const _canonical = normalizeMetaMessage(message, tenantId, customerId, contact.waId);
 
       // c. Run full orchestration pipeline
-      const tenantDb = createTenantDb(tenantId);
       const result = await handleMessage({
         tenantDb,
         tenantId,

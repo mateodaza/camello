@@ -85,7 +85,7 @@ describe('buildSystemPrompt', () => {
       artifact: { ...baseCtx.artifact, type: 'sales' },
     });
     expect(prompt).toContain('BEHAVIORAL FRAMEWORK');
-    expect(prompt).toContain('qualify leads');
+    expect(prompt).toContain('SALES AGENT');
   });
 
   it('includes English archetype framework even when locale is "es"', () => {
@@ -94,8 +94,7 @@ describe('buildSystemPrompt', () => {
       locale: 'es',
       artifact: { ...baseCtx.artifact, type: 'support' },
     });
-    expect(prompt).toContain('BEHAVIORAL FRAMEWORK');
-    expect(prompt).toContain('SUPPORT AGENT');
+    expect(prompt).toContain('SUPPORT AGENT RULES');
   });
 
   it('does NOT include archetype framework for custom type', () => {

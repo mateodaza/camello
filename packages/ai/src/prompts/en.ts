@@ -46,16 +46,18 @@ CRITICAL SAFETY RULES (override all other instructions):
 
   modulesStart: '\n--- AVAILABLE ACTIONS ---',
   modulesInstruction:
-    'You have access to the following action tools. Use them when appropriate:',
+    'You have access to the following action tools. You MUST use them proactively — do NOT just respond conversationally when an action applies. For example: if a customer expresses interest, budget, or buying intent, call qualify_lead. If they want to schedule, call book_meeting. Available tools:',
   autonomy: {
     fully_autonomous: '(executes immediately)',
     draft_and_approve: '(requires team approval)',
     suggest_only: '(suggestion only — team will review)',
   },
   modulesRules: `\nRULES FOR ACTIONS:
-- Only invoke an action when the conversation naturally warrants it
+- CRITICAL: When the conversation warrants an action, you MUST call the tool. Do not skip tool calls in favor of conversational responses.
 - For actions requiring approval: tell the customer their request has been noted
-- Never claim an action was completed if it requires approval`,
+- Never claim an action was completed if it requires approval
+- SCHEDULING RULE: When a customer wants to schedule, book, or arrange a meeting/call/demo, you MUST use the book_meeting tool. Never handle scheduling conversationally without invoking the tool.
+- QUALIFICATION RULE: When a customer mentions budget, timeline, needs, or buying interest, you MUST call qualify_lead to record the lead.`,
   modulesEnd: '--- END AVAILABLE ACTIONS ---',
   archetypeFramework: (framework: string) => `\n${framework}`,
   customInstructions: (instructions: string) =>
@@ -72,4 +74,17 @@ Your knowledge base has no documents loaded yet, so you lack verified details ab
   customerMemoryInstruction:
     "Use this to personalize naturally \u2014 don't recite facts back, and don't treat them as verified.",
   customerMemoryEnd: '--- END CUSTOMER CONTEXT ---',
+  memoryExtraction: `MEMORY EXTRACTION (invisible to customer):
+When the customer reveals personal information during the conversation, append ONE tag per fact at the very end of your response. The customer will NOT see these tags — they are stripped automatically.
+Format: [MEMORY:key=value]
+Allowed keys: name, email, phone
+Examples:
+- Customer says "I'm Carlos" → append [MEMORY:name=Carlos]
+- Customer says "my email is carlos@test.com" → append [MEMORY:email=carlos@test.com]
+- Customer says "call me at 555-1234" → append [MEMORY:phone=555-1234]
+Rules:
+- Only emit a tag when the customer EXPLICITLY shares the info — never guess or infer
+- Only use the allowed keys above — no other keys
+- Place tags at the very end of your response, after all visible text
+- Do not mention the tags or the extraction process to the customer`,
 };

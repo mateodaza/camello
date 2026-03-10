@@ -23,6 +23,66 @@ The core product is the **orchestration layer**: multi-tenancy, intent classific
 
 Sippy (WhatsApp USDC payment bot on Arbitrum) becomes a "finance" vertical on Camello. A fintech deploys a "money agent" the same way a retailer deploys a "sales agent." Same tenant model, same dashboard, same analytics. This validates the generalist abstraction with two concrete verticals.
 
+## 1.1 Product Principles
+
+These principles clarify how the product should evolve as Camello adds more agent types.
+
+### Workspaces are kept, not removed
+
+Camello should not assume that every agent type uses the same operational surface.
+
+The platform keeps the idea of workspaces, but chooses the operational workspace based on the agent's real unit of work.
+
+### Every agent can have three surfaces
+
+1. **Config**
+   - personality
+   - tools/modules
+   - knowledge
+   - rules and settings
+
+2. **Operations**
+   - where the owner sees work happen and intervenes
+   - this depends on the agent type
+
+3. **Analytics**
+   - secondary reporting and trend visibility
+   - not the primary place where work happens
+
+### Conversation-first vs non-conversation-first agents
+
+- **Conversation-first agents** should use the inbox as their shared operational layer
+  - examples: sales, support, some marketing agents
+
+- **Output-first agents** should use a review/output workspace
+  - example: marketing content agents
+
+- **Task-first or document-first agents** should use structured task/document workspaces
+  - examples: accountant, finance, lawyer
+
+### Sales is the reference implementation, not the universal template
+
+Sales is the right first deep implementation because it is close to revenue and heavily conversation-linked.
+
+But sales should only define the pattern for conversation-centric operations:
+- inbox + customer context
+- owner intervention
+- activity timeline
+- deep-linking into work
+
+It should not become the default UI shape for accounting, finance, legal, or any future non-chat-first agent.
+
+### Current Workspace v2 implication
+
+Workspace v2 makes the inbox the shared operational layer for conversation-first agents.
+
+That does **not** mean:
+- all workspaces disappear
+- all agents become inbox-first
+- config pages replace specialized operations forever
+
+It means Camello is standardizing the shared operational layer for chat-heavy agents while preserving room for specialized workspaces when the underlying work demands it.
+
 ---
 
 ## 2. Architecture Assessment

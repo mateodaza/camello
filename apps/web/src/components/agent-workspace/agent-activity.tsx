@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Activity } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,10 +40,17 @@ export function AgentActivity({ artifactId }: { artifactId: string }) {
     offset: 0,
   });
 
+  const activityHeader = (
+    <span className="flex items-center gap-2">
+      <Activity className="h-4 w-4 text-teal" />
+      {t('activityTitle')}
+    </span>
+  );
+
   if (query.isLoading) {
     return (
-      <Card>
-        <CardHeader><CardTitle>{t('activityTitle')}</CardTitle></CardHeader>
+      <Card className="bg-sand/20">
+        <CardHeader><CardTitle>{activityHeader}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-12 rounded" />
@@ -54,8 +62,8 @@ export function AgentActivity({ artifactId }: { artifactId: string }) {
 
   if (query.isError) {
     return (
-      <Card>
-        <CardHeader><CardTitle>{t('activityTitle')}</CardTitle></CardHeader>
+      <Card className="bg-sand/20">
+        <CardHeader><CardTitle>{activityHeader}</CardTitle></CardHeader>
         <CardContent>
           <QueryError error={query.error} onRetry={() => query.refetch()} />
         </CardContent>
@@ -66,8 +74,8 @@ export function AgentActivity({ artifactId }: { artifactId: string }) {
   const items = query.data ?? [];
 
   return (
-    <Card>
-      <CardHeader><CardTitle>{t('activityTitle')}</CardTitle></CardHeader>
+    <Card className="bg-sand/20">
+      <CardHeader><CardTitle>{activityHeader}</CardTitle></CardHeader>
       <CardContent>
         {items.length === 0 ? (
           <div className="py-8 text-center">

@@ -8,6 +8,8 @@ export interface Context {
   userId: string | null;
   /** Clerk organization ID (e.g. "org_xxx"). Null if no org selected. */
   orgId: string | null;
+  /** Resolved full name of the authenticated user. Null if lookup failed or unauthenticated. Optional for backward compat with test contexts. */
+  userFullName?: string | null;
   /** Clerk organization ID mapped to tenant UUID. Null if no org selected. */
   tenantId: string | null;
   /** Tenant-scoped DB helper. Null if no tenant context. */
@@ -72,32 +74,45 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
 
   let userId: string | null = null;
   let orgId: string | null = null;
+  let userFullName: string | null = null;
   let tenantId: string | null = null;
   let tenantDb: TenantDb | null = null;
 
-  try {
-    const authHeader = req.headers.get('authorization');
-    if (authHeader) {
-      const requestState = await clerk.authenticateRequest(req, {});
+  const authHeader = req.headers.get('authorization');
+  if (authHeader) {
+    let requestState;
+    try {
+      requestState = await clerk.authenticateRequest(req, {});
+    } catch {
+      // JWT verification failure → proceed as unauthenticated.
+      // Protected procedures will reject via middleware.
+      return { req, userId, orgId, userFullName, tenantId, tenantDb };
+    }
 
-      if (requestState.isSignedIn) {
-        const { userId: clerkUserId, orgId: clerkOrgId } = requestState.toAuth();
-        userId = clerkUserId;
-        orgId = clerkOrgId ?? null;
+    if (requestState.isSignedIn) {
+      const { userId: clerkUserId, orgId: clerkOrgId } = requestState.toAuth();
+      userId = clerkUserId;
+      orgId = clerkOrgId ?? null;
 
-        if (clerkOrgId) {
-          const resolved = await resolveOrgTenantId(clerkOrgId);
-          if (resolved) {
-            tenantId = resolved;
-            tenantDb = createTenantDb(tenantId);
-          }
+      try {
+        const user = await clerk.users.getUser(clerkUserId);
+        userFullName = user.fullName ?? user.firstName ?? null;
+      } catch (err) {
+        console.error('[createContext] Clerk users.getUser failed:', err);
+        // userFullName stays null — replyAsOwner will throw INTERNAL_SERVER_ERROR explicitly.
+      }
+
+      if (clerkOrgId) {
+        // Let org resolution + tenant DB errors propagate as 500s
+        // rather than silently downgrading authenticated users to unauthenticated.
+        const resolved = await resolveOrgTenantId(clerkOrgId);
+        if (resolved) {
+          tenantId = resolved;
+          tenantDb = createTenantDb(tenantId);
         }
       }
     }
-  } catch {
-    // Auth failure → proceed as unauthenticated.
-    // Protected procedures will reject via middleware.
   }
 
-  return { req, userId, orgId, tenantId, tenantDb };
+  return { req, userId, orgId, userFullName, tenantId, tenantDb };
 }

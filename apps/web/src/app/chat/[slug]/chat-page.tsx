@@ -28,6 +28,7 @@ const strings = {
     retry: 'Retry',
     shareQr: 'Share QR',
     closeQr: 'Close',
+    teamLabel: 'Team',
   },
   es: {
     placeholder: 'Escribe un mensaje...',
@@ -44,6 +45,7 @@ const strings = {
     retry: 'Reintentar',
     shareQr: 'Compartir QR',
     closeQr: 'Cerrar',
+    teamLabel: 'Equipo',
   },
 } as const;
 
@@ -59,7 +61,7 @@ function t(key: keyof (typeof strings)['en'], lang: string): string {
 // ---------------------------------------------------------------------------
 
 interface ChatMessage {
-  role: 'customer' | 'artifact';
+  role: 'customer' | 'artifact' | 'human';
   content: string;
 }
 
@@ -183,14 +185,18 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
       if (historyRes.ok) {
         const history = await historyRes.json() as {
           conversation_id: string | null;
-          messages: Array<{ role: string; content: string }>;
+          messages: Array<{ id: string; role: string; content: string }>;
         };
         if (history.messages.length > 0) {
           restoredMessages = history.messages
-            .filter((m) => m.role === 'customer' || m.role === 'artifact')
-            .map((m) => ({ role: m.role as 'customer' | 'artifact', content: m.content }));
+            .filter((m) => m.role === 'customer' || m.role === 'artifact' || m.role === 'human')
+            .map((m) => ({ role: m.role as ChatMessage['role'], content: m.content }));
           restoredConvId = history.conversation_id;
           setHasUserSent(true);
+          // Seed known server IDs so polling doesn't duplicate restored messages
+          for (const m of history.messages) {
+            knownServerIdsRef.current.add(m.id);
+          }
         }
       }
 
@@ -277,6 +283,60 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
     setInput('');
     inputRef.current?.focus();
   };
+
+  // Poll /history for new messages (owner replies)
+  const knownServerIdsRef = useRef<Set<string>>(new Set());
+  const isSendingRef = useRef(false);
+  isSendingRef.current = isSending;
+
+  useEffect(() => {
+    if (!conversationId || !token || inputDisabled) return;
+
+    const poll = async () => {
+      if (isSendingRef.current) return;
+
+      try {
+        const res = await fetch(`${API_URL}/api/widget/history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+
+        const data = await res.json() as {
+          conversation_id: string | null;
+          messages: Array<{ id: string; role: string; content: string }>;
+        };
+
+        if (!data.messages) return;
+
+        // Content-based dedup: optimistic messages use client IDs, server uses UUIDs
+        setChatMessages((prev) => {
+          const localContents = new Set(prev.map((m) => `${m.role}:${m.content}`));
+          const newMsgs: ChatMessage[] = [];
+
+          for (const sm of data.messages) {
+            if (knownServerIdsRef.current.has(sm.id)) continue;
+            if (sm.role !== 'human' && sm.role !== 'artifact' && sm.role !== 'customer') continue;
+
+            knownServerIdsRef.current.add(sm.id);
+            const key = `${sm.role}:${sm.content}`;
+            if (localContents.has(key)) continue;
+
+            newMsgs.push({ role: sm.role as ChatMessage['role'], content: sm.content });
+          }
+
+          return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
+        });
+      } catch {
+        // Non-critical — silently retry next interval
+      }
+    };
+
+    // Poll on interval + immediately when tab becomes visible (catches replies sent while tab was hidden)
+    const interval = setInterval(poll, 5000);
+    const onVisible = () => { if (!document.hidden) poll(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
+  }, [conversationId, token, inputDisabled]);
 
   // QR code — generated from our own deterministic SVG encoder (no user-controlled HTML)
   const chatUrl = typeof window !== 'undefined'
@@ -507,7 +567,7 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
                     : 'bg-sand text-charcoal'
                 }`}
               >
-                {msg.role === 'artifact' ? <SimpleMarkdown text={msg.content} /> : msg.content}
+                {msg.role === 'customer' ? msg.content : <SimpleMarkdown text={msg.content} />}
               </div>
             </div>
           ))}

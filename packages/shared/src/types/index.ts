@@ -52,6 +52,15 @@ export type LeadScore = 'hot' | 'warm' | 'cold';
 
 export type ModuleExecutionStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
 
+export type OwnerNotificationType =
+  | 'approval_needed'
+  | 'hot_lead'
+  | 'deal_closed'
+  | 'lead_stale'
+  | 'stage_advanced'
+  | 'escalation'
+  | 'budget_warning';
+
 export type ModelTier = 'fast' | 'balanced' | 'powerful';
 
 // === Intent Classification ===
@@ -99,6 +108,10 @@ export interface ModuleExecutionContext {
   autonomyLevel: AutonomyLevel;
   configOverrides: Record<string, unknown>;
   db: ModuleDbCallbacks;
+  /** Channel this conversation came through (e.g. 'webchat', 'whatsapp'). */
+  channel?: Channel;
+  /** Arbitrary context metadata (e.g. { sourcePage: '/pricing' }). */
+  metadata?: Record<string, unknown>;
 }
 
 /** DI callbacks injected by apps/api — keeps @camello/ai free of @camello/db. */
@@ -114,6 +127,8 @@ export interface ModuleDbCallbacks {
     summary?: string;
     stage?: string;
     estimatedValue?: number | null;
+    sourceChannel?: string;
+    sourcePage?: string;
   }) => Promise<string>;
   insertModuleExecution: (data: {
     moduleId: string;
@@ -133,6 +148,18 @@ export interface ModuleDbCallbacks {
     durationMs?: number;
   }) => Promise<void>;
   updateConversationStatus: (conversationId: string, status: ConversationStatus) => Promise<void>;
+  /** Optional — wired for owner notification emission from modules. Errors are swallowed by caller. */
+  insertOwnerNotification?: (data: {
+    tenantId: string;
+    artifactId: string;
+    leadId?: string;
+    type: OwnerNotificationType;
+    title: string;
+    body: string;
+    metadata: Record<string, unknown>;
+  }) => Promise<void>;
+  /** Returns current stage of lead for this conversation, or null if no lead exists yet. */
+  getLeadByConversation: (conversationId: string) => Promise<{ stage: string } | null>;
   /** Optional — wired when payment creation needs to be triggered from a module. */
   insertPayment?: (data: {
     artifactId: string;
@@ -145,6 +172,23 @@ export interface ModuleDbCallbacks {
     customerId?: string;
     quoteExecutionId?: string;
   }) => Promise<string>;
+  /**
+   * Returns true if any module execution exists for this conversation + module slug.
+   * Used to check if a booking already exists before auto-scheduling a follow-up.
+   */
+  checkModuleExecutionExists: (conversationId: string, moduleSlug: string) => Promise<boolean>;
+  /**
+   * Returns true if a send_followup execution with followup_status='queued' exists
+   * for this conversation. Prevents double-scheduling when qualify_lead fires again.
+   */
+  checkQueuedFollowupExists: (conversationId: string) => Promise<boolean>;
+  /** Optional — fire-and-forget insertion of a queued send_followup execution row. */
+  scheduleFollowupExecution?: (data: {
+    tenantId: string;
+    artifactId: string;
+    conversationId: string;
+    scheduledAt: Date;
+  }) => Promise<void>;
 }
 
 /** Artifact module binding: the JOIN row from artifact_modules + modules. */

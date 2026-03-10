@@ -29,6 +29,9 @@ function mockDbCallbacks(): ModuleDbCallbacks {
     insertModuleExecution: vi.fn().mockResolvedValue('exec-001'),
     updateModuleExecution: vi.fn().mockResolvedValue(undefined),
     updateConversationStatus: vi.fn().mockResolvedValue(undefined),
+    getLeadByConversation: vi.fn().mockResolvedValue(null),
+    checkModuleExecutionExists: vi.fn().mockResolvedValue(false),
+    checkQueuedFollowupExists: vi.fn().mockResolvedValue(false),
   };
 }
 
@@ -96,6 +99,9 @@ function makeCtx(dbOverrides?: Partial<ModuleDbCallbacks>): ModuleExecutionConte
       insertModuleExecution: vi.fn().mockResolvedValue('exec-001'),
       updateModuleExecution: vi.fn().mockResolvedValue(undefined),
       updateConversationStatus: vi.fn().mockResolvedValue(undefined),
+      getLeadByConversation: vi.fn().mockResolvedValue(null),
+      checkModuleExecutionExists: vi.fn().mockResolvedValue(false),
+      checkQueuedFollowupExists: vi.fn().mockResolvedValue(false),
       ...dbOverrides,
     },
   };
@@ -161,7 +167,7 @@ describe('qualify_lead scoring', () => {
       { budget: '$10k', timeline: 'immediate', needs: ['crm'], conversation_summary: 'test' },
       ctx,
     );
-    expect(result).toEqual({ score: 'hot', tags: ['crm'], next_action: 'offer_meeting', stage: 'proposal', estimated_value: null });
+    expect(result).toEqual({ score: 'hot', tags: ['crm'], next_action: 'offer_meeting', stage: 'proposal', estimated_value: 10000, numeric_score: 65 });
   });
 
   it('scores WARM when budget but no immediate timeline', async () => {
@@ -170,7 +176,7 @@ describe('qualify_lead scoring', () => {
       { budget: '$5k', timeline: '1-3months', needs: [], conversation_summary: 'test' },
       ctx,
     );
-    expect(result).toEqual({ score: 'warm', tags: [], next_action: 'continue_qualifying', stage: 'qualifying', estimated_value: null });
+    expect(result).toEqual({ score: 'warm', tags: [], next_action: 'continue_qualifying', stage: 'qualifying', estimated_value: 5000, numeric_score: 45 });
   });
 
   it('scores WARM when timeline but no budget', async () => {
@@ -179,7 +185,7 @@ describe('qualify_lead scoring', () => {
       { timeline: 'immediate', needs: ['support'], conversation_summary: 'test' },
       ctx,
     );
-    expect(result).toEqual({ score: 'warm', tags: ['support'], next_action: 'continue_qualifying', stage: 'qualifying', estimated_value: null });
+    expect(result).toEqual({ score: 'warm', tags: ['support'], next_action: 'continue_qualifying', stage: 'qualifying', estimated_value: null, numeric_score: 35 });
   });
 
   it('scores COLD when neither budget nor timeline', async () => {
@@ -188,7 +194,7 @@ describe('qualify_lead scoring', () => {
       { needs: [], conversation_summary: 'just browsing' },
       ctx,
     );
-    expect(result).toEqual({ score: 'cold', tags: [], next_action: 'continue_conversation', stage: 'new', estimated_value: null });
+    expect(result).toEqual({ score: 'cold', tags: [], next_action: 'continue_conversation', stage: 'new', estimated_value: null, numeric_score: 0 });
   });
 
   it('calls insertLead callback', async () => {
@@ -210,7 +216,7 @@ describe('qualify_lead scoring', () => {
       timeline: 'immediate',
       summary: 'hot lead',
       stage: 'proposal',
-      estimatedValue: null,
+      estimatedValue: 10000,
     });
   });
 });
@@ -239,6 +245,55 @@ describe('book_meeting', () => {
     ) as { booked: boolean; calendar_link: string };
     expect(result.booked).toBe(true);
     expect(result.calendar_link).toBe('https://calendly.com/test');
+  });
+
+  it('does not flag outsideHours when time is within business hours', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = { businessHours: '9:00-17:00' };
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', preferred_time: '10:00', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as any;
+    expect(result.outsideHours).toBeUndefined();
+    expect(result.alternative_slots).toBeUndefined();
+  });
+
+  it('flags outsideHours and provides a concrete within-hours slot when time is outside', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = { businessHours: '9:00-17:00' };
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', preferred_time: '20:00', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as any;
+    expect(result.outsideHours).toBe(true);
+    expect(result.alternative_slots).toHaveLength(1);
+    // Must be a concrete time, not just an instructional string
+    expect(result.alternative_slots[0]).toMatch(/^09:00 on 2026-03-01/);
+  });
+
+  it('rejects booking (booked=false) even when calendarUrl is set if time is outside hours', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = { calendarUrl: 'https://calendly.com/test', businessHours: '9:00-17:00' };
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', preferred_time: '20:00', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as any;
+    expect(result.booked).toBe(false);
+    expect(result.outsideHours).toBe(true);
+    expect(result.alternative_slots).toHaveLength(1);
+    expect(result.alternative_slots[0]).toMatch(/^09:00 on 2026-03-01/);
+  });
+
+  it('ignores business hours check when businessHours is not configured', async () => {
+    const ctx = makeCtx();
+    ctx.configOverrides = {};
+    const result = await bookMeetingDef.execute(
+      { preferred_date: '2026-03-01', preferred_time: '20:00', topic: 'demo', duration_minutes: 30 },
+      ctx,
+    ) as any;
+    expect(result.outsideHours).toBeUndefined();
+    expect(result.booked).toBe(false);
+    expect(result.alternative_slots?.[0]).toContain('manually');
   });
 });
 

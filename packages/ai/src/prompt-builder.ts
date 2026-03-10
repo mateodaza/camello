@@ -98,6 +98,9 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     if (p.instructions && typeof p.instructions === 'string' && p.instructions.trim()) {
       parts.push(t.customInstructions(p.instructions.trim()));
     }
+    if (p.hours && typeof p.hours === 'string') {
+      parts.push(`Business hours: ${p.hours}.\nIMPORTANT: NEVER accept, confirm, or suggest meeting times outside these hours. If a customer requests a time outside business hours, decline and offer a time within business hours instead.`);
+    }
   }
 
   // Channel-specific greeting instruction
@@ -186,6 +189,9 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     parts.push(t.modulesRules);
     parts.push(t.modulesEnd);
   }
+
+  // Memory extraction — piggyback on the existing LLM call
+  parts.push(t.memoryExtraction);
 
   return parts.join('\n');
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ColumnDef<T> {
   key: string;
@@ -22,6 +23,8 @@ interface FilterDef {
 
 interface DataTableProps<T> {
   title?: string;
+  icon?: ReactNode;
+  cardClassName?: string;
   columns: ColumnDef<T>[];
   data: T[] | undefined;
   isLoading: boolean;
@@ -34,10 +37,14 @@ interface DataTableProps<T> {
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadMoreLabel?: string;
+  rowClassName?: (row: T) => string;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
   title,
+  icon,
+  cardClassName,
   columns,
   data,
   isLoading,
@@ -50,11 +57,13 @@ export function DataTable<T>({
   onLoadMore,
   hasMore,
   loadMoreLabel,
+  rowClassName,
+  onRowClick,
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
-      <Card>
-        {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+      <Card className={cn(cardClassName)}>
+        {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
         <CardContent className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-10 rounded" />
@@ -66,8 +75,8 @@ export function DataTable<T>({
 
   if (isError && error) {
     return (
-      <Card>
-        {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+      <Card className={cn(cardClassName)}>
+        {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
         <CardContent>
           <QueryError error={error} onRetry={onRetry} />
         </CardContent>
@@ -78,8 +87,8 @@ export function DataTable<T>({
   const rows = data ?? [];
 
   return (
-    <Card>
-      {title && <CardHeader><CardTitle>{title}</CardTitle></CardHeader>}
+    <Card className={cn(cardClassName)}>
+      {title && <CardHeader><CardTitle>{icon && title ? <span className="flex items-center gap-2">{icon}{title}</span> : title}</CardTitle></CardHeader>}
       <CardContent>
         {/* Filters */}
         {filters && filters.length > 0 && (
@@ -120,7 +129,17 @@ export function DataTable<T>({
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
-                    <tr key={i} className="border-b border-charcoal/5 last:border-0">
+                    <tr
+                      key={i}
+                      tabIndex={onRowClick ? 0 : undefined}
+                      className={cn(
+                        'border-b border-charcoal/5 last:border-0',
+                        rowClassName?.(row),
+                        onRowClick && 'cursor-pointer focus:bg-sand focus:outline-none',
+                      )}
+                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row); } } : undefined}
+                    >
                       {columns.map((col) => (
                         <td key={col.key} className="py-2 pr-3">
                           {col.render(row)}

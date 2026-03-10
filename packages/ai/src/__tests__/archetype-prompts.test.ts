@@ -20,6 +20,12 @@ describe('ARCHETYPE_PROMPTS', () => {
     expect(ARCHETYPE_PROMPTS.custom).toBeUndefined();
   });
 
+  const expectedHeaders: Record<string, { en: string; es: string }> = {
+    sales:     { en: 'BEHAVIORAL FRAMEWORK', es: 'MARCO DE COMPORTAMIENTO' },
+    support:   { en: 'SUPPORT AGENT RULES', es: 'REGLAS DEL AGENTE DE SOPORTE' },
+    marketing: { en: 'MARKETING AGENT RULES', es: 'REGLAS DEL AGENTE DE MARKETING' },
+  };
+
   for (const type of ['sales', 'support', 'marketing'] as const) {
     it(`${type} has non-empty en and es prompts`, () => {
       const prompt = ARCHETYPE_PROMPTS[type]!;
@@ -27,12 +33,12 @@ describe('ARCHETYPE_PROMPTS', () => {
       expect(prompt.es.length).toBeGreaterThan(50);
     });
 
-    it(`${type} en prompt contains BEHAVIORAL FRAMEWORK`, () => {
-      expect(ARCHETYPE_PROMPTS[type]!.en).toContain('BEHAVIORAL FRAMEWORK');
+    it(`${type} en prompt contains expected header`, () => {
+      expect(ARCHETYPE_PROMPTS[type]!.en).toContain(expectedHeaders[type].en);
     });
 
-    it(`${type} es prompt contains MARCO DE COMPORTAMIENTO`, () => {
-      expect(ARCHETYPE_PROMPTS[type]!.es).toContain('MARCO DE COMPORTAMIENTO');
+    it(`${type} es prompt contains expected header`, () => {
+      expect(ARCHETYPE_PROMPTS[type]!.es).toContain(expectedHeaders[type].es);
     });
   }
 });

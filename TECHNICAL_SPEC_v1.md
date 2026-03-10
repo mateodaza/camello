@@ -72,6 +72,45 @@ Even if frontier model quality converges, the moat is execution and data, not AP
 2. **Operational moat** — reliable channel delivery, deterministic routing, human approval gates, auditability, and tenant isolation by default.
 3. **Data moat** — compounding learning loop from per-tenant patterns to per-vertical and cross-platform intelligence.
 
+### Product Principles (Workspace Evolution)
+
+Camello should distinguish between:
+
+- **config surfaces**
+- **operational workspaces**
+- **analytics surfaces**
+
+The operational workspace should match the agent's unit of work.
+
+#### Conversation-first agents
+
+For agents whose primary work happens through customer messages, the inbox should be the shared operational layer.
+
+Examples:
+- sales
+- support
+- some marketing agents
+
+#### Output-first or task-first agents
+
+For agents whose primary work is reviewing drafts, handling documents, or processing structured tasks, a specialized workspace should remain the primary operational surface.
+
+Examples:
+- marketing content agents
+- accounting/finance agents
+- legal agents
+
+#### Strategic implication
+
+Camello should not interpret inbox-first UX as a universal replacement for workspaces.
+
+The correct model is:
+- shared inbox for conversation-heavy operations
+- dedicated config pages for all agents
+- specialized workspaces when the job is not primarily conversational
+
+Sales should be treated as the reference implementation for the conversation-centric path, not as the permanent UI template for every future vertical.
+
 ---
 
 ## 2. Business Concept

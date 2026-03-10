@@ -14,6 +14,9 @@ const messages = {
     'chat.error.conversationLimit': 'This conversation has reached its message limit. Please start a new conversation.',
     'chat.error.dailyLimit': 'You have reached your daily message limit. Please try again tomorrow.',
     'chat.poweredBy': 'Powered by Camello',
+    'chat.scrollToBottom': 'Scroll to bottom',
+    'chat.retry': 'Retry',
+    'chat.teamLabel': 'Team',
   },
   es: {
     'chat.placeholder': 'Escribe un mensaje...',
@@ -30,6 +33,9 @@ const messages = {
     'chat.error.conversationLimit': 'Esta conversación alcanzó su límite de mensajes. Inicia una nueva conversación.',
     'chat.error.dailyLimit': 'Alcanzaste tu límite diario de mensajes. Inténtalo mañana.',
     'chat.poweredBy': 'Impulsado por Camello',
+    'chat.scrollToBottom': 'Ir al final',
+    'chat.retry': 'Reintentar',
+    'chat.teamLabel': 'Equipo',
   },
 } as const;
 

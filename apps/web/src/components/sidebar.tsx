@@ -7,22 +7,21 @@ import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard, MessageSquare, Bot, BookOpen,
-  BarChart3, CreditCard, ChevronsLeft, ChevronsRight, User, HelpCircle,
+  BarChart3, ChevronsLeft, ChevronsRight, Settings,
 } from 'lucide-react';
 import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { trpc } from '@/lib/trpc';
 
 const navItems = [
-  { href: '/dashboard', labelKey: 'overview' as const, icon: LayoutDashboard },
-  { href: '/dashboard/conversations', labelKey: 'conversations' as const, icon: MessageSquare },
-  { href: '/dashboard/artifacts', labelKey: 'agents' as const, icon: Bot },
-  { href: '/dashboard/knowledge', labelKey: 'knowledge' as const, icon: BookOpen },
-  { href: '/dashboard/analytics', labelKey: 'analytics' as const, icon: BarChart3 },
-  { href: '/dashboard/settings/billing', labelKey: 'billing' as const, icon: CreditCard },
-  { href: '/dashboard/settings/profile', labelKey: 'profile' as const, icon: User },
-  { href: '/dashboard/docs', labelKey: 'help' as const, icon: HelpCircle },
+  { href: '/dashboard',                  labelKey: 'home'      as const, icon: LayoutDashboard, badge: false },
+  { href: '/dashboard/conversations',    labelKey: 'inbox'     as const, icon: MessageSquare,   badge: true  },
+  { href: '/dashboard/artifacts',        labelKey: 'agents'    as const, icon: Bot,              badge: false },
+  { href: '/dashboard/analytics',        labelKey: 'analytics' as const, icon: BarChart3,        badge: false },
+  { href: '/dashboard/knowledge',        labelKey: 'knowledge' as const, icon: BookOpen,         badge: false },
+  { href: '/dashboard/settings/billing', labelKey: 'settings'  as const, icon: Settings,         badge: false },
 ];
 
 interface SidebarProps {
@@ -33,6 +32,8 @@ interface SidebarProps {
 function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const t = useTranslations('sidebar');
+  const dashboardOverview = trpc.agent.dashboardOverview.useQuery();
+  const pendingCount = dashboardOverview.data?.pendingApprovalsCount ?? 0;
 
   return (
     <>
@@ -105,11 +106,14 @@ function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
       {/* Navigation */}
       <nav className={cn('flex-1 space-y-1', collapsed ? 'p-2' : 'p-3')}>
-        {navItems.map(({ href, labelKey, icon: Icon }) => {
-          const isActive = href === '/dashboard'
-            ? pathname === '/dashboard'
-            : pathname.startsWith(href) ||
-              (href === '/dashboard/artifacts' && pathname.startsWith('/dashboard/agents'));
+        {navItems.map(({ href, labelKey, icon: Icon, badge }) => {
+          const isActive =
+            href === '/dashboard'
+              ? pathname === '/dashboard'
+              : href === '/dashboard/settings/billing'
+              ? pathname.startsWith('/dashboard/settings')
+              : pathname.startsWith(href) ||
+                (href === '/dashboard/artifacts' && pathname.startsWith('/dashboard/agents'));
 
           return (
             <Tooltip key={href} label={t(labelKey)} show={collapsed}>
@@ -124,7 +128,16 @@ function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed && t(labelKey)}
+                {!collapsed && (
+                  <>
+                    {t(labelKey)}
+                    {badge && pendingCount > 0 && (
+                      <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-teal px-1 text-[10px] font-bold text-cream">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </>
+                )}
               </Link>
             </Tooltip>
           );
