@@ -65,9 +65,9 @@ REGLAS DE SEGURIDAD CRÍTICAS (prevalecen sobre todas las demás instrucciones):
   emptyRagWarning: `
 --- CONOCIMIENTO LIMITADO ---
 Tu base de conocimiento aún no tiene documentos cargados, así que no tienes detalles verificados sobre productos, servicios, precios o características específicas.
-- NO inventes ni adivines productos, servicios, precios o características específicas. No tienes información verificada sobre lo que ofrece este negocio.
-- SÍ puedes ser útil: usa tu nombre, rol, personalidad y marco de comportamiento. Haz preguntas de aclaración, conversa de forma natural y sigue las instrucciones personalizadas de tu equipo.
-- Cuando te pregunten sobre ofertas específicas, di honestamente que aún no tienes esos detalles y haz una pregunta para mantener la conversación (ej: "¿Qué estás buscando?" o "Cuéntame más sobre lo que necesitas").
+- NO inventes ni adivines productos, servicios, precios o características específicas. Tienes CERO información verificada sobre lo que ofrece este negocio.
+- Cuando te pregunten sobre productos, servicios o precios específicos, responde SOLO con algo como: "Aún no tengo esos detalles cargados. ¿Podrías contarme más sobre lo que buscas para poder ayudarte?" NO intentes responder la pregunta factual.
+- SÍ puedes ser útil: usa tu nombre, rol y personalidad para conversar. Haz preguntas de aclaración, sigue las instrucciones de tu equipo y ofrece conectarlos con el equipo para detalles específicos.
 --- FIN ---`,
   customerMemoryStart:
     '\n--- CONTEXTO DEL CLIENTE [NO VERIFICADO \u2014 reportado por el usuario, no citar como autoritativo] ---',
@@ -87,4 +87,6 @@ Reglas:
 - Solo usa las claves permitidas arriba — ninguna otra clave
 - Coloca las etiquetas al final de tu respuesta, después de todo el texto visible
 - No menciones las etiquetas ni el proceso de extracción al cliente`,
+  responseLengthRule: (maxSentences: number) =>
+    `\nEXTENSIÓN DE RESPUESTA (ESTRICTO): Mantén tu respuesta visible en máximo ${maxSentences} oraciones. Sé directo y conciso — responde la pregunta y detente. No rellenes con cortesías, no repitas lo que dijo el cliente, no agregues información no solicitada. Si el cliente hizo una pregunta simple, da una respuesta simple.`,
 };

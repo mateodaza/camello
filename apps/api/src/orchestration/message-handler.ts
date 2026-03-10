@@ -26,8 +26,12 @@ import {
   searchKnowledge,
   generateEmbedding,
   buildToolsFromBindings,
-  checkGrounding,
+  checkGroundingWithRetry,
   shouldCheckGrounding,
+  SAFE_FALLBACKS,
+  getIntentProfile,
+  isHighRiskIntent,
+  responseContainsClaims,
   flattenRagChunks,
   parseMemoryFacts,
   mergeMemoryFacts,
@@ -615,12 +619,13 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       .limit(10);
   });
 
-  // 9. Build system prompt (includes module instructions when bound)
+  // 9. Build system prompt (intent-aware context curation)
   // Artifact-level language takes priority; fall back to tenant's dashboard locale
   // so existing artifacts without personality.language still get the right templates.
   const artifactLocale =
     ((artifact.personality as Record<string, unknown>)?.language as string | undefined)
     ?? ((tenant?.settings as Record<string, unknown>)?.preferredLocale as string | undefined);
+  const intentProfile = getIntentProfile(intent);
   const systemPrompt = buildSystemPrompt({
     artifact: {
       name: artifact.name,
@@ -647,6 +652,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       key: f.key,
       value: sanitizeFactValue(f.value),
     })),
+    intent,
   });
 
   // 10. Select model
@@ -678,10 +684,16 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       content: m.content,
     }));
 
-  // 12. Build tools (if artifact has bound modules) and call LLM
+  // 12. Build tools (intent-profile-gated) and call LLM
   const client = createLLMClient();
-  const tools = enrichedModules.length > 0
-    ? buildToolsFromBindings(enrichedModules, {
+  // Only build tools when the intent profile allows modules
+  const filteredModules = intentProfile.includeModules
+    ? (intentProfile.allowedModuleSlugs
+        ? enrichedModules.filter((m) => intentProfile.allowedModuleSlugs!.includes(m.moduleSlug))
+        : enrichedModules)
+    : [];
+  const tools = filteredModules.length > 0
+    ? buildToolsFromBindings(filteredModules, {
         tenantId,
         artifactId: resolved.artifactId,
         conversationId,
@@ -701,7 +713,8 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     system: systemPrompt,
     messages: chatMessages,
     tools,
-    maxSteps: tools ? 5 : 1,
+    maxSteps: tools ? intentProfile.maxSteps : 1,
+    maxTokens: intentProfile.maxResponseTokens,
     experimental_telemetry: buildTelemetry('handle-message', {
       traceId: trace.traceId,
       tenantId,
@@ -727,7 +740,9 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     }
   }
 
-  // 12b. Post-generation grounding check (fail-open)
+  // 12b. Post-generation grounding check
+  // Fail-closed for high-risk intents OR when response contains specific claims.
+  // Fail-open for low-risk intents (greetings, farewells, general conversation).
   let responseText = rawResponseText;
   let groundingResult: HandleMessageOutput['groundingCheck'] | undefined;
   let groundingCostUsd = 0;
@@ -738,7 +753,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   if (shouldCheckGrounding(intent, allRagEvidence)) {
     try {
       const check = await trace.span('grounding-check', () =>
-        checkGrounding({
+        checkGroundingWithRetry({
           responseText: rawResponseText,
           ragContext: allRagEvidence,
           intent,
@@ -757,9 +772,19 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       };
       if (!check.passed && check.safeResponse) responseText = check.safeResponse;
     } catch (err) {
-      // Fail-open: keep original response, log error (bounded to 200 chars)
       const errMsg = String(err).slice(0, 200);
-      groundingResult = { passed: true, violation: undefined, replacedResponse: false, error: errMsg };
+      // Claim-sensitive fail-closed: if the intent is high-risk OR the response
+      // contains specific factual claims (prices, plan names, etc.), replace with
+      // safe fallback rather than letting an unchecked response through.
+      const needsFailClosed = isHighRiskIntent(intent.type) || responseContainsClaims(rawResponseText);
+      if (needsFailClosed) {
+        const fallbackLocale = (artifactLocale && SAFE_FALLBACKS[artifactLocale]) ? artifactLocale : 'en';
+        responseText = SAFE_FALLBACKS[fallbackLocale];
+        groundingResult = { passed: false, violation: 'grounding_check_error', replacedResponse: true, error: errMsg };
+      } else {
+        // Fail-open for low-risk intents without claims
+        groundingResult = { passed: true, violation: undefined, replacedResponse: false, error: errMsg };
+      }
     }
   }
 
@@ -790,7 +815,16 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     });
   });
 
-  // 14. Log interaction telemetry
+  // 14. Log interaction telemetry (includes context curation decisions)
+  const curationTelemetry = {
+    profileKey: intent.type === 'greeting' ? `greeting:${intent.source}` : intent.type,
+    toolsExposed: filteredModules.map((m) => m.moduleSlug),
+    frameworkIncluded: intentProfile.includeArchetypeFramework,
+    maxTokens: intentProfile.maxResponseTokens,
+    maxSteps: intentProfile.maxSteps,
+    groundingMode: intentProfile.skipGrounding ? 'skipped' : (isHighRiskIntent(intent.type) ? 'fail-closed' : 'fail-open'),
+    failClosedTriggered: groundingResult?.replacedResponse === true && groundingResult?.violation === 'grounding_check_error',
+  };
   await tenantDb.query(async (db) => {
     await db.insert(interactionLogs).values({
       tenantId,
@@ -802,6 +836,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       tokensOut,
       costUsd: costUsd.toFixed(6),
       latencyMs,
+      contextCuration: curationTelemetry,
     });
   });
 
@@ -853,6 +888,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     });
   }
 
+  trace.setMetadata({ contextCuration: JSON.stringify(curationTelemetry) });
   trace.finalize({
     modelUsed: modelId,
     costUsd,

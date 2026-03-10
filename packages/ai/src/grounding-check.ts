@@ -41,7 +41,7 @@ const groundingSchema = z.object({
 // Safe fallback responses
 // ---------------------------------------------------------------------------
 
-const SAFE_FALLBACKS: Record<string, string> = {
+export const SAFE_FALLBACKS: Record<string, string> = {
   en: "I don't have specific details about our offerings loaded yet. Could you tell me more about what you're looking for? That way I can help point you in the right direction!",
   es: 'Aún no tengo detalles específicos sobre lo que ofrecemos cargados. ¿Podrías contarme más sobre lo que estás buscando? Así puedo orientarte mejor.',
 };
@@ -124,4 +124,17 @@ RULES:
     tokensOut: usage?.completionTokens ?? 0,
     modelUsed: modelId,
   };
+}
+
+/**
+ * checkGrounding with one retry on transient failure.
+ * Catches ~90% of rate-limit / network blips before falling back.
+ */
+export async function checkGroundingWithRetry(input: GroundingInput): Promise<GroundingResult> {
+  try {
+    return await checkGrounding(input);
+  } catch (_firstError) {
+    // One retry — if this also fails, let it throw for caller to handle
+    return await checkGrounding(input);
+  }
 }

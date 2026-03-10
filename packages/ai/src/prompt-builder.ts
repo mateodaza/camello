@@ -1,9 +1,10 @@
-import type { AutonomyLevel, Channel, RagChunk } from '@camello/shared/types';
+import type { AutonomyLevel, Channel, Intent, RagChunk } from '@camello/shared/types';
 import type { PromptTemplates } from './prompts/types.js';
 import { en } from './prompts/en.js';
 import { es } from './prompts/es.js';
 import { ARCHETYPE_PROMPTS } from './archetype-prompts.js';
 import { sanitizeFactValue, MAX_INJECTED_FACTS } from './memory-extractor.js';
+import { getIntentProfile, type IntentProfile } from './intent-profiles.js';
 
 const templates: Record<string, PromptTemplates> = { en, es };
 
@@ -36,6 +37,8 @@ interface PromptContext {
   ragSearchAttempted?: boolean;
   /** Customer memory facts — untrusted, user-reported. Capped + re-sanitized at injection. */
   customerMemory?: Array<{ key: string; value: string }>;
+  /** Classified intent — drives context curation (prompt trimming, length rules). */
+  intent?: Intent;
 }
 
 /** Per-channel overrides from artifact config YAML */
@@ -51,6 +54,11 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   // comprehend English instructions most reliably. The LANGUAGE RULE
   // instruction (injected right after safety) controls response language.
   const t = getTemplates('en');
+
+  // Resolve intent profile for context curation decisions
+  const profile: IntentProfile | undefined = ctx.intent
+    ? getIntentProfile(ctx.intent)
+    : undefined;
 
   // Resolve channel-specific overrides from artifact.config.channel_overrides
   const channelOverride = resolveChannelOverride(artifact.config, channel);
@@ -69,9 +77,10 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   const langValue = (artifact.personality as Record<string, unknown>)?.language as string | undefined;
   parts.push(t.language(langValue || 'en'));
 
-  // Archetype-specific behavioral framework
+  // Archetype-specific behavioral framework (skipped for lightweight intents)
+  const includeFramework = profile?.includeArchetypeFramework ?? true;
   const artifactType = artifact.type;
-  if (artifactType && artifactType !== 'custom') {
+  if (includeFramework && artifactType && artifactType !== 'custom') {
     const archetypePrompt = ARCHETYPE_PROMPTS[artifactType as keyof typeof ARCHETYPE_PROMPTS];
     if (archetypePrompt) {
       const framework = archetypePrompt.en;
@@ -178,16 +187,30 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     parts.push(t.customerMemoryEnd);
   }
 
-  // Module instructions
-  if (ctx.modules && ctx.modules.length > 0) {
-    parts.push(t.modulesStart);
-    parts.push(t.modulesInstruction);
-    for (const mod of ctx.modules) {
-      const autonomyNote = t.autonomy[mod.autonomyLevel] ?? t.autonomy.suggest_only;
-      parts.push(`- ${mod.name} [${mod.slug}]: ${mod.description} ${autonomyNote}`);
+  // Module instructions (skipped or filtered by intent profile)
+  const includeModules = profile?.includeModules ?? true;
+  if (includeModules && ctx.modules && ctx.modules.length > 0) {
+    // Filter to allowed slugs if the profile restricts them
+    const allowedSlugs = profile?.allowedModuleSlugs;
+    const visibleModules = allowedSlugs
+      ? ctx.modules.filter((m) => allowedSlugs.includes(m.slug))
+      : ctx.modules;
+
+    if (visibleModules.length > 0) {
+      parts.push(t.modulesStart);
+      parts.push(t.modulesInstruction);
+      for (const mod of visibleModules) {
+        const autonomyNote = t.autonomy[mod.autonomyLevel] ?? t.autonomy.suggest_only;
+        parts.push(`- ${mod.name} [${mod.slug}]: ${mod.description} ${autonomyNote}`);
+      }
+      parts.push(t.modulesRules);
+      parts.push(t.modulesEnd);
     }
-    parts.push(t.modulesRules);
-    parts.push(t.modulesEnd);
+  }
+
+  // Response length rule (intent-aware conciseness constraint)
+  if (profile) {
+    parts.push(t.responseLengthRule(profile.maxSentences));
   }
 
   // Memory extraction — piggyback on the existing LLM call
