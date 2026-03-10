@@ -1,6 +1,6 @@
 'use client';
 
-import { useTranslations, useLocale } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { BarChart3 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,15 +17,8 @@ function slugLabel(slug: string): string {
   return slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function shortDate(dateStr: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    .format(new Date(dateStr + 'T00:00:00Z'));
-}
-
 export function AgentPerformance({ artifactId }: { artifactId: string }) {
   const t = useTranslations('agentWorkspace');
-  const locale = useLocale();
-
   const query = trpc.agent.performanceMetrics.useQuery(
     { artifactId },
     { retry: 2 },
@@ -87,58 +80,53 @@ export function AgentPerformance({ artifactId }: { artifactId: string }) {
   return (
     <Card className="bg-sand/20">
       <CardHeader><CardTitle>{perfHeader}</CardTitle></CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-3">
       {/* A. Response Time Summary */}
       {!hasNoConversations && (
-        <div className="flex gap-6">
-          <div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg bg-white/60 px-3 py-2">
             <p className="text-xs text-dune">{t('performanceResponseTime7d')}</p>
-            <p className="font-heading text-xl font-bold text-charcoal">{formatMs(data.avgResponseTime7d)}</p>
+            <p className="font-heading text-lg font-bold text-charcoal">{formatMs(data.avgResponseTime7d)}</p>
           </div>
-          <div>
+          <div className="rounded-lg bg-white/60 px-3 py-2">
             <p className="text-xs text-dune">{t('performanceResponseTime30d')}</p>
-            <p className="font-heading text-xl font-bold text-charcoal">{formatMs(data.avgResponseTime30d)}</p>
+            <p className="font-heading text-lg font-bold text-charcoal">{formatMs(data.avgResponseTime30d)}</p>
           </div>
         </div>
       )}
 
-      {/* B. Daily Response Time Chart (14d) */}
-      {!hasNoConversations && (
-        <BarChartCss
-          bars={data.dailyResponseTime.map(d => ({
-            label: shortDate(d.date, locale),
-            value: d.avgMs,
-            color: 'var(--color-teal)',
-          }))}
-          ariaLabel={t('performanceResponseTime')}
-        />
-      )}
-
-      {/* C. Volume Trend (30d) */}
-      {!hasNoConversations && (
-        <>
-          <p className="text-xs font-semibold text-dune uppercase tracking-wide">
-            {t('performanceDailyVolume')}
-          </p>
-          <Sparkline
-            data={data.dailyConversationVolume.map(d => d.count)}
-            color="var(--color-teal)"
-          />
-        </>
-      )}
-
-      {/* D. Resolution Rate Trend (30d) */}
-      {data.dailyResolutionRate.some(d => d.rate > 0) && (
-        <>
-          <p className="text-xs font-semibold text-dune uppercase tracking-wide">
-            {t('performanceResolutionRate')}
-          </p>
-          <Sparkline
-            data={data.dailyResolutionRate.map(d => d.rate)}
-            color="var(--color-gold)"
-          />
-        </>
-      )}
+      {/* B. Volume & Resolution sparklines (only when enough data points) */}
+      {!hasNoConversations && (() => {
+        const volumeNonZero = data.dailyConversationVolume.filter(d => d.count > 0).length;
+        const resolutionNonZero = data.dailyResolutionRate.filter(d => d.rate > 0).length;
+        if (volumeNonZero < 3 && resolutionNonZero < 3) return null;
+        return (
+          <div className="grid grid-cols-2 gap-4">
+            {volumeNonZero >= 3 && (
+              <div>
+                <p className="mb-1 text-xs font-semibold text-dune uppercase tracking-wide">
+                  {t('performanceDailyVolume')}
+                </p>
+                <Sparkline
+                  data={data.dailyConversationVolume.map(d => d.count)}
+                  color="var(--color-teal)"
+                />
+              </div>
+            )}
+            {resolutionNonZero >= 3 && (
+              <div>
+                <p className="mb-1 text-xs font-semibold text-dune uppercase tracking-wide">
+                  {t('performanceResolutionRate')}
+                </p>
+                <Sparkline
+                  data={data.dailyResolutionRate.map(d => d.rate)}
+                  color="var(--color-gold)"
+                />
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* E. Module Usage */}
       {data.moduleExecutionCounts.length > 0 && (

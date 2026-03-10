@@ -35,9 +35,8 @@ export function MeetingsSection({ artifactId }: MeetingsSectionProps) {
 
   type MeetingItem = NonNullable<typeof meetings.data>[number];
 
-  const now = new Date();
-
   const { upcoming, past } = useMemo(() => {
+    const now = new Date();
     const items = meetings.data ?? [];
     const upcoming = items
       .filter((item) => item.datetime && new Date(item.datetime) >= now)

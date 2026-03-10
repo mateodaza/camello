@@ -346,7 +346,7 @@ export default function AgentConfigPage() {
 
       {/* === Dashboard Tab === */}
       {activeTab === 'dashboard' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <TrustGraduationCard
             artifactId={id}
             boundModules={boundModules.map((m) => ({

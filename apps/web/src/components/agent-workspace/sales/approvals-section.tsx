@@ -44,25 +44,34 @@ export function ApprovalsSection({ artifactId }: ApprovalsSectionProps) {
   const [expandedRejectId, setExpandedRejectId] = useState<string | null>(null);
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [rejectFreeTexts, setRejectFreeTexts] = useState<Record<string, string>>({});
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
   const pendingExec = trpc.module.pendingExecutions.useQuery({ artifactId, limit: 50 });
   const utils = trpc.useUtils();
 
   const approve = trpc.module.approve.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
+      setPendingIds((prev) => { const next = new Set(prev); next.delete(vars.executionId); return next; });
       utils.module.pendingExecutions.invalidate();
       addToast(t('approvalConfirmed'), 'success');
     },
-    onError: (err) => addToast(err.message, 'error'),
+    onError: (err, vars) => {
+      setPendingIds((prev) => { const next = new Set(prev); next.delete(vars.executionId); return next; });
+      addToast(err.message, 'error');
+    },
   });
 
   const reject = trpc.module.reject.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
+      setPendingIds((prev) => { const next = new Set(prev); next.delete(vars.executionId); return next; });
       utils.module.pendingExecutions.invalidate();
       setExpandedRejectId(null);
       addToast(t('rejectionSent'), 'success');
     },
-    onError: (err) => addToast(err.message, 'error'),
+    onError: (err, vars) => {
+      setPendingIds((prev) => { const next = new Set(prev); next.delete(vars.executionId); return next; });
+      addToast(err.message, 'error');
+    },
   });
 
   type PendingExecution = NonNullable<typeof pendingExec.data>[number];
@@ -166,15 +175,18 @@ export function ApprovalsSection({ artifactId }: ApprovalsSectionProps) {
                 <button
                   type="button"
                   className="min-h-[36px] rounded-md bg-teal/10 px-3 text-sm font-medium text-teal hover:bg-teal/20 disabled:opacity-50"
-                  disabled={approve.isPending || reject.isPending}
-                  onClick={() => approve.mutate({ executionId: item.id })}
+                  disabled={pendingIds.has(item.id)}
+                  onClick={() => {
+                    setPendingIds((prev) => new Set(prev).add(item.id));
+                    approve.mutate({ executionId: item.id });
+                  }}
                 >
                   {t('approve')}
                 </button>
                 <button
                   type="button"
                   className="min-h-[36px] rounded-md bg-sunset/10 px-3 text-sm font-medium text-sunset hover:bg-sunset/20 disabled:opacity-50"
-                  disabled={approve.isPending || reject.isPending}
+                  disabled={pendingIds.has(item.id)}
                   onClick={() =>
                     setExpandedRejectId(isExpanded ? null : item.id)
                   }
@@ -226,14 +238,15 @@ export function ApprovalsSection({ artifactId }: ApprovalsSectionProps) {
                     <button
                       type="button"
                       className="min-h-[36px] rounded-md bg-sunset/10 px-3 text-sm font-medium text-sunset hover:bg-sunset/20 disabled:opacity-50"
-                      disabled={!selectedReason || reject.isPending}
-                      onClick={() =>
+                      disabled={!selectedReason || pendingIds.has(item.id)}
+                      onClick={() => {
+                        setPendingIds((prev) => new Set(prev).add(item.id));
                         reject.mutate({
                           executionId: item.id,
                           reason: selectedReason as 'false_positive' | 'wrong_target' | 'bad_timing' | 'incorrect_data' | 'policy_violation',
                           freeText: freeText || undefined,
-                        })
-                      }
+                        });
+                      }}
                     >
                       {t('rejectConfirm')}
                     </button>

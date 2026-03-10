@@ -4,9 +4,10 @@ interface SparklineProps {
   className?: string;
 }
 
-export function Sparkline({ data, color = 'currentColor', className }: SparklineProps) {
+export function Sparkline({ data, color = 'currentColor', className = '' }: SparklineProps) {
+  const cls = className.includes('h-') ? className : `h-12 ${className}`;
   if (data.length === 0) {
-    return <svg viewBox="0 0 80 24" className={className} aria-hidden />;
+    return <svg viewBox="0 0 80 24" className={cls} aria-hidden />;
   }
 
   const min = Math.min(...data);
@@ -22,7 +23,7 @@ export function Sparkline({ data, color = 'currentColor', className }: Sparkline
     .join(' ');
 
   return (
-    <svg viewBox="0 0 80 24" className={className} aria-hidden preserveAspectRatio="none">
+    <svg viewBox="0 0 80 24" className={cls} aria-hidden preserveAspectRatio="none">
       <polyline
         points={points}
         fill="none"

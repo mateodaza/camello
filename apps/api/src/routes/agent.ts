@@ -304,7 +304,7 @@ export const agentRouter = router({
             createdAt: moduleExecutions.createdAt,
             leadId: leads.id,
             customerId: leads.customerId,
-            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            customerName: sql<string | null>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
             amount: sql<string | null>`${moduleExecutions.output}->>'total'`,
             quoteStatus: sql<string | null>`${moduleExecutions.output}->>'status'`,
           })
@@ -335,7 +335,7 @@ export const agentRouter = router({
             createdAt: moduleExecutions.createdAt,
             leadId: leads.id,
             customerId: leads.customerId,
-            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            customerName: sql<string | null>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
             datetime: sql<string | null>`${moduleExecutions.output}->>'datetime'`,
             topic: sql<string | null>`${moduleExecutions.input}->>'topic'`,
             booked: sql<boolean | null>`(${moduleExecutions.output}->>'booked')::boolean`,
@@ -367,7 +367,7 @@ export const agentRouter = router({
             createdAt: moduleExecutions.createdAt,
             leadId: leads.id,
             customerId: leads.customerId,
-            customerName: sql<string | null>`COALESCE(${customers.displayName}, ${customers.name})`,
+            customerName: sql<string | null>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
             followupStatus: sql<string | null>`${moduleExecutions.output}->>'followup_status'`,
             scheduledAt: sql<string | null>`${moduleExecutions.output}->>'scheduled_at'`,
             channel: sql<string | null>`${moduleExecutions.output}->>'channel'`,
@@ -985,7 +985,7 @@ export const agentRouter = router({
             dueDate: payments.dueDate,
             paidAt: payments.paidAt,
             createdAt: payments.createdAt,
-            customerName: customers.name,
+            customerName: sql<string | null>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
             conversationId: payments.conversationId,
           })
           .from(payments)

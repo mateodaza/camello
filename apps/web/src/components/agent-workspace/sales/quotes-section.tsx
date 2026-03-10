@@ -10,7 +10,32 @@ interface QuotesSectionProps {
   artifactId: string;
 }
 
+const QUOTE_STATUS_CLASSES: Record<string, string> = {
+  sent: 'bg-gold/15 text-gold',
+  pending: 'bg-gold/15 text-gold',
+  viewed: 'bg-gold/15 text-gold',
+  draft: 'bg-gold/15 text-gold',
+  accepted: 'bg-teal/15 text-teal',
+  approved: 'bg-teal/15 text-teal',
+  rejected: 'bg-sunset/15 text-sunset',
+  expired: 'bg-sunset/15 text-sunset',
+  cancelled: 'bg-sunset/15 text-sunset',
+};
+
+const QUOTE_STATUS_KEYS: Record<string, string> = {
+  sent: 'quoteStatusSent',
+  pending: 'quoteStatusPending',
+  viewed: 'quoteStatusViewed',
+  draft: 'quoteStatusDraft',
+  accepted: 'quoteStatusAccepted',
+  approved: 'quoteStatusApproved',
+  rejected: 'quoteStatusRejected',
+  expired: 'quoteStatusExpired',
+  cancelled: 'quoteStatusCancelled',
+};
+
 function QuoteStatusBadge({ status }: { status: string | null }) {
+  const t = useTranslations('agentWorkspace');
   if (!status) {
     return (
       <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-charcoal/10 text-dune">
@@ -20,18 +45,13 @@ function QuoteStatusBadge({ status }: { status: string | null }) {
   }
 
   const lower = status.toLowerCase();
-  let classes = 'bg-charcoal/10 text-dune';
-  if (lower === 'sent' || lower === 'pending' || lower === 'viewed') {
-    classes = 'bg-gold/15 text-gold';
-  } else if (lower === 'accepted' || lower === 'approved') {
-    classes = 'bg-teal/15 text-teal';
-  } else if (lower === 'rejected' || lower === 'expired' || lower === 'cancelled') {
-    classes = 'bg-sunset/15 text-sunset';
-  }
+  const classes = QUOTE_STATUS_CLASSES[lower] ?? 'bg-charcoal/10 text-dune';
+  const labelKey = QUOTE_STATUS_KEYS[lower];
+  const label = labelKey ? t(labelKey as Parameters<typeof t>[0]) : status;
 
   return (
     <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${classes}`}>
-      {status}
+      {label}
     </span>
   );
 }
