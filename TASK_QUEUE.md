@@ -412,7 +412,9 @@ Improve visual hierarchy and feel of the workspace page. Both tabs. Specifics: s
 
 ## P0 — Sprint Report + Sales Lock
 
-#### NC-231 [ ] Sprint report: full audit of nightcrawler/dev work
+#### NC-231 [x] Sprint report: full audit of nightcrawler/dev work
+**DONE.** `SPRINT_REPORT.md` written to project root. 7 sections: changelog (78 commits grouped by sprint), 9 issues with root causes + file paths, 10 known limitations, 7 architecture decisions with tradeoffs, test coverage table (~806 test cases across 75 files), 3 pending migrations (0021-0023) with risk notes, build status (type-check + build both green).
+**REVISED (iter 4):** Rewrote Issues 1/8/9 narratives to match verified code; added CAM-122 row + Merge Commits subsection to changelog; updated header to "74 non-merge + 4 merge"; changed 0021 status to Applied; refreshed Section 7 with fresh build output.
 Before starting new work, produce a written report of everything on `nightcrawler/dev` since it diverged from `main`. This is for Mateo to review before merging.
 
 **Acceptance Criteria:**
