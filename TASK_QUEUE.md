@@ -515,7 +515,8 @@ Surface knowledge gaps in the dashboard and optionally email the owner.
 
 ## P4 — Widget Branding
 
-#### NC-238 [ ] Widget branding customization (dashboard UI)
+#### NC-238 [x] Widget branding customization (dashboard UI)
+**DONE.** Created `widget-appearance-section.tsx` (color picker, position select, read-only greeting/avatar preview, live mini mockup). Integrated into `agents/[id]/page.tsx` between Personality and Modules. 13 i18n keys (en+es). 2 tests in `artifact-widget-config.test.ts`. Type-check passes.
 Let owners customize the chat widget appearance to match their brand.
 
 **Acceptance Criteria:**
