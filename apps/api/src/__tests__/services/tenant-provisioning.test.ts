@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   clerkUpdateMeta: vi.fn(),
   clearOrgCache: vi.fn(),
   tenantInsert: vi.fn(),
+  tenantInsertValues: vi.fn(),
+  tenantUpdate: vi.fn(),
   memberInsert: vi.fn(),
   customerInsert: vi.fn(),
   customerSelect: vi.fn(),
@@ -61,11 +63,7 @@ vi.mock('@camello/db', () => {
       }
       // Default: tenants table
       return {
-        values: vi.fn().mockReturnValue({
-          onConflictDoNothing: vi.fn().mockReturnValue({
-            returning: mocks.tenantInsert,
-          }),
-        }),
+        values: mocks.tenantInsertValues,
       };
     });
 
@@ -81,6 +79,11 @@ vi.mock('@camello/db', () => {
           }),
         }),
       }),
+      update: vi.fn(() => ({
+        set: vi.fn().mockReturnValue({
+          where: mocks.tenantUpdate,
+        }),
+      })),
     };
     return fn(db);
   });
@@ -115,6 +118,12 @@ describe('tenant-provisioning', () => {
     mocks.clerkUpdateMeta.mockResolvedValue({});
     // Default: tenant insert succeeds (newly created)
     mocks.tenantInsert.mockResolvedValue([{ id: 'some-uuid' }]);
+    mocks.tenantInsertValues.mockReturnValue({
+      onConflictDoNothing: vi.fn().mockReturnValue({
+        returning: mocks.tenantInsert,
+      }),
+    });
+    mocks.tenantUpdate.mockResolvedValue(undefined);
     mocks.memberInsert.mockResolvedValue(undefined);
     mocks.customerInsert.mockResolvedValue([{ id: 'preview-customer-id' }]);
     mocks.customerSelect.mockResolvedValue([]);
@@ -371,6 +380,42 @@ describe('tenant-provisioning', () => {
 
       expect(result.tenantId).toBeTruthy();
       expect(callCount).toBe(2); // retried once
+    });
+
+    // NC-234: ownerEmail stored in settings
+    it('NC-234-1: stores ownerEmail in settings on fresh-tenant INSERT', async () => {
+      mocks.tenantInsert.mockResolvedValue([{ id: 'some-uuid' }]);
+
+      await provisionTenant({
+        orgId: 'org_nc234',
+        orgName: 'NC234 Corp',
+        creatorUserId: 'user_123',
+        ownerEmail: 'owner@example.com',
+      });
+
+      expect(mocks.tenantInsertValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          settings: expect.objectContaining({ ownerEmail: 'owner@example.com' }),
+        }),
+      );
+      // No UPDATE needed for fresh tenants
+      expect(mocks.tenantUpdate).not.toHaveBeenCalled();
+    });
+
+    it('NC-234-2: patches ownerEmail via JSONB UPDATE when tenant already existed', async () => {
+      // ON CONFLICT DO NOTHING → RETURNING returns empty array (already existed)
+      mocks.tenantInsert.mockResolvedValue([]);
+
+      const result = await provisionTenant({
+        orgId: 'org_nc234_existing',
+        orgName: 'Existing Corp',
+        creatorUserId: 'user_123',
+        ownerEmail: 'owner@example.com',
+      });
+
+      expect(result.alreadyExisted).toBe(true);
+      // JSONB-merge UPDATE should have been called
+      expect(mocks.tenantUpdate).toHaveBeenCalled();
     });
   });
 });

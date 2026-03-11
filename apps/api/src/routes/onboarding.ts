@@ -183,6 +183,7 @@ export const onboardingRouter = router({
         orgId: input.orgId,
         orgName: input.companyName,
         creatorUserId: ctx.userId,
+        ownerEmail: ctx.userEmail ?? null,
       });
     }),
 

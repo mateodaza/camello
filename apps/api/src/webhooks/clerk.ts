@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { Webhook } from 'svix';
 import { provisionTenant } from '../services/tenant-provisioning.js';
+import { clerk } from '../lib/clerk.js';
 
 // ---------------------------------------------------------------------------
 // Clerk webhook routes
@@ -76,13 +77,25 @@ clerkWebhookRoutes.post('/clerk', async (c) => {
   const orgEvent = event as unknown as ClerkOrgCreatedEvent;
   const { id: orgId, name: orgName, slug: orgSlug, created_by } = orgEvent.data;
 
-  // 4. Provision tenant (idempotent — safe against webhook retries)
+  // 4. Resolve owner email from Clerk (best-effort — don't fail the webhook if lookup fails)
+  let ownerEmail: string | null = null;
+  if (created_by) {
+    try {
+      const creator = await clerk.users.getUser(created_by);
+      ownerEmail = creator.primaryEmailAddress?.emailAddress ?? null;
+    } catch (err) {
+      console.warn('[clerk-webhook] Could not resolve creator email:', err);
+    }
+  }
+
+  // 5. Provision tenant (idempotent — safe against webhook retries)
   try {
     await provisionTenant({
       orgId,
       orgName,
       orgSlug,
       creatorUserId: created_by ?? null,
+      ownerEmail,
     });
   } catch (err) {
     console.error('[clerk-webhook] Provisioning failed:', err);

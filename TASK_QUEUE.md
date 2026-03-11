@@ -458,8 +458,9 @@ Set up email sending infrastructure. Singleton Resend client, base HTML email te
 - At least 2 tests (sends when key present mock, noops when missing)
 - `pnpm type-check` passes
 
-#### NC-234 [ ] Owner email resolution + storage
+#### NC-234 [x] Owner email resolution + storage
 The email recipient needs to be the tenant owner. Store `ownerEmail` in `tenants.settings` JSONB during `provisionTenant()` from Clerk user email — zero external API calls at send time.
+**DONE.** Added `userEmail` to tRPC Context (populated via `clerk.users.getUser`); extended `ProvisionInput` with `ownerEmail`; writes to `settings.ownerEmail` in fresh-tenant INSERT and via JSONB-merge UPDATE for already-existed path; propagated through onboarding route and clerk webhook (best-effort `getUser` lookup); 2 new tests in `tenant-provisioning.test.ts`.
 
 **Acceptance Criteria:**
 - Add `ownerEmail` to tenant settings during `provisionTenant()` (read from Clerk user's `emailAddresses`)
@@ -469,8 +470,9 @@ The email recipient needs to be the tenant owner. Store `ownerEmail` in `tenants
 
 **Depends on:** NC-233
 
-#### NC-235 [ ] Pending approval email notification
+#### NC-235 [x] Pending approval email notification
 Trigger an email to the tenant owner when a module execution enters `status = 'pending'` (draft_and_approve flow).
+**DONE.** In `message-handler.ts`: added race-safe in-memory rate-limit map (`_approvalEmailCooldowns`, 5 min TTL); `escapeHtml()` utility for user-controlled field sanitization; `sendApprovalNotificationEmail()` helper (sets cooldown before `await sendEmail`, clears on `sent: false`); extended step-0b customer query to fetch `displayName`/`name`; modified `onApprovalNeeded` to fire email after `ownerNotifications` insert; 4 tests in `approval-email.test.ts` (happy path, rate-limit, retry-on-fail, HTML injection escape).
 
 **Acceptance Criteria:**
 - In `apps/api/src/orchestration/message-handler.ts`, inside `onApprovalNeeded()`: after existing Supabase broadcast + `owner_notifications` insert, send email

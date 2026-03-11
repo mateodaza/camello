@@ -113,6 +113,7 @@ describe('onboarding router', () => {
         orgId: ORG_ID,
         orgName: 'TestCo',
         creatorUserId: USER_ID,
+        ownerEmail: null,
       });
     });
 

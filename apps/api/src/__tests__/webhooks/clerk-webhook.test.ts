@@ -7,10 +7,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
   provisionTenant: vi.fn(),
   svixVerify: vi.fn(),
+  clerkGetUser: vi.fn(),
 }));
 
 vi.mock('../../services/tenant-provisioning.js', () => ({
   provisionTenant: mocks.provisionTenant,
+}));
+
+vi.mock('../../lib/clerk.js', () => ({
+  clerk: {
+    users: {
+      getUser: mocks.clerkGetUser,
+    },
+  },
 }));
 
 vi.mock('svix', () => {
@@ -56,6 +65,9 @@ describe('clerk webhook handler', () => {
       previewCustomerId: null,
       alreadyExisted: false,
     });
+    mocks.clerkGetUser.mockResolvedValue({
+      primaryEmailAddress: { emailAddress: 'creator@example.com' },
+    });
   });
 
   it('provisions tenant on valid organization.created event', async () => {
@@ -80,6 +92,7 @@ describe('clerk webhook handler', () => {
       orgName: 'New Corp',
       orgSlug: 'new-corp',
       creatorUserId: 'user_creator',
+      ownerEmail: 'creator@example.com',
     });
   });
 
