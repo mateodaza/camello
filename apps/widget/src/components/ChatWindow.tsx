@@ -13,6 +13,7 @@ interface ChatWindowProps {
   apiUrl: string;
   position: 'bottom-right' | 'bottom-left';
   theme: 'light' | 'dark';
+  primaryColor: string;
   onClose: () => void;
 }
 
@@ -24,6 +25,7 @@ export function ChatWindow({
   apiUrl,
   position,
   theme,
+  primaryColor,
   onClose,
 }: ChatWindowProps) {
   const [input, setInput] = useState('');
@@ -62,7 +64,7 @@ export function ChatWindow({
 
   const isDark = theme === 'dark';
   const bg = isDark ? '#1a1a2e' : '#ffffff';
-  const headerBg = isDark ? '#16213e' : '#4f46e5';
+  const headerBg = isDark ? '#16213e' : primaryColor;
   const textColor = isDark ? '#e0e0e0' : '#1a1a1a';
   const inputBg = isDark ? '#0f3460' : '#f3f4f6';
 
@@ -146,7 +148,7 @@ export function ChatWindow({
             // Human (operator) and artifact share the same bubble style —
             // from the customer's perspective, both are "the business".
             const bubbleBg = isCustomer
-              ? '#4f46e5'
+              ? primaryColor
               : (isDark ? '#0f3460' : '#f3f4f6');
             const bubbleColor = isCustomer ? '#fff' : textColor;
 
@@ -205,7 +207,7 @@ export function ChatWindow({
               bottom: '60px',
               left: '50%',
               transform: 'translateX(-50%)',
-              backgroundColor: '#4f46e5',
+              backgroundColor: primaryColor,
               color: '#fff',
               border: 'none',
               borderRadius: '16px',
@@ -255,7 +257,7 @@ export function ChatWindow({
           style={{
             padding: '8px 16px',
             borderRadius: '8px',
-            backgroundColor: '#4f46e5',
+            backgroundColor: primaryColor,
             color: '#fff',
             border: 'none',
             cursor: isSending ? 'wait' : 'pointer',

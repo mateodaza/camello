@@ -532,7 +532,8 @@ Let owners customize the chat widget appearance to match their brand.
 - At least 2 tests (config saved, config read back)
 - `pnpm type-check` passes
 
-#### NC-239 [ ] Widget runtime branding (apply customization)
+#### NC-239 [x] Widget runtime branding (apply customization)
+**DONE.** `/info` + `/session` handlers select `artifacts.config` and return `branding: { primaryColor, position }`. `useWidgetSession` parses branding with safe fallbacks. `Widget.tsx` uses DB position once session loads. `ChatWindow` + `ChatBubble` accept `primaryColor` prop replacing all hardcoded `#4f46e5`. 2 new tests in `widget-routes.test.ts` (custom config + empty config defaults). Type-check passes.
 Make the widget respect the branding config set by the owner.
 
 **Acceptance Criteria:**

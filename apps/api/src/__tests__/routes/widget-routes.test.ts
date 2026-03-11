@@ -305,6 +305,44 @@ describe('Widget routes', () => {
       );
     });
 
+    it('returns branding with custom color and position from artifact config', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({
+        name: 'Sales Agent',
+        personality: { language: 'en', greeting: 'Hello!' },
+        config: { widgetPrimaryColor: '#FF5722', widgetPosition: 'bottom-left' },
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+      mockTenantDbQuery.mockResolvedValueOnce([]);
+
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(200);
+
+      const body = await json(res);
+      expect(body.branding).toEqual({ primaryColor: '#FF5722', position: 'bottom-left' });
+    });
+
+    it('returns default branding when artifact config is empty', async () => {
+      mockDbExecute.mockResolvedValueOnce({
+        rows: [{ id: TENANT_ID, name: 'Acme', default_artifact_id: ARTIFACT_ID }],
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({
+        name: 'Sales Agent',
+        personality: { language: 'en', greeting: 'Hello!' },
+        config: {},
+      });
+      mockTenantDbQuery.mockResolvedValueOnce({ settings: null });
+      mockTenantDbQuery.mockResolvedValueOnce([]);
+
+      const res = await get('/info?slug=acme');
+      expect(res.status).toBe(200);
+
+      const body = await json(res);
+      expect(body.branding).toEqual({ primaryColor: '#4f46e5', position: 'bottom-right' });
+    });
+
     it('returns 429 when rate limited', async () => {
       const slug = `info-rate-${Date.now()}`;
 

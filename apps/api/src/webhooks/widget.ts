@@ -171,7 +171,7 @@ widgetRoutes.get('/info', async (c) => {
 
     const artifact = await tenantDb.query(async (qdb) => {
       const rows = await qdb
-        .select({ name: artifacts.name, personality: artifacts.personality })
+        .select({ name: artifacts.name, personality: artifacts.personality, config: artifacts.config })
         .from(artifacts)
         .where(eq(artifacts.id, defaultArtifactId))
         .limit(1);
@@ -238,6 +238,12 @@ widgetRoutes.get('/info', async (c) => {
       quickActions = getQuickActionsForModules(slugs, language === 'es' ? 'es' : 'en');
     }
 
+    const artifactConfig = artifact.config as Record<string, unknown> | null;
+    const primaryColor = typeof artifactConfig?.widgetPrimaryColor === 'string'
+      ? artifactConfig.widgetPrimaryColor
+      : '#4f46e5';
+    const position = artifactConfig?.widgetPosition === 'bottom-left' ? 'bottom-left' : 'bottom-right';
+
     return c.json({
       tenant_name: tenantName,
       artifact_name: artifact.name,
@@ -245,6 +251,7 @@ widgetRoutes.get('/info', async (c) => {
       language,
       profile,
       quick_actions: quickActions,
+      branding: { primaryColor, position },
     });
   } catch (err) {
     console.error('[widget/info] Unexpected error:', err);
@@ -296,10 +303,10 @@ widgetRoutes.post('/session', async (c) => {
     const { id: tenantId, name: tenantName, default_artifact_id: defaultArtifactId } = tenant;
     const tenantDb = createTenantDb(tenantId);
 
-    // Fetch artifact name + personality (within tenant context — RLS-safe)
+    // Fetch artifact name + personality + config (within tenant context — RLS-safe)
     const artifact = await tenantDb.query(async (qdb) => {
       const rows = await qdb
-        .select({ name: artifacts.name, personality: artifacts.personality })
+        .select({ name: artifacts.name, personality: artifacts.personality, config: artifacts.config })
         .from(artifacts)
         .where(eq(artifacts.id, defaultArtifactId))
         .limit(1);
@@ -355,11 +362,18 @@ widgetRoutes.post('/session', async (c) => {
       language = typeof tenantSettings?.preferredLocale === 'string' ? tenantSettings.preferredLocale : 'en';
     }
 
+    const sessionConfig = artifact.config as Record<string, unknown> | null;
+    const sessionPrimaryColor = typeof sessionConfig?.widgetPrimaryColor === 'string'
+      ? sessionConfig.widgetPrimaryColor
+      : '#4f46e5';
+    const sessionPosition = sessionConfig?.widgetPosition === 'bottom-left' ? 'bottom-left' : 'bottom-right';
+
     return c.json({
       token,
       tenant_name: tenantName,
       artifact_name: artifact.name,
       language,
+      branding: { primaryColor: sessionPrimaryColor, position: sessionPosition },
     });
   } catch (err) {
     console.error('[widget/session] Unexpected error:', err);
