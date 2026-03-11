@@ -547,8 +547,9 @@ Make the widget respect the branding config set by the owner.
 
 **Depends on:** NC-238
 
-#### NC-240 [ ] i18n + smoke tests for sprint
+#### NC-240 [x] i18n + smoke tests for sprint
 Final pass on all new strings + verification.
+**DONE.** i18n verified (all NC-237/NC-238 strings present in en.json+es.json; NC-231/232/233/234/235/236/239 are backend-only). Created `apps/api/src/__tests__/pre-ship-smoke.test.ts` with 6 tests across 5 describe blocks: parseBusinessModel agentType override (NC-232), sendEmail noop when no API key (NC-233), sendApprovalNotificationEmail subject contains module name (NC-235), recordKnowledgeGap inserts knowledge_gap notification (NC-236), artifact widget config round-trip (NC-239). All 6 pass. Type-check passes.
 
 **Acceptance Criteria:**
 - Verify all NC-231→NC-239 strings are in both `en.json` and `es.json`
