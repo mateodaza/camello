@@ -33,11 +33,12 @@ function makeTenantDb() {
 
 // Unified mock db supporting both SELECT and INSERT chains within one tenantDb.query() call.
 // select().from().where() → selectResult (array, resolved immediately by await)
-// insert().values().onConflictDoNothing() → Promise<void>
+// insert().values().onConflictDoNothing().returning() → Promise<returningResult>
 function makeDb(
   selectResult: Any[],
   onInsertValues?: (vals: Any) => void,
   onConflictCalled?: () => void,
+  returningResult: Any[] = [],   // default [] (conflict fired); pass [{id: 'uuid'}] for success
 ) {
   return {
     select: (_fields?: Any) => ({
@@ -51,7 +52,9 @@ function makeDb(
         return {
           onConflictDoNothing: () => {
             onConflictCalled?.();
-            return Promise.resolve();
+            return {
+              returning: (_fields?: Any) => Promise.resolve(returningResult),
+            };
           },
         };
       },
@@ -73,10 +76,11 @@ describe('recordKnowledgeGap', () => {
         [],                                          // SELECT returns empty — no existing gap
         (vals) => { capturedValues = vals; },        // capture INSERT values
         () => { conflictCalled = true; },            // track onConflictDoNothing call
+        [{ id: 'uuid-1' }],                         // returning: insert committed
       ))
     );
 
-    await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', 'What is your price?');
+    const result = await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', 'What is your price?');
 
     expect(mocks.queryFn).toHaveBeenCalledTimes(1); // one tenantDb.query() call
     expect(conflictCalled).toBe(true);              // INSERT with onConflictDoNothing() was called
@@ -86,16 +90,19 @@ describe('recordKnowledgeGap', () => {
     expect(capturedValues.metadata.intentType).toBe('product_inquiry');
     expect(capturedValues.body).toContain('What is your price?');
     expect(capturedValues.body).toContain('product_inquiry');
+    expect(result).toBe(true);
   });
 
   it('NC-236-2: skipped for greeting intent', async () => {
-    await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'greeting', 'Hi there');
+    const result = await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'greeting', 'Hi there');
     expect(mocks.queryFn).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 
   it('NC-236-3: skipped for farewell intent', async () => {
-    await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'farewell', 'Goodbye');
+    const result = await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'farewell', 'Goodbye');
     expect(mocks.queryFn).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 
   it('NC-236-4: skips insert when gap already recorded within 24h, and verifies 24h time window used in WHERE clause', async () => {
@@ -116,12 +123,13 @@ describe('recordKnowledgeGap', () => {
         ))
       );
 
-      await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', 'New question?');
+      const result = await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', 'New question?');
 
       // The SELECT check ran (tenantDb.query was called once)
       expect(mocks.queryFn).toHaveBeenCalledTimes(1);
       // INSERT was NOT called — deduplicated by the 24h application-layer check
       expect(insertCalled).toBe(false);
+      expect(result).toBe(false);
 
       // Verify gte() was called with the correct 24h rolling window start.
       // If the gte(ownerNotifications.createdAt, windowStart) filter is removed from
@@ -143,7 +151,7 @@ describe('recordKnowledgeGap', () => {
     let capturedValues: Any;
 
     mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-      fn(makeDb([], (vals) => { capturedValues = vals; }))
+      fn(makeDb([], (vals) => { capturedValues = vals; }, undefined, [{ id: 'uuid-1' }]))
     );
 
     await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', longMessage);
@@ -151,5 +159,64 @@ describe('recordKnowledgeGap', () => {
     expect(capturedValues.body).toContain('A'.repeat(200));
     expect(capturedValues.body).not.toContain('A'.repeat(201));
     expect(capturedValues.metadata.sampleQuestion).toHaveLength(200);
+  });
+
+  // NC-237-1: returns true on committed insert
+  it('NC-237-1: returns true when insert is committed (returning returns [{id}])', async () => {
+    mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+      fn(makeDb(
+        [],                    // SELECT: no existing gap
+        undefined,
+        undefined,
+        [{ id: 'uuid-1' }],   // returning: insert committed
+      ))
+    );
+
+    const result = await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', 'Test question?');
+    expect(result).toBe(true);
+  });
+
+  // NC-237-2: returns false on normal dedup (SELECT finds existing row, no INSERT attempted)
+  it('NC-237-2: returns false on normal dedup (existing row found in SELECT, no insert)', async () => {
+    let insertCalled = false;
+    mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+      fn(makeDb(
+        [{ metadata: { intentType: 'product_inquiry', sampleQuestion: 'Old question' } }],
+        () => { insertCalled = true; },
+      ))
+    );
+
+    const result = await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', 'New question?');
+    expect(result).toBe(false);
+    expect(insertCalled).toBe(false);
+  });
+
+  // NC-237-2b: returns false on concurrent dedup (SELECT passes, but returning returns [])
+  it('NC-237-2b: returns false on concurrent dedup (returning returns [], conflict silenced insert)', async () => {
+    mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+      fn(makeDb(
+        [],            // SELECT: both concurrent calls passed
+        undefined,
+        undefined,
+        [],            // returning: conflict fired, insert silenced
+      ))
+    );
+
+    const result = await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', 'Concurrent question?');
+    expect(result).toBe(false);
+  });
+
+  // NC-237-3: returns false and logs warn when DB throws
+  it('NC-237-3: returns false and calls console.warn when DB throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mocks.queryFn.mockImplementationOnce(() => Promise.reject(new Error('DB connection error')));
+
+    const result = await recordKnowledgeGap(makeTenantDb(), TENANT_ID, ARTIFACT_ID, 'product_inquiry', 'Question?');
+    expect(result).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('knowledge gap recording failed'),
+      expect.stringContaining('DB connection error'),
+    );
+    warnSpy.mockRestore();
   });
 });

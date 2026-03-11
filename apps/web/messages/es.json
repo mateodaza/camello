@@ -497,6 +497,10 @@
     "configViewConversations": "Ver Conversaciones",
     "configKnowledgeDocs": "{count, plural, =0 {Sin documentos} =1 {1 documento} other {# documentos}}",
     "configManageKnowledge": "Gestionar",
+    "configKnowledgeGapsTitle": "Vacíos de Conocimiento",
+    "configKnowledgeGapsDesc": "Preguntas de tus clientes que tu agente no pudo responder.",
+    "configKnowledgeGapsEmpty": "Sin vacíos de conocimiento detectados aún.",
+    "configAddToKnowledge": "Agregar a la Base de Conocimiento",
     "configActivityEmpty": "Sin actividad reciente",
     "configSave": "Guardar",
     "configIdentitySaved": "Identidad guardada",
@@ -613,7 +617,9 @@
     "emptyDocsDescription": "Agrega documentos, URLs o políticas para que tu agente responda preguntas con precisión.",
     "emptyDocsAction": "Agregar primera entrada",
     "emptyLearningsTitle": "Sin aprendizajes aún",
-    "emptyLearningsDescription": "Los aprendizajes se generan automáticamente cuando tu agente tiene conversaciones."
+    "emptyLearningsDescription": "Los aprendizajes se generan automáticamente cuando tu agente tiene conversaciones.",
+    "searchKnowledge": "Buscar documentos de conocimiento...",
+    "noSearchResults": "Ningún documento coincide con tu búsqueda."
   },
   "analytics": {
     "pageTitle": "Analítica",
@@ -1016,6 +1022,8 @@
     "typeBudgetWarning": "Alerta de presupuesto",
     "errorLoading": "Error al cargar. Inténtalo de nuevo.",
     "unread": "No leído",
-    "close": "Cerrar notificaciones"
+    "close": "Cerrar notificaciones",
+    "titleKnowledgeGap": "Vacío de conocimiento: {intentType}",
+    "bodyKnowledgeGap": "El cliente preguntó: \"{question}\""
   }
 }

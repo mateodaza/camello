@@ -58,6 +58,9 @@ import { sendEmail, renderBaseEmail } from '../lib/email.js';
 const _approvalEmailCooldowns = new Map<string, number>(); // tenantId → epoch ms
 const APPROVAL_EMAIL_COOLDOWN_MS = 5 * 60 * 1000;
 
+const _knowledgeGapDigestCooldowns = new Map<string, number>(); // tenantId → epoch ms
+const KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 // ---------------------------------------------------------------------------
 // HTML escaping (for user-controlled fields injected into email body)
 // ---------------------------------------------------------------------------
@@ -135,7 +138,84 @@ async function sendApprovalNotificationEmail(params: ApprovalEmailParams): Promi
   }
 }
 
-export { sendApprovalNotificationEmail, _approvalEmailCooldowns as _approvalEmailCooldownsForTest };
+// ---------------------------------------------------------------------------
+// Knowledge gap digest email
+// ---------------------------------------------------------------------------
+
+interface KnowledgeGapDigestParams {
+  tenantId: string;
+  ownerEmail: string;
+  tenantDb: TenantDb;
+  dashboardBaseUrl?: string;
+}
+
+async function sendKnowledgeGapDigestEmail(params: KnowledgeGapDigestParams): Promise<void> {
+  const now = Date.now();
+  const lastSent = _knowledgeGapDigestCooldowns.get(params.tenantId);
+  if (lastSent !== undefined && now - lastSent < KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS) return;
+
+  // Set cooldown BEFORE the async send to prevent concurrent calls from both passing the guard.
+  _knowledgeGapDigestCooldowns.set(params.tenantId, now);
+
+  const windowStart = new Date(now - KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS);
+  let gaps: typeof ownerNotifications.$inferSelect[];
+  try {
+    gaps = await params.tenantDb.query(async (db) =>
+      db.select()
+        .from(ownerNotifications)
+        .where(and(
+          eq(ownerNotifications.tenantId, params.tenantId),
+          eq(ownerNotifications.type, 'knowledge_gap'),
+          gte(ownerNotifications.createdAt, windowStart),
+        ))
+        .orderBy(desc(ownerNotifications.createdAt)),
+    );
+  } catch (err) {
+    _knowledgeGapDigestCooldowns.delete(params.tenantId);
+    throw err;
+  }
+
+  if (gaps.length === 0) {
+    _knowledgeGapDigestCooldowns.delete(params.tenantId);
+    return;
+  }
+
+  const base = params.dashboardBaseUrl ?? process.env.DASHBOARD_URL ?? 'https://app.camello.xyz';
+  const gapItems = gaps.map((g) => {
+    const meta = g.metadata as { intentType?: string; sampleQuestion?: string };
+    return `<li><strong>${escapeHtml(meta.intentType ?? 'unknown')}</strong>: "${escapeHtml(meta.sampleQuestion ?? '')}"</li>`;
+  }).join('');
+
+  const html = renderBaseEmail({
+    title: `Knowledge gaps detected (${gaps.length})`,
+    body: `<p>Your agent couldn't answer ${gaps.length} question${gaps.length === 1 ? '' : 's'} in the last 24 hours. Consider adding information to your knowledge base.</p><ul>${gapItems}</ul>`,
+    ctaText: 'Add to Knowledge Base',
+    ctaUrl: `${base}/dashboard/knowledge`,
+  });
+
+  let result: { sent: boolean };
+  try {
+    result = await sendEmail({
+      to: params.ownerEmail,
+      subject: `Knowledge gaps: ${gaps.length} unanswered question${gaps.length === 1 ? '' : 's'}`,
+      html,
+    });
+  } catch (err) {
+    _knowledgeGapDigestCooldowns.delete(params.tenantId);
+    throw err;
+  }
+
+  if (!result.sent) {
+    _knowledgeGapDigestCooldowns.delete(params.tenantId);
+  }
+}
+
+export {
+  sendApprovalNotificationEmail,
+  sendKnowledgeGapDigestEmail,
+  _approvalEmailCooldowns as _approvalEmailCooldownsForTest,
+  _knowledgeGapDigestCooldowns as _knowledgeGapDigestCooldownsForTest,
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -718,7 +798,19 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     ragResult.directContext.length === 0 &&
     (ragResult.proactiveContext ?? []).length === 0;
   if (isEmptyRag) {
-    void recordKnowledgeGap(tenantDb, tenantId, resolved.artifactId, intent.type, messageText);
+    const ownerEmail = (tenant?.settings as Record<string, unknown>)?.ownerEmail;
+    recordKnowledgeGap(tenantDb, tenantId, resolved.artifactId, intent.type, messageText)
+      .then((inserted) => {
+        if (inserted && typeof ownerEmail === 'string' && ownerEmail) {
+          void sendKnowledgeGapDigestEmail({ tenantId, ownerEmail, tenantDb }).catch((err: unknown) => {
+            console.warn('[handleMessage] Knowledge gap digest email failed:', err instanceof Error ? err.message : String(err));
+          });
+        }
+      })
+      .catch((err: unknown) => {
+        // Belt-and-suspenders: recordKnowledgeGap catches internally and never rejects.
+        console.warn('[handleMessage] Knowledge gap recording failed (non-blocking):', err instanceof Error ? err.message : String(err));
+      });
   }
 
   // 8. Fetch learnings for this artifact

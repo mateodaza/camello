@@ -10,13 +10,14 @@ export async function recordKnowledgeGap(
   artifactId: string,
   intentType: string,
   customerMessage: string,
-): Promise<void> {
-  if (TRIVIAL_INTENTS.has(intentType)) return;
+): Promise<boolean> {
+  if (TRIVIAL_INTENTS.has(intentType)) return false;
 
   const truncated = customerMessage.slice(0, 200);
   const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   try {
+    let didInsert = false;
     await tenantDb.query(async (db) => {
       // Spec-mandated: query before inserting.
       // Fetch all knowledge_gap rows for this artifact in the last 24h and
@@ -36,13 +37,14 @@ export async function recordKnowledgeGap(
         (row) =>
           (row.metadata as { intentType?: string } | null)?.intentType === intentType,
       );
-      if (alreadyExists) return;
+      if (alreadyExists) return; // didInsert stays false
 
       // onConflictDoNothing() is the atomic safety net for concurrent requests:
       // two concurrent calls may both pass the SELECT check above under READ COMMITTED,
       // but only one INSERT will succeed; the other is a silent no-op via the
       // owner_notifications_knowledge_gap_daily_dedup unique index.
-      await db
+      // .returning() tells us which case we're in: [] = conflict fired, [{id}] = insert committed.
+      const inserted = await db
         .insert(ownerNotifications)
         .values({
           tenantId,
@@ -52,12 +54,17 @@ export async function recordKnowledgeGap(
           body: `Customer asked: "${truncated}" — no knowledge base content matched for intent: ${intentType}.`,
           metadata: { intentType, sampleQuestion: truncated },
         })
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning({ id: ownerNotifications.id });
+
+      didInsert = inserted.length > 0; // false when ON CONFLICT DO NOTHING fires
     });
+    return didInsert;
   } catch (err) {
     console.warn(
       '[handleMessage] knowledge gap recording failed (non-blocking):',
       err instanceof Error ? err.message : String(err),
     );
+    return false;
   }
 }

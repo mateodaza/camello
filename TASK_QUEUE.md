@@ -499,7 +499,8 @@ When the AI hits empty RAG (no knowledge chunks returned) for a non-trivial inte
 - At least 3 tests (gap recorded on empty RAG, skipped for greeting/farewell, deduplicated within 24h)
 - `pnpm type-check` passes
 
-#### NC-237 [ ] Knowledge gap notification UI + email
+#### NC-237 [x] Knowledge gap notification UI + email
+**DONE.** Added `knowledge_gap` type to notifications panel (BookOpen icon, i18n title/body from metadata). Created `KnowledgeGapsSection` component wired into agents/[id]/page.tsx. Added `knowledgeGapNotifications` tRPC procedure. Added `sendKnowledgeGapDigestEmail` with 24h cooldown in message-handler.ts. Updated `recordKnowledgeGap` to return `Promise<boolean>` via `.returning()`. Added `?q` search filter to knowledge/page.tsx. 13 tests across 3 files. Type-check passes.
 Surface knowledge gaps in the dashboard and optionally email the owner.
 
 **Acceptance Criteria:**
