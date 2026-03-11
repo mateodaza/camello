@@ -431,8 +431,9 @@ Before starting new work, produce a written report of everything on `nightcrawle
 
 ## P1 — Sales-Only Onboarding
 
-#### NC-232 [ ] Lock onboarding to Sales archetype
+#### NC-232 [x] Lock onboarding to Sales archetype
 Constrain the onboarding wizard to always produce a Sales agent. Keep all archetype code intact for future re-enablement.
+**DONE.** EN/ES prompt wording hardened; `object.agentType = 'sales'` override added after `generateObject`; `effectiveInput` with `type: 'sales'` added in `setupArtifact` before both `runSetupTransaction` calls. 3 tests updated/added (overrides LLM support→sales, overrides marketing input→sales, renamed existing support test). Type-check passes.
 
 **Acceptance Criteria:**
 - `apps/api/src/routes/onboarding.ts`:
