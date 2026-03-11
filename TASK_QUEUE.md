@@ -446,8 +446,9 @@ Constrain the onboarding wizard to always produce a Sales agent. Keep all archet
 
 ## P2 — Email Notifications
 
-#### NC-233 [ ] Resend email client + base template
+#### NC-233 [x] Resend email client + base template
 Set up email sending infrastructure. Singleton Resend client, base HTML email template with Camello branding.
+**DONE.** Installed `resend` in `apps/api`. Created `apps/api/src/lib/email.ts` with lazy singleton `getResend()`, `sendEmail()` wrapper (returns `{ sent: true, id }` on success, `{ sent: false }` on missing key or API error), and `renderBaseEmail()` inline-CSS template with teal/midnight/cream palette and optional CTA. Created `apps/api/src/__tests__/email.test.ts` with 3 tests (success path, noop when no key, API error → sent: false). Type-check passes.
 
 **Acceptance Criteria:**
 - Install `resend` in `apps/api`
