@@ -396,6 +396,167 @@ Improve visual hierarchy and feel of the workspace page. Both tabs. Specifics: s
 **Depends on:** NC-226 (after all sections exist)
 **DONE.** Added icon+cardClassName props to DataTable+CardFeed primitives; added lucide-react icons (FileText, Calendar, CreditCard, Send, CheckCircle2, Award, Activity, BarChart3, User, SlidersHorizontal) to all Dashboard sections; bg-sand/20 tint on all Dashboard cards; performance-panel wrapped in Card+CardHeader; Identity/Personality section header icons; space-y-6 + border-t divider in Dashboard tab; autonomy badge colors normalized to /15 opacity tint pattern. Type-check passes.
 
+## Pre-Ship Sprint (NC-231 → NC-240)
+
+> **Sprint goal:** Ship what's needed before real user testing: (1) sales-only onboarding lock, (2) email notifications so owners act on approvals, (3) knowledge gap alerts (self-improving feedback loop), (4) widget branding customization. Invoice module deferred — wait for user feedback.
+
+### Sprint guardrails
+
+**Onboarding lock:** Keep ALL archetype code intact (support, marketing, custom). Only constrain the flow — don't delete anything. This is a product decision, not a code cleanup.
+
+**Email:** Use Resend (`resend` npm package). Singleton client in `apps/api/src/lib/email.ts` (same pattern as `paddle.ts`, `langfuse.ts`). Env var `RESEND_API_KEY`. Graceful noop when missing (dev/test). Sender: `noreply@camello.xyz`.
+
+**Knowledge gaps:** Track when the AI hits empty RAG for a topic. Surface as owner notifications so they know what to teach the agent. This is the feedback loop that makes the product self-improving.
+
+**Widget branding:** Let owners customize widget colors/avatar to match their site. Changes stored in `artifacts.personality` or `artifacts.config` JSONB (no migration needed if using existing JSONB fields).
+
+## P0 — Sprint Report + Sales Lock
+
+#### NC-231 [ ] Sprint report: full audit of nightcrawler/dev work
+Before starting new work, produce a written report of everything on `nightcrawler/dev` since it diverged from `main`. This is for Mateo to review before merging.
+
+**Acceptance Criteria:**
+- Output file: `SPRINT_REPORT.md` in project root
+- **Section 1 — Changelog:** List every commit on `nightcrawler/dev` not on `main` (use `git log --oneline main..HEAD`). Group by sprint/feature area.
+- **Section 2 — Issues encountered:** For each non-trivial bug or unexpected problem you hit during implementation, describe: what went wrong, root cause, how it was fixed, and which files were affected. Be specific — file paths + line numbers.
+- **Section 3 — Known limitations:** Anything that works but has caveats, edge cases not covered, or deferred decisions. Be honest — flag things that might bite in production.
+- **Section 4 — Architecture decisions:** Key design choices made and why (e.g., inbox as shared layer, intent profiles as single source of truth, claim-sensitive grounding). Include tradeoffs considered.
+- **Section 5 — Test coverage:** List all test files created/modified, approximate test count, and any areas with weak or missing coverage.
+- **Section 6 — Migrations:** List all migrations written, their status (applied vs pending), and what they do.
+- **Section 7 — Build status:** Run `pnpm type-check` and `pnpm build`, include output summary.
+- Keep it factual and concise. No marketing language. Flag risks clearly.
+- `pnpm type-check` passes
+
+## P1 — Sales-Only Onboarding
+
+#### NC-232 [ ] Lock onboarding to Sales archetype
+Constrain the onboarding wizard to always produce a Sales agent. Keep all archetype code intact for future re-enablement.
+
+**Acceptance Criteria:**
+- `apps/api/src/routes/onboarding.ts`:
+  - `parseBusinessModel` LLM prompt: change "almost always 'sales'" → "always 'sales'" (en + es prompts)
+  - `setupArtifact`: override `input.type` to `'sales'` before the transaction (defensive — ensures no type mismatch even if LLM returns non-sales)
+- `DEFAULT_SERVICES_SUGGESTION.agentType` already `'sales'` — verify, no change needed
+- Do NOT delete support/marketing/custom archetype files — just lock the flow
+- At least 2 tests (verify parseBusinessModel returns sales, verify setupArtifact uses sales regardless of input)
+- `pnpm type-check` passes
+
+## P2 — Email Notifications
+
+#### NC-233 [ ] Resend email client + base template
+Set up email sending infrastructure. Singleton Resend client, base HTML email template with Camello branding.
+
+**Acceptance Criteria:**
+- Install `resend` in `apps/api`
+- Create `apps/api/src/lib/email.ts`: singleton Resend client, `sendEmail({ to, subject, html })` wrapper
+- Graceful noop when `RESEND_API_KEY` is missing (log warning, return `{ sent: false }`)
+- Base HTML email template function: `renderBaseEmail({ title, body, ctaText?, ctaUrl? })` — inline CSS, Camello logo text, teal/cream/midnight palette, responsive
+- At least 2 tests (sends when key present mock, noops when missing)
+- `pnpm type-check` passes
+
+#### NC-234 [ ] Owner email resolution + storage
+The email recipient needs to be the tenant owner. Store `ownerEmail` in `tenants.settings` JSONB during `provisionTenant()` from Clerk user email — zero external API calls at send time.
+
+**Acceptance Criteria:**
+- Add `ownerEmail` to tenant settings during `provisionTenant()` (read from Clerk user's `emailAddresses`)
+- If `ownerEmail` is null/missing at send time, skip email silently (log warning)
+- At least 2 tests
+- `pnpm type-check` passes
+
+**Depends on:** NC-233
+
+#### NC-235 [ ] Pending approval email notification
+Trigger an email to the tenant owner when a module execution enters `status = 'pending'` (draft_and_approve flow).
+
+**Acceptance Criteria:**
+- In `apps/api/src/orchestration/message-handler.ts`, inside `onApprovalNeeded()`: after existing Supabase broadcast + `owner_notifications` insert, send email
+- Read `ownerEmail` from tenant settings (from NC-234)
+- Email content: subject "Action needed: {moduleName} approval", body with customer name, module description, input summary (truncated), CTA button linking to `/dashboard/conversations?selected={conversationId}`
+- Use `renderBaseEmail()` from NC-233
+- Rate limit: max 1 email per tenant per 5 minutes for approval notifications (prevent spam during high-volume periods). Use in-memory Map with TTL — no DB needed.
+- At least 3 tests (email sent on pending, rate-limited skip, noop without API key)
+- `pnpm type-check` passes
+
+**Depends on:** NC-233, NC-234
+
+## P3 — Knowledge Gap Alerts
+
+#### NC-236 [ ] Track empty-RAG intents for knowledge gap detection
+When the AI hits empty RAG (no knowledge chunks returned) for a non-trivial intent, record the gap so it can be surfaced to the owner.
+
+**Acceptance Criteria:**
+- In `apps/api/src/orchestration/message-handler.ts`: after RAG search returns empty AND intent is not `greeting`/`farewell`/`thanks`, insert a row into `owner_notifications` with type `'knowledge_gap'`
+- Notification body: include the customer's message (truncated to 200 chars) and the classified intent type, so the owner knows what topic the AI couldn't answer
+- Deduplicate: don't create duplicate notifications for the same intent type within the same artifact in the last 24 hours (query `owner_notifications` before inserting). This prevents spam when multiple customers ask about the same missing topic.
+- Fire-and-forget (don't block the message pipeline)
+- At least 3 tests (gap recorded on empty RAG, skipped for greeting/farewell, deduplicated within 24h)
+- `pnpm type-check` passes
+
+#### NC-237 [ ] Knowledge gap notification UI + email
+Surface knowledge gaps in the dashboard and optionally email the owner.
+
+**Acceptance Criteria:**
+- Knowledge gap notifications already appear in the existing notifications panel (they're `owner_notifications` rows). Verify they render correctly — add a `BookOpen` or `AlertCircle` icon for `type === 'knowledge_gap'` in the notification renderer.
+- Add a dedicated "Knowledge Gaps" section to the agent config page (Setup tab, after Knowledge section): list recent knowledge gap notifications for this artifact, with the customer question + intent + timestamp. Link each to "Add to Knowledge Base" → navigates to `/dashboard/knowledge` with the question pre-filled as a search hint (query param `?q=<question>`).
+- If email infrastructure exists (NC-233–235 completed): send a knowledge gap digest email — max 1 per day per tenant, batching all gaps from the last 24h. If email not yet built, skip this bullet (no dependency).
+- i18n keys (en + es) for notification text, section title, empty state, "Add to Knowledge" CTA
+- At least 2 tests
+- `pnpm type-check` passes
+
+**Depends on:** NC-236
+
+## P4 — Widget Branding
+
+#### NC-238 [ ] Widget branding customization (dashboard UI)
+Let owners customize the chat widget appearance to match their brand.
+
+**Acceptance Criteria:**
+- New section on agent config page (Setup tab): "Widget Appearance"
+- Fields stored in `artifacts.config` JSONB (no migration needed):
+  - `widgetPrimaryColor`: hex color picker (default: teal `#00897B`)
+  - `widgetPosition`: `bottom-right` | `bottom-left` (default: `bottom-right`)
+  - `widgetWelcomeMessage`: string (reuse existing `personality.greeting` — just label it clearly)
+  - `widgetAvatarUrl`: reuse existing `personality.avatar` field
+- Save via existing `artifact.update` mutation (already accepts partial `config` JSONB merge)
+- Preview: show a mini widget mockup that updates live as the owner changes colors/position
+- i18n keys (en + es)
+- At least 2 tests (config saved, config read back)
+- `pnpm type-check` passes
+
+#### NC-239 [ ] Widget runtime branding (apply customization)
+Make the widget respect the branding config set by the owner.
+
+**Acceptance Criteria:**
+- `GET /api/widget/info` response: include `branding: { primaryColor, position }` from `artifacts.config` JSONB
+- `apps/widget/src/components/ChatWindow.tsx`: read branding from session info, apply as CSS custom properties (`--widget-primary-color`, `--widget-position`)
+- Widget launcher button: respect `position` (bottom-right vs bottom-left)
+- Widget header + send button: use `primaryColor` instead of hardcoded teal
+- Fallback to defaults if branding fields are missing (backward compatible)
+- At least 2 tests (branding applied, defaults used when missing)
+- `pnpm type-check` passes
+
+**Depends on:** NC-238
+
+#### NC-240 [ ] i18n + smoke tests for sprint
+Final pass on all new strings + verification.
+
+**Acceptance Criteria:**
+- Verify all NC-231→NC-239 strings are in both `en.json` and `es.json`
+- Test file: `apps/api/src/__tests__/pre-ship-smoke.test.ts`
+- Tests covering: sales-only onboarding lock, email client noop mode, approval email trigger, knowledge gap recording, widget branding config round-trip
+- `pnpm type-check` passes
+- `pnpm build` passes
+
+**Depends on:** NC-235, NC-232, NC-237, NC-239
+
+## Deferred — Post User Feedback
+
+#### CAM-210 [deferred] Invoice module
+Generate formatted invoices from quotes (new module + table + shareable public link). Build when real users request it.
+
+#### CAM-211 [deferred] WhatsApp channel setup UI
+Dashboard UI for configuring WhatsApp Cloud API credentials. Backend adapter exists. Requires Meta Business verification (manual process).
+
 ## Manual / Blocked — Not for NC
 
 #### CAM-200 [manual] Clerk production keys (Mateo)
@@ -403,3 +564,6 @@ Swap dev keys for prod in env vars + Clerk dashboard config.
 
 #### CAM-201 [manual] Paddle business verification (Mateo)
 Submit business docs for Paddle verification.
+
+#### CAM-202 [manual] Apply migration 0023 to Supabase cloud (Mateo)
+`context_curation` JSONB column on `interaction_logs`. Review SQL in `packages/db/migrations/0023_context_curation_telemetry.sql` and apply.
