@@ -1,4 +1,5 @@
 import { generateText } from 'ai';
+import { recordKnowledgeGap } from './knowledge-gap.js';
 import { eq, and, sql, desc, asc, isNull, gte, lt } from 'drizzle-orm';
 import type { TenantDb } from '@camello/db';
 import {
@@ -710,6 +711,15 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       archetypeType: artifact.type as import('@camello/shared/types').ArtifactType,
     }),
   );
+
+  // 7b. Fire-and-forget: record knowledge gap when RAG returns empty for non-trivial intent
+  const isEmptyRag =
+    !ragResult.searchSkipped &&
+    ragResult.directContext.length === 0 &&
+    (ragResult.proactiveContext ?? []).length === 0;
+  if (isEmptyRag) {
+    void recordKnowledgeGap(tenantDb, tenantId, resolved.artifactId, intent.type, messageText);
+  }
 
   // 8. Fetch learnings for this artifact
   const artifactLearnings = await tenantDb.query(async (db) => {

@@ -487,7 +487,8 @@ Trigger an email to the tenant owner when a module execution enters `status = 'p
 
 ## P3 — Knowledge Gap Alerts
 
-#### NC-236 [ ] Track empty-RAG intents for knowledge gap detection
+#### NC-236 [x] Track empty-RAG intents for knowledge gap detection
+**DONE.** Added `knowledge_gap` to `owner_notifications` CHECK constraint (schema + migration 0024). Created `knowledge-gap.ts` with 24h rolling-window dedup (SELECT-before-INSERT, JS filter, onConflictDoNothing safety net). Fire-and-forget call site in `message-handler.ts` after RAG. 8 tests (5 unit + 3 call-site). Type-check passes.
 When the AI hits empty RAG (no knowledge chunks returned) for a non-trivial intent, record the gap so it can be surfaced to the owner.
 
 **Acceptance Criteria:**
