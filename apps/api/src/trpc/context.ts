@@ -10,6 +10,8 @@ export interface Context {
   orgId: string | null;
   /** Resolved full name of the authenticated user. Null if lookup failed or unauthenticated. Optional for backward compat with test contexts. */
   userFullName?: string | null;
+  /** Primary email of the authenticated user. Null if lookup failed or unauthenticated. */
+  userEmail?: string | null;
   /** Clerk organization ID mapped to tenant UUID. Null if no org selected. */
   tenantId: string | null;
   /** Tenant-scoped DB helper. Null if no tenant context. */
@@ -75,6 +77,7 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
   let userId: string | null = null;
   let orgId: string | null = null;
   let userFullName: string | null = null;
+  let userEmail: string | null = null;
   let tenantId: string | null = null;
   let tenantDb: TenantDb | null = null;
 
@@ -86,7 +89,7 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
     } catch {
       // JWT verification failure → proceed as unauthenticated.
       // Protected procedures will reject via middleware.
-      return { req, userId, orgId, userFullName, tenantId, tenantDb };
+      return { req, userId, orgId, userFullName, userEmail, tenantId, tenantDb };
     }
 
     if (requestState.isSignedIn) {
@@ -97,6 +100,7 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
       try {
         const user = await clerk.users.getUser(clerkUserId);
         userFullName = user.fullName ?? user.firstName ?? null;
+        userEmail = user.primaryEmailAddress?.emailAddress ?? null;
       } catch (err) {
         console.error('[createContext] Clerk users.getUser failed:', err);
         // userFullName stays null — replyAsOwner will throw INTERNAL_SERVER_ERROR explicitly.
@@ -114,5 +118,5 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
     }
   }
 
-  return { req, userId, orgId, userFullName, tenantId, tenantDb };
+  return { req, userId, orgId, userFullName, userEmail, tenantId, tenantDb };
 }

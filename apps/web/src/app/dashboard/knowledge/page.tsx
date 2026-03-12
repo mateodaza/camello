@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc';
 import { groupChunksByTitle, truncate, fmtDate } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -23,7 +24,14 @@ export default function KnowledgePage() {
 
   // --- Knowledge filters & pagination ---
   const [filterSourceType, setFilterSourceType] = useState('');
+  const [filterSearch, setFilterSearch] = useState('');
   const [offset, setOffset] = useState(0);
+
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) setFilterSearch(q);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Ingest form ---
   const [showIngest, setShowIngest] = useState(false);
@@ -134,6 +142,10 @@ export default function KnowledgePage() {
     [knowledgeList.data],
   );
 
+  const filteredDocs = filterSearch
+    ? docs.filter((doc) => doc.title?.toLowerCase().includes(filterSearch.toLowerCase()))
+    : docs;
+
   const learnings = useMemo(
     () =>
       (learningList.data ?? []).map((l) => ({
@@ -224,6 +236,13 @@ export default function KnowledgePage() {
                 <option key={st} value={st}>{st}</option>
               ))}
             </select>
+            <input
+              type="search"
+              value={filterSearch}
+              onChange={(e) => { setFilterSearch(e.target.value); setOffset(0); }}
+              placeholder={t('searchKnowledge')}
+              className="rounded-md border border-charcoal/20 bg-cream px-3 py-2 text-sm text-charcoal placeholder:text-dune focus:outline-none focus:ring-2 focus:ring-teal"
+            />
             <Button onClick={() => setShowIngest(!showIngest)}>
               <Plus className="mr-2 h-4 w-4" />
               {t('addKnowledge')}
@@ -314,7 +333,7 @@ export default function KnowledgePage() {
         )}
 
         {/* Docs table */}
-        {docs.length === 0 ? (
+        {filteredDocs.length === 0 && !filterSearch ? (
           <div className="flex flex-col items-center gap-3 py-12">
             <BookOpen className="h-12 w-12 text-dune/40" />
             <p className="font-heading text-lg font-semibold text-charcoal">{t('emptyDocsTitle')}</p>
@@ -324,6 +343,8 @@ export default function KnowledgePage() {
               {t('emptyDocsAction')}
             </Button>
           </div>
+        ) : filteredDocs.length === 0 ? (
+          <p className="py-6 text-center text-sm text-dune">{t('noSearchResults')}</p>
         ) : (
           <>
             <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
@@ -338,7 +359,7 @@ export default function KnowledgePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {docs.map((doc) => (
+                  {filteredDocs.map((doc) => (
                     <tr key={doc.key} className="border-b border-charcoal/8 last:border-0">
                       <td className="px-4 py-3 font-medium">{doc.title ?? t('untitled')}</td>
                       <td className="px-4 py-3">

@@ -99,7 +99,16 @@ async function runSetupTransaction(
       .from(artifacts)
       .where(eq(artifacts.id, tenantRow.defaultArtifactId))
       .limit(1);
-    if (art) return art;
+    if (art) {
+      if (art.type !== 'sales') {
+        // Persist the type so downstream reads (message-handler) use the sales archetype.
+        await tx
+          .update(artifacts)
+          .set({ type: 'sales', updatedAt: new Date() })
+          .where(eq(artifacts.id, art.id));
+      }
+      return { ...art, type: 'sales' as ArtifactType };
+    }
   }
 
   const [existingByType] = await tx
@@ -174,6 +183,7 @@ export const onboardingRouter = router({
         orgId: input.orgId,
         orgName: input.companyName,
         creatorUserId: ctx.userId,
+        ownerEmail: ctx.userEmail ?? null,
       });
     }),
 
@@ -197,7 +207,7 @@ Business description: "${input.description}"
 Guidelines:
 - template: choose the closest match (services for agencies/consulting, ecommerce for online stores, saas for software, restaurant for F&B, realestate for property)
 - agentName: suggest a friendly first name (e.g. Alex, Sam, Maya)
-- agentType: almost always "sales" for MVP
+- agentType: always "sales" — this platform is sales-focused
 - personality.tone: match the business style
 - personality.greeting: one welcoming sentence
 - personality.goals: 3 actionable goals for this agent
@@ -213,7 +223,7 @@ Descripción del negocio: "${input.description}"
 Directrices:
 - template: elige la opción más cercana (services para agencias/consultoría, ecommerce para tiendas en línea, saas para software, restaurant para comida/bebida, realestate para inmobiliaria)
 - agentName: sugiere un nombre amigable (ej. Alex, Sam, Maya, Camila)
-- agentType: casi siempre "sales" para el MVP
+- agentType: siempre "sales" — esta plataforma está enfocada en ventas
 - personality.tone: adapta al estilo del negocio
 - personality.greeting: una oración de bienvenida EN ESPAÑOL
 - personality.goals: 3 objetivos accionables para este agente EN ESPAÑOL
@@ -227,6 +237,9 @@ Directrices:
           schema: BusinessModelSuggestionSchema,
           prompt: input.locale === 'es' ? promptEs : promptEn,
         });
+
+        // Lock: always return sales regardless of LLM classification.
+        object.agentType = 'sales';
 
         return object;
       } catch (err) {
@@ -264,6 +277,16 @@ Directrices:
         return Object.keys(p).length > 0 ? p : null;
       })();
 
+      // Lock: always produce a sales artifact regardless of what the wizard submitted.
+      // Other archetype code is preserved for future re-enablement.
+      const effectiveInput: SetupInput = {
+        name: input.name,
+        type: 'sales',
+        personality: input.personality,
+        constraints: input.constraints,
+        profile: input.profile,
+      };
+
       // -----------------------------------------------------------------------
       // Phase 1: Resolve which artifact to use (all 4 paths converge here)
       // -----------------------------------------------------------------------
@@ -287,15 +310,24 @@ Directrices:
             .limit(1);
         });
         if (art) {
-          resolvedArtifact = art;
+          if (art.type !== 'sales') {
+            // Persist the type so downstream reads (message-handler) use the sales archetype.
+            await ctx.tenantDb.query(async (db) => {
+              return db
+                .update(artifacts)
+                .set({ type: 'sales', updatedAt: new Date() })
+                .where(eq(artifacts.id, art.id));
+            });
+          }
+          resolvedArtifact = { ...art, type: 'sales' as ArtifactType };
         } else {
           resolvedArtifact = await ctx.tenantDb.transaction(async (tx) =>
-            runSetupTransaction(tx, ctx, input),
+            runSetupTransaction(tx, ctx, effectiveInput),
           );
         }
       } else {
         resolvedArtifact = await ctx.tenantDb.transaction(async (tx) =>
-          runSetupTransaction(tx, ctx, input),
+          runSetupTransaction(tx, ctx, effectiveInput),
         );
       }
 

@@ -497,10 +497,26 @@
     "configViewConversations": "View Conversations",
     "configKnowledgeDocs": "{count, plural, =0 {No documents} =1 {1 document} other {# documents}}",
     "configManageKnowledge": "Manage",
+    "configKnowledgeGapsTitle": "Knowledge Gaps",
+    "configKnowledgeGapsDesc": "Questions your customers asked that your agent couldn't answer.",
+    "configKnowledgeGapsEmpty": "No knowledge gaps detected yet.",
+    "configAddToKnowledge": "Add to Knowledge Base",
     "configActivityEmpty": "No recent activity",
     "configSave": "Save",
     "configIdentitySaved": "Identity saved",
     "configPersonalitySaved": "Personality saved",
+    "configWidgetAppearanceTitle": "Widget Appearance",
+    "configWidgetAppearanceSaved": "Widget appearance saved",
+    "configWidgetPreviewLabel": "Preview",
+    "widgetPrimaryColor": "Brand Color",
+    "widgetPrimaryColorHint": "Main color for the widget button and header.",
+    "widgetPosition": "Widget Position",
+    "widgetPositionBottomRight": "Bottom Right",
+    "widgetPositionBottomLeft": "Bottom Left",
+    "widgetWelcomeMessage": "Welcome Message",
+    "widgetWelcomeMessageHint": "Edit this in the Personality section above.",
+    "widgetAvatarPreview": "Agent Avatar",
+    "widgetAvatarHint": "Set in your tenant profile settings.",
     "configEventNewLead": "New lead qualified",
     "configEventConvResolved": "Conversation resolved",
     "configEventApprovalNeeded": "Approval needed",
@@ -613,7 +629,9 @@
     "emptyDocsDescription": "Add documents, URLs, or policies so your agent can answer questions accurately.",
     "emptyDocsAction": "Add your first entry",
     "emptyLearningsTitle": "No learnings yet",
-    "emptyLearningsDescription": "Learnings are generated automatically as your agent has conversations."
+    "emptyLearningsDescription": "Learnings are generated automatically as your agent has conversations.",
+    "searchKnowledge": "Search knowledge documents...",
+    "noSearchResults": "No documents match your search."
   },
   "analytics": {
     "pageTitle": "Analytics",
@@ -1016,6 +1034,8 @@
     "typeBudgetWarning": "Budget warning",
     "errorLoading": "Failed to load. Try again.",
     "unread": "Unread",
-    "close": "Close notifications"
+    "close": "Close notifications",
+    "titleKnowledgeGap": "Knowledge gap: {intentType}",
+    "bodyKnowledgeGap": "Customer asked: \"{question}\""
   }
 }

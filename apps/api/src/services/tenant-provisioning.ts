@@ -1,5 +1,5 @@
 import { v5 as uuidv5 } from 'uuid';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { createTenantDb, tenants, tenantMembers, customers } from '@camello/db';
 import { COST_BUDGET_DEFAULTS } from '@camello/shared/constants';
 import { clerk } from '../lib/clerk.js';
@@ -42,6 +42,7 @@ export interface ProvisionInput {
   orgName: string;
   orgSlug?: string | null;
   creatorUserId?: string | null;
+  ownerEmail?: string | null;
 }
 
 export interface ProvisionResult {
@@ -58,7 +59,7 @@ export interface ProvisionResult {
  * converge on the same row.
  */
 export async function provisionTenant(input: ProvisionInput): Promise<ProvisionResult> {
-  const { orgId, orgName, orgSlug, creatorUserId } = input;
+  const { orgId, orgName, orgSlug, creatorUserId, ownerEmail } = input;
   let tenantId = orgIdToTenantId(orgId);
 
   // --- 0. Check for legacy pre-wizard org ---
@@ -167,7 +168,7 @@ export async function provisionTenant(input: ProvisionInput): Promise<ProvisionR
             slug,
             planTier: 'starter',
             monthlyCostBudgetUsd: String(COST_BUDGET_DEFAULTS.starter),
-            settings: { onboardingComplete: false },
+            settings: { onboardingComplete: false, ownerEmail: ownerEmail ?? null },
           })
           .onConflictDoNothing({ target: tenants.id })
           .returning({ id: tenants.id });
@@ -186,6 +187,19 @@ export async function provisionTenant(input: ProvisionInput): Promise<ProvisionR
       }
       throw err;
     }
+  }
+
+  // --- 1b. Patch ownerEmail into settings if tenant pre-existed and caller has an email ---
+  if (alreadyExisted && ownerEmail) {
+    await tenantDb.query(async (db) => {
+      await db
+        .update(tenants)
+        .set({
+          settings: sql`COALESCE(settings, '{}'::jsonb) || ${JSON.stringify({ ownerEmail })}::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(eq(tenants.id, tenantId));
+    });
   }
 
   // --- 2. Insert tenant member (owner) ---

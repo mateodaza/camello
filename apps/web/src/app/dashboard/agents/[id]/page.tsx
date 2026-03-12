@@ -21,6 +21,8 @@ import { AgentPerformance } from '@/components/agent-workspace/performance-panel
 import { AgentActivity } from '@/components/agent-workspace/agent-activity';
 import { ApprovalsSection } from '@/components/agent-workspace/sales/approvals-section';
 import { TrustGraduationCard } from '@/components/agent-workspace/sales/trust-graduation-card';
+import { KnowledgeGapsSection } from '@/components/agent-workspace/knowledge-gaps-section';
+import { WidgetAppearanceSection } from '@/components/agent-workspace/widget-appearance-section';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -304,6 +306,15 @@ export default function AgentConfigPage() {
         </div>
       </div>
 
+      {/* 2b. Widget Appearance */}
+      <WorkspaceSectionErrorBoundary key="widget-appearance">
+        <WidgetAppearanceSection
+          artifactId={id}
+          initialConfig={(artifact.config as Record<string, unknown>) ?? {}}
+          initialPersonality={(artifact.personality as Record<string, unknown>) ?? {}}
+        />
+      </WorkspaceSectionErrorBoundary>
+
       {/* 3. Modules */}
       <WorkspaceSectionErrorBoundary key="module-settings">
         <ModuleSettings
@@ -336,6 +347,11 @@ export default function AgentConfigPage() {
           {t('configKnowledgeDocs', { count: knowledgeCount })}
         </p>
       </div>
+
+      {/* 4b. Knowledge Gaps */}
+      <WorkspaceSectionErrorBoundary key="knowledge-gaps">
+        <KnowledgeGapsSection artifactId={id} />
+      </WorkspaceSectionErrorBoundary>
 
       {/* 5. Settings */}
       <WorkspaceSectionErrorBoundary key="settings-panel">

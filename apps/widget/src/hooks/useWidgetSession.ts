@@ -5,6 +5,7 @@ interface WidgetSession {
   tenantName: string;
   artifactName: string;
   language: string;
+  branding: { primaryColor: string; position: 'bottom-right' | 'bottom-left' };
   isLoading: boolean;
   error: string | null;
   init: () => void;
@@ -22,6 +23,10 @@ export function useWidgetSession(tenantSlug: string, apiUrl: string): WidgetSess
   const [tenantName, setTenantName] = useState('');
   const [artifactName, setArtifactName] = useState('');
   const [language, setLanguage] = useState('en');
+  const [branding, setBranding] = useState<{ primaryColor: string; position: 'bottom-right' | 'bottom-left' }>({
+    primaryColor: '#4f46e5',
+    position: 'bottom-right',
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,12 +57,17 @@ export function useWidgetSession(tenantSlug: string, apiUrl: string): WidgetSess
         tenant_name: string;
         artifact_name: string;
         language?: string;
+        branding?: { primaryColor?: string; position?: string };
       };
 
       setToken(data.token);
       setTenantName(data.tenant_name);
       setArtifactName(data.artifact_name);
       setLanguage(data.language ?? 'en');
+      setBranding({
+        primaryColor: typeof data.branding?.primaryColor === 'string' ? data.branding.primaryColor : '#4f46e5',
+        position: data.branding?.position === 'bottom-left' ? 'bottom-left' : 'bottom-right',
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -65,7 +75,7 @@ export function useWidgetSession(tenantSlug: string, apiUrl: string): WidgetSess
     }
   }, [tenantSlug, apiUrl, token, isLoading]);
 
-  return { token, tenantName, artifactName, language, isLoading, error, init };
+  return { token, tenantName, artifactName, language, branding, isLoading, error, init };
 }
 
 /** Simple browser fingerprint (not cryptographically strong, just for dedup). */

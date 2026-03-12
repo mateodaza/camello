@@ -1,4 +1,5 @@
 import { generateText } from 'ai';
+import { recordKnowledgeGap } from './knowledge-gap.js';
 import { eq, and, sql, desc, asc, isNull, gte, lt } from 'drizzle-orm';
 import type { TenantDb } from '@camello/db';
 import {
@@ -47,6 +48,185 @@ import { t as tmsg } from '@camello/shared/messages';
 import { createClient } from '@supabase/supabase-js';
 import { buildTelemetry, createTrace } from '../lib/langfuse.js';
 import { getUtcMonthWindow } from '../lib/date-utils.js';
+import { sendEmail, renderBaseEmail } from '../lib/email.js';
+
+// ---------------------------------------------------------------------------
+// Rate limiting
+// ---------------------------------------------------------------------------
+
+// Rate-limit: max 1 approval email per tenant per 5 minutes
+const _approvalEmailCooldowns = new Map<string, number>(); // tenantId → epoch ms
+const APPROVAL_EMAIL_COOLDOWN_MS = 5 * 60 * 1000;
+
+const _knowledgeGapDigestCooldowns = new Map<string, number>(); // tenantId → epoch ms
+const KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// Periodic cleanup of stale cooldown entries (every 10 min) to prevent unbounded growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, ts] of _approvalEmailCooldowns) {
+    if (now - ts >= APPROVAL_EMAIL_COOLDOWN_MS) _approvalEmailCooldowns.delete(k);
+  }
+  for (const [k, ts] of _knowledgeGapDigestCooldowns) {
+    if (now - ts >= KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS) _knowledgeGapDigestCooldowns.delete(k);
+  }
+}, 10 * 60 * 1000).unref();
+
+// ---------------------------------------------------------------------------
+// HTML escaping (for user-controlled fields injected into email body)
+// ---------------------------------------------------------------------------
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ---------------------------------------------------------------------------
+// Approval email
+// ---------------------------------------------------------------------------
+
+interface ApprovalEmailParams {
+  tenantId: string;
+  ownerEmail: string;
+  moduleName: string;
+  moduleDescription: string;
+  customerName: string;
+  inputSummary: string;        // pre-truncated to 200 chars by caller
+  conversationId: string;
+  dashboardBaseUrl?: string;   // injectable for tests; defaults to env var
+}
+
+async function sendApprovalNotificationEmail(params: ApprovalEmailParams): Promise<void> {
+  const now = Date.now();
+  const lastSent = _approvalEmailCooldowns.get(params.tenantId);
+  if (lastSent !== undefined && now - lastSent < APPROVAL_EMAIL_COOLDOWN_MS) {
+    console.info(`[handleMessage] Approval email rate-limited for tenant ${params.tenantId}`);
+    return;
+  }
+
+  // Set cooldown BEFORE the async send to prevent concurrent calls for the same
+  // tenant both passing the guard before either writes the timestamp.
+  _approvalEmailCooldowns.set(params.tenantId, now);
+
+  const base = params.dashboardBaseUrl ?? process.env.DASHBOARD_URL ?? 'https://app.camello.xyz';
+  const ctaUrl = `${base}/dashboard/conversations?selected=${params.conversationId}`;
+
+  // Escape user-controlled fields before embedding in HTML
+  const safeCustomerName = escapeHtml(params.customerName);
+  const safeInputSummary = escapeHtml(params.inputSummary);
+
+  const html = renderBaseEmail({
+    title: `Action needed: ${params.moduleName} approval`,
+    body: `<p>Hi,</p>
+           <p><strong>${safeCustomerName}</strong> has triggered the <strong>${params.moduleName}</strong> action.</p>
+           <p>${escapeHtml(params.moduleDescription)}</p>
+           <p><em>Input summary:</em> ${safeInputSummary}</p>
+           <p>Please review and approve or reject this action in the Camello dashboard.</p>`,
+    ctaText: 'Review in Camello',
+    ctaUrl,
+  });
+
+  let result: { sent: boolean };
+  try {
+    result = await sendEmail({
+      to: params.ownerEmail,
+      subject: `Action needed: ${params.moduleName} approval`,
+      html,
+    });
+  } catch (err) {
+    // sendEmail threw (transport/API exception) — clear cooldown so the next event can retry.
+    _approvalEmailCooldowns.delete(params.tenantId);
+    throw err;
+  }
+
+  if (!result.sent) {
+    // Send failed (e.g., missing API key) — clear cooldown so the next event can retry.
+    _approvalEmailCooldowns.delete(params.tenantId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge gap digest email
+// ---------------------------------------------------------------------------
+
+interface KnowledgeGapDigestParams {
+  tenantId: string;
+  ownerEmail: string;
+  tenantDb: TenantDb;
+  dashboardBaseUrl?: string;
+}
+
+async function sendKnowledgeGapDigestEmail(params: KnowledgeGapDigestParams): Promise<void> {
+  const now = Date.now();
+  const lastSent = _knowledgeGapDigestCooldowns.get(params.tenantId);
+  if (lastSent !== undefined && now - lastSent < KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS) return;
+
+  // Set cooldown BEFORE the async send to prevent concurrent calls from both passing the guard.
+  _knowledgeGapDigestCooldowns.set(params.tenantId, now);
+
+  const windowStart = new Date(now - KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS);
+  let gaps: typeof ownerNotifications.$inferSelect[];
+  try {
+    gaps = await params.tenantDb.query(async (db) =>
+      db.select()
+        .from(ownerNotifications)
+        .where(and(
+          eq(ownerNotifications.tenantId, params.tenantId),
+          eq(ownerNotifications.type, 'knowledge_gap'),
+          gte(ownerNotifications.createdAt, windowStart),
+        ))
+        .orderBy(desc(ownerNotifications.createdAt)),
+    );
+  } catch (err) {
+    _knowledgeGapDigestCooldowns.delete(params.tenantId);
+    throw err;
+  }
+
+  if (gaps.length === 0) {
+    _knowledgeGapDigestCooldowns.delete(params.tenantId);
+    return;
+  }
+
+  const base = params.dashboardBaseUrl ?? process.env.DASHBOARD_URL ?? 'https://app.camello.xyz';
+  const gapItems = gaps.map((g) => {
+    const meta = g.metadata as { intentType?: string; sampleQuestion?: string };
+    return `<li><strong>${escapeHtml(meta.intentType ?? 'unknown')}</strong>: "${escapeHtml(meta.sampleQuestion ?? '')}"</li>`;
+  }).join('');
+
+  const html = renderBaseEmail({
+    title: `Knowledge gaps detected (${gaps.length})`,
+    body: `<p>Your agent couldn't answer ${gaps.length} question${gaps.length === 1 ? '' : 's'} in the last 24 hours. Consider adding information to your knowledge base.</p><ul>${gapItems}</ul>`,
+    ctaText: 'Add to Knowledge Base',
+    ctaUrl: `${base}/dashboard/knowledge`,
+  });
+
+  let result: { sent: boolean };
+  try {
+    result = await sendEmail({
+      to: params.ownerEmail,
+      subject: `Knowledge gaps: ${gaps.length} unanswered question${gaps.length === 1 ? '' : 's'}`,
+      html,
+    });
+  } catch (err) {
+    _knowledgeGapDigestCooldowns.delete(params.tenantId);
+    throw err;
+  }
+
+  if (!result.sent) {
+    _knowledgeGapDigestCooldowns.delete(params.tenantId);
+  }
+}
+
+export {
+  sendApprovalNotificationEmail,
+  sendKnowledgeGapDigestEmail,
+  _approvalEmailCooldowns as _approvalEmailCooldownsForTest,
+  _knowledgeGapDigestCooldowns as _knowledgeGapDigestCooldownsForTest,
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -137,15 +317,16 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   });
 
   // ── 0b. Fetch customer memory (lightweight — one DB query, explicit tenant scope) ──
-  const customerMemoryRow = await tenantDb.query(async (db) => {
+  const customerRow = await tenantDb.query(async (db) => {
     const rows = await db
-      .select({ memory: customers.memory })
+      .select({ memory: customers.memory, displayName: customers.displayName, name: customers.name })
       .from(customers)
       .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
       .limit(1);
     return rows[0];
   });
-  const customerMemory = parseMemoryFacts(customerMemoryRow?.memory);
+  const customerMemory = parseMemoryFacts(customerRow?.memory);
+  const customerDisplayName = customerRow?.displayName ?? customerRow?.name ?? 'Customer';
 
   // ── 1. Cost budget gate (BEFORE any paid work — intent LLM fallback, RAG embeddings) ──
   const planTier = (tenant?.planTier as PlanTier | undefined) ?? 'starter';
@@ -549,7 +730,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       payload: { executionId, moduleSlug, input, conversationId, artifactId: resolved.artifactId },
     });
 
-    // Persist owner notification (non-blocking — separate tenantDb.query call)
+    // Persist owner notification + send email after successful insert (non-blocking)
     tenantDb.query(async (db) => {
       await db.insert(ownerNotifications).values({
         tenantId,
@@ -563,6 +744,25 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           moduleSlug,
         },
       });
+
+      // Send approval email only after insert succeeds (fire-and-forget within callback)
+      const ownerEmail = (tenant?.settings as Record<string, unknown>)?.ownerEmail;
+      if (typeof ownerEmail === 'string' && ownerEmail) {
+        const moduleMeta = enrichedModules.find((m) => m.moduleSlug === moduleSlug);
+        sendApprovalNotificationEmail({
+          tenantId,
+          ownerEmail,
+          moduleName: moduleMeta?.moduleName ?? moduleSlug.replace(/_/g, ' '),
+          moduleDescription: moduleMeta?.moduleDescription ?? '',
+          customerName: customerDisplayName,
+          inputSummary: JSON.stringify(input ?? {}).slice(0, 200),
+          conversationId,
+        }).catch((err: unknown) => {
+          console.warn('[handleMessage] Approval email failed:', err instanceof Error ? err.message : String(err));
+        });
+      } else {
+        // ownerEmail missing — expected for pre-existing tenants, no action needed
+      }
     }).catch((err: unknown) => {
       console.warn('[handleMessage] approval_needed notification failed:', err instanceof Error ? err.message : String(err));
     });
@@ -602,6 +802,27 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       archetypeType: artifact.type as import('@camello/shared/types').ArtifactType,
     }),
   );
+
+  // 7b. Fire-and-forget: record knowledge gap when RAG returns empty for non-trivial intent
+  const isEmptyRag =
+    !ragResult.searchSkipped &&
+    ragResult.directContext.length === 0 &&
+    (ragResult.proactiveContext ?? []).length === 0;
+  if (isEmptyRag) {
+    const ownerEmail = (tenant?.settings as Record<string, unknown>)?.ownerEmail;
+    recordKnowledgeGap(tenantDb, tenantId, resolved.artifactId, intent.type, messageText)
+      .then((inserted) => {
+        if (inserted && typeof ownerEmail === 'string' && ownerEmail) {
+          void sendKnowledgeGapDigestEmail({ tenantId, ownerEmail, tenantDb }).catch((err: unknown) => {
+            console.warn('[handleMessage] Knowledge gap digest email failed:', err instanceof Error ? err.message : String(err));
+          });
+        }
+      })
+      .catch((err: unknown) => {
+        // Belt-and-suspenders: recordKnowledgeGap catches internally and never rejects.
+        console.warn('[handleMessage] Knowledge gap recording failed (non-blocking):', err instanceof Error ? err.message : String(err));
+      });
+  }
 
   // 8. Fetch learnings for this artifact
   const artifactLearnings = await tenantDb.query(async (db) => {
@@ -789,8 +1010,15 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   }
 
   // 12c. Parse + strip LLM memory tags from response (before saving)
-  const memoryTagFacts = parseMemoryTags(responseText, conversationId);
-  if (memoryTagFacts.length > 0) {
+  // Filter out facts that match the agent's own name — the LLM sometimes emits
+  // [MEMORY:name=Sofía] from its self-introduction, polluting customer memory.
+  const rawMemoryFacts = parseMemoryTags(responseText, conversationId);
+  const artifactNameLower = artifact.name.toLowerCase().trim();
+  const memoryTagFacts = rawMemoryFacts.filter((f) => {
+    if (f.key === 'name' && f.value.toLowerCase().trim() === artifactNameLower) return false;
+    return true;
+  });
+  if (rawMemoryFacts.length > 0) {
     responseText = stripMemoryTags(responseText);
   }
 

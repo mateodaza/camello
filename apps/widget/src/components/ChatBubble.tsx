@@ -7,10 +7,11 @@ interface ChatBubbleProps {
   language: string;
   isOpen: boolean;
   isLoading: boolean;
+  primaryColor: string;
   onClick: () => void;
 }
 
-export function ChatBubble({ position, theme, language, isOpen, isLoading, onClick }: ChatBubbleProps) {
+export function ChatBubble({ position, theme, language, isOpen, isLoading, primaryColor, onClick }: ChatBubbleProps) {
   const positionStyle: React.CSSProperties = {
     position: 'fixed',
     bottom: '20px',
@@ -18,7 +19,7 @@ export function ChatBubble({ position, theme, language, isOpen, isLoading, onCli
     zIndex: 9999,
   };
 
-  const bg = theme === 'dark' ? '#1a1a2e' : '#4f46e5';
+  const bg = theme === 'dark' ? '#1a1a2e' : primaryColor;
 
   return (
     <button

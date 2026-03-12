@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
-import { Bell, ClipboardList, Flame, Trophy, Clock, AlertTriangle, DollarSign, TrendingUp, X } from 'lucide-react';
+import { Bell, BookOpen, ClipboardList, Flame, Trophy, Clock, AlertTriangle, DollarSign, TrendingUp, X } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Sheet, SheetHeader, SheetTitle, SheetContent } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,7 @@ function fmtTimeAgo(date: Date | null, locale: string): string {
   return rtf.format(-diffDays, 'day');
 }
 
-type NotifType = 'approval_needed' | 'hot_lead' | 'deal_closed' | 'lead_stale' | 'escalation' | 'budget_warning' | 'stage_advanced';
+type NotifType = 'approval_needed' | 'hot_lead' | 'deal_closed' | 'lead_stale' | 'escalation' | 'budget_warning' | 'stage_advanced' | 'knowledge_gap';
 
 const TYPE_ICON: Record<NotifType, React.ReactNode> = {
   approval_needed: <ClipboardList className="h-4 w-4" />,
@@ -35,6 +35,7 @@ const TYPE_ICON: Record<NotifType, React.ReactNode> = {
   escalation: <AlertTriangle className="h-4 w-4" />,
   budget_warning: <DollarSign className="h-4 w-4" />,
   stage_advanced: <TrendingUp className="h-4 w-4" />,
+  knowledge_gap: <BookOpen className="h-4 w-4" />,
 };
 
 const TYPE_COLOR: Record<NotifType, string> = {
@@ -45,6 +46,7 @@ const TYPE_COLOR: Record<NotifType, string> = {
   escalation: 'text-sunset bg-sunset/10',
   budget_warning: 'text-gold bg-gold/10',
   stage_advanced: 'text-teal bg-teal/10',
+  knowledge_gap: 'text-teal bg-teal/10',
 };
 
 // ---------------------------------------------------------------------------
@@ -115,6 +117,15 @@ export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps
               const typeKey = (n.type as NotifType);
               const iconColor = TYPE_COLOR[typeKey] ?? 'text-charcoal bg-charcoal/10';
 
+              const isKnowledgeGap = n.type === 'knowledge_gap';
+              const notifMeta = (n.metadata ?? {}) as Record<string, unknown>;
+              const displayTitle = isKnowledgeGap
+                ? t('titleKnowledgeGap', { intentType: String(notifMeta.intentType ?? '') })
+                : n.title;
+              const displayBody = isKnowledgeGap
+                ? t('bodyKnowledgeGap', { question: String(notifMeta.sampleQuestion ?? '') })
+                : n.body;
+
               const content = (
                 <div className="flex items-start gap-3 p-4 hover:bg-charcoal/[0.03] transition-colors">
                   <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
@@ -128,9 +139,9 @@ export function NotificationsPanel({ artifactId, open }: NotificationsPanelProps
                           <span className="sr-only">{t('unread')}</span>
                         </>
                       )}
-                      <p className="text-sm font-medium text-charcoal truncate">{n.title}</p>
+                      <p className="text-sm font-medium text-charcoal truncate">{displayTitle}</p>
                     </div>
-                    <p className="mt-0.5 text-xs text-dune line-clamp-2">{n.body}</p>
+                    <p className="mt-0.5 text-xs text-dune line-clamp-2">{displayBody}</p>
                     <p className="mt-1 text-[10px] text-dune/70">{fmtTimeAgo(n.createdAt, locale)}</p>
                   </div>
                 </div>

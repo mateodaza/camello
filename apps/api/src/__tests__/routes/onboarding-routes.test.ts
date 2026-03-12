@@ -113,6 +113,7 @@ describe('onboarding router', () => {
         orgId: ORG_ID,
         orgName: 'TestCo',
         creatorUserId: USER_ID,
+        ownerEmail: null,
       });
     });
 
@@ -187,6 +188,35 @@ describe('onboarding router', () => {
 
       expect(result).toEqual(DEFAULT_SERVICES_SUGGESTION);
     });
+
+    it('overrides LLM agentType to sales even when LLM returns support', async () => {
+      const llmSuggestion = {
+        template: 'saas',
+        agentName: 'Maya',
+        agentType: 'support',
+        personality: {
+          tone: 'professional',
+          greeting: 'Hello!',
+          goals: ['Resolve issues'],
+        },
+        constraints: {
+          neverDiscuss: [],
+          alwaysEscalate: ['billing'],
+        },
+        industry: 'software',
+        confidence: 0.7,
+      };
+
+      mocks.generateObject.mockResolvedValue({ object: llmSuggestion });
+
+      const caller = createCaller(makeCtx());
+      const result = await caller.parseBusinessModel({
+        description: 'We provide IT support for small businesses',
+      });
+
+      // Must be 'sales' regardless of what LLM returned
+      expect(result.agentType).toBe('sales');
+    });
   });
 
   // ----- setupArtifact -----
@@ -255,8 +285,8 @@ describe('onboarding router', () => {
       expect(updatedTenant[0]).toHaveProperty('defaultArtifactId', 'artifact-uuid');
     });
 
-    it('delegates to applyArchetypeDefaults for support type too', async () => {
-      const fakeArtifact = { id: 'art-support', name: 'Support Bot', type: 'support' };
+    it('overrides non-sales input to sales when creating artifact', async () => {
+      const fakeArtifact = { id: 'art-support', name: 'Support Bot', type: 'sales' };
       let callCount = 0;
 
       const queryImpl = async (fn: Any) => {
@@ -300,12 +330,12 @@ describe('onboarding router', () => {
         type: 'support',
       });
 
-      // applyArchetypeDefaults still called (it handles empty slugs internally)
+      // applyArchetypeDefaults called with 'sales' regardless of input type
       expect(mocks.applyArchetypeDefaults).toHaveBeenCalledWith(
         expect.anything(),
         'art-support',
         TENANT_ID,
-        'support',
+        'sales',
       );
     });
 
@@ -601,6 +631,146 @@ describe('onboarding router', () => {
       });
 
       expect(queryCallCount).toBe(2);
+    });
+
+    it('overrides marketing input type to sales when creating artifact', async () => {
+      const fakeArtifact = { id: 'art-mkt', name: 'Mkt Bot', type: 'sales' };
+      let callCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        if (callCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null, settings: {} }] }) }) }),
+          });
+        }
+        let selectCallCount = 0;
+        const tx = {
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: vi.fn(() => ({
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(() => {
+                  selectCallCount++;
+                  if (selectCallCount === 1) return [{ defaultArtifactId: null, settings: {} }];
+                  return [];
+                }),
+              })),
+            })),
+          })),
+          insert: vi.fn(() => ({ values: () => ({ returning: () => [fakeArtifact] }) })),
+          update: vi.fn(() => ({ set: () => ({ where: () => {} }) })),
+        };
+        return fn(tx);
+      };
+
+      const caller = createCaller(
+        makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }),
+      );
+      await caller.setupArtifact({ name: 'Mkt Bot', type: 'marketing' });
+
+      // Despite 'marketing' input, archetype defaults applied as 'sales'
+      expect(mocks.applyArchetypeDefaults).toHaveBeenCalledWith(
+        expect.anything(),
+        'art-mkt',
+        TENANT_ID,
+        'sales',
+      );
+    });
+
+    it('Path 1 (pre-tx fast-path) overrides legacy non-sales artifact type to sales', async () => {
+      const legacyArtifact = {
+        id: 'art-legacy-support',
+        name: 'Support Bot',
+        type: 'support',
+        personality: {},
+      };
+      const typeUpdateCalls: Any[] = [];
+      let callCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        if (callCount === 1) {
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: 'art-legacy-support' }] }) }) }),
+          });
+        }
+        if (callCount === 2) {
+          // fetch artifact by id
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [legacyArtifact] }) }) }),
+          });
+        }
+        // callCount === 3: UPDATE to persist type = 'sales'
+        return fn({
+          update: vi.fn(() => ({
+            set: (data: Any) => { typeUpdateCalls.push(data); return { where: () => {} }; },
+          })),
+        });
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      const result = await caller.setupArtifact({ name: 'Support Bot', type: 'support' });
+
+      // Must be 'sales' even though the stored artifact has type 'support'
+      expect(result.type).toBe('sales');
+      expect(mocks.applyArchetypeDefaults).not.toHaveBeenCalled();
+      // DB must be updated so downstream reads also get 'sales'
+      expect(typeUpdateCalls).toHaveLength(1);
+      expect(typeUpdateCalls[0]).toMatchObject({ type: 'sales' });
+    });
+
+    it('Path 2 (in-tx race) overrides legacy non-sales artifact type to sales', async () => {
+      const legacyArtifact = {
+        id: 'art-legacy-mkt',
+        name: 'Mkt Bot',
+        type: 'marketing',
+        personality: {},
+      };
+      const txUpdateCalls: Any[] = [];
+      let callCount = 0;
+
+      const queryImpl = async (fn: Any) => {
+        callCount++;
+        if (callCount === 1) {
+          // Pre-tx check: no default yet
+          return fn({
+            select: () => ({ from: () => ({ where: () => ({ limit: () => [{ defaultArtifactId: null }] }) }) }),
+          });
+        }
+        // callCount === 2: transaction — race: another request set defaultArtifactId inside tx
+        let txSelectCount = 0;
+        const tx = {
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: vi.fn(() => ({
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(() => {
+                  txSelectCount++;
+                  // 1st: re-check tenants — race winner already set defaultArtifactId
+                  if (txSelectCount === 1) return [{ defaultArtifactId: 'art-legacy-mkt', settings: {} }];
+                  // 2nd: fetch that artifact
+                  return [legacyArtifact];
+                }),
+              })),
+            })),
+          })),
+          insert: vi.fn(() => ({ values: () => ({ returning: () => [] }) })),
+          update: vi.fn(() => ({
+            set: (data: Any) => { txUpdateCalls.push(data); return { where: () => {} }; },
+          })),
+        };
+        return fn(tx);
+      };
+
+      const caller = createCaller(makeCtx({ tenantDb: { query: queryImpl, transaction: queryImpl } as Any }));
+      const result = await caller.setupArtifact({ name: 'Mkt Bot', type: 'marketing' });
+
+      // Must be 'sales' even though the stored artifact has type 'marketing'
+      expect(result.type).toBe('sales');
+      expect(mocks.applyArchetypeDefaults).not.toHaveBeenCalled();
+      // DB must be updated inside the transaction so downstream reads also get 'sales'
+      expect(txUpdateCalls.some((c) => c.type === 'sales')).toBe(true);
     });
 
     it('profile.avatarUrl is included in personality patch', async () => {

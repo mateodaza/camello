@@ -40,13 +40,15 @@ const MEMORY_TAG_BUFFER = 40;
 // ---------------------------------------------------------------------------
 
 const PROFILES: Record<string, IntentProfile> = {
-  // --- Lightweight intents (no framework, no tools, minimal output) ---
+  // --- Lightweight intents ---
+  // Greetings INCLUDE the archetype framework so the agent introduces itself
+  // with its role identity (e.g., a sales agent pitches, not just "how can I help?").
   'greeting:regex': {
-    includeArchetypeFramework: false,
+    includeArchetypeFramework: true,
     includeModules: false,
     maxSteps: 1,
-    maxResponseTokens: 100 + MEMORY_TAG_BUFFER,
-    maxSentences: 2,
+    maxResponseTokens: 150 + MEMORY_TAG_BUFFER,
+    maxSentences: 3,
     skipGrounding: true,
   },
   farewell: {
@@ -68,22 +70,22 @@ const PROFILES: Record<string, IntentProfile> = {
 
   // --- LLM-classified greeting (may have follow-up question embedded) ---
   'greeting:llm': {
-    includeArchetypeFramework: false,
+    includeArchetypeFramework: true,
     includeModules: true,
     allowedModuleSlugs: ['qualify_lead'],
     maxSteps: 3,
-    maxResponseTokens: 200 + MEMORY_TAG_BUFFER,
-    maxSentences: 3,
+    maxResponseTokens: 250 + MEMORY_TAG_BUFFER,
+    maxSentences: 4,
     skipGrounding: false,
   },
 
-  // --- Simple intents (tools scoped, no framework) ---
+  // --- Simple intents (include framework so sales agent stays in character) ---
   simple_question: {
-    includeArchetypeFramework: false,
+    includeArchetypeFramework: true,
     includeModules: false,
     maxSteps: 1,
-    maxResponseTokens: 250 + MEMORY_TAG_BUFFER,
-    maxSentences: 4,
+    maxResponseTokens: 300 + MEMORY_TAG_BUFFER,
+    maxSentences: 5,
     skipGrounding: false,
   },
   availability: {

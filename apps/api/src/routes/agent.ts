@@ -1998,6 +1998,27 @@ export const agentRouter = router({
       });
     }),
 
+  knowledgeGapNotifications: tenantProcedure
+    .input(z.object({
+      artifactId: z.string().uuid(),
+      limit: z.number().int().min(1).max(20).default(10),
+    }))
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const rows = await db
+          .select()
+          .from(ownerNotifications)
+          .where(and(
+            eq(ownerNotifications.artifactId, input.artifactId),
+            eq(ownerNotifications.tenantId, ctx.tenantId),
+            eq(ownerNotifications.type, 'knowledge_gap'),
+          ))
+          .orderBy(desc(ownerNotifications.createdAt))
+          .limit(input.limit);
+        return rows;
+      });
+    }),
+
   salesForecast: tenantProcedure
     .input(z.object({ artifactId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
