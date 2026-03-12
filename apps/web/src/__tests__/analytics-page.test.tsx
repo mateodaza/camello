@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React, { createElement } from 'react';
+import { nDaysAgoStr, localDateStr } from '@/lib/format';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -100,6 +101,52 @@ describe('AnalyticsPage', () => {
     // Sections C and D are removed — their heading keys must not appear
     expect(screen.queryByText('recentInteractions')).toBeNull();
     expect(screen.queryByText('billingPeriods')).toBeNull();
+  });
+
+  it('clicking 7d preset sets correct full date range', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-12'));
+
+    // Compute expected values AFTER the fake clock is set, using the same
+    // local-time functions as the implementation. This makes the test
+    // timezone-agnostic: both sides call local getters under the same fake clock.
+    const expectedTo   = localDateStr();   // local "today" under fake time
+    const expectedFrom = nDaysAgoStr(7);   // 7 local days before that
+
+    setQueryMock('analytics.overview', overviewData);
+    setQueryMock('artifact.list', artifactListData);
+    setQueryMock('analytics.recentLogs', []);
+
+    const mod = await import('@/app/dashboard/analytics/page');
+    render(createElement(mod.default));
+
+    // On mount the 'to' input shows expectedTo (local today).
+    // Mutate it to a non-today value to prove the preset will reset it.
+    const toInput = screen.getByDisplayValue(expectedTo);
+    fireEvent.change(toInput, { target: { value: '2025-01-01' } });
+
+    // Click the 7d pill (translation mock returns key as-is → 'preset7d')
+    fireEvent.click(screen.getByRole('button', { name: 'preset7d' }));
+
+    // Preset must update BOTH ends of the range
+    expect(screen.getByDisplayValue(expectedFrom)).toBeInTheDocument(); // from = 7 days ago
+    expect(screen.getByDisplayValue(expectedTo)).toBeInTheDocument();   // to = today (reset by preset)
+
+    vi.useRealTimers();
+  });
+
+  it('auto-selects the agent when exactly one agent exists', async () => {
+    setQueryMock('analytics.overview', overviewData);
+    setQueryMock('artifact.list', artifactListData); // 1 agent: { id: 'agent-1' }
+    setQueryMock('analytics.recentLogs', []);
+
+    const mod = await import('@/app/dashboard/analytics/page');
+    render(createElement(mod.default));
+
+    // useEffect fires after mount; waitFor handles the async state flush
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toHaveValue('agent-1');
+    });
   });
 
   it('renders Daily Performance section heading and column headers when artifact selected', async () => {

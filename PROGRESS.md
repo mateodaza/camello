@@ -946,3 +946,4 @@
 - **NC-248** — 2026-03-12 — `2ee4be4` — Session: 20260312-184115-camello
 - **NC-249** — 2026-03-12 — `af38a28` — Session: 20260312-184115-camello
 - **NC-250** — 2026-03-12 — `86a28de` — Session: 20260312-184115-camello — ⚠ Committed after soft review rejections cap; local verification passed.
+- **NC-252** — 2026-03-12 — `b099f09` — Session: 20260312-234145-camello

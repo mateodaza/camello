@@ -691,7 +691,11 @@
     "sectionPerformance": "Rendimiento",
     "sectionIntents": "Principales Intenciones",
     "sectionSalesComparison": "Comparación de Ventas",
-    "sectionForecast": "Pronóstico de Ingresos"
+    "sectionForecast": "Pronóstico de Ingresos",
+    "preset7d": "7 días",
+    "preset30d": "30 días",
+    "preset90d": "90 días",
+    "customRange": "Rango personalizado"
   },
   "billing": {
     "pageTitle": "Facturación",

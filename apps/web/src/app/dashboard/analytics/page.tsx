@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
-import { localDateStr, thirtyDaysAgoStr, fmtCost, fmtInt, fmtMoney } from '@/lib/format';
+import { localDateStr, nDaysAgoStr, fmtCost, fmtInt, fmtMoney } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { StatCard, Metric } from '@/components/stat-card';
 import { QueryError } from '@/components/query-error';
@@ -100,8 +100,9 @@ export default function AnalyticsPage() {
   const locale = useLocale();
 
   // --- Date range (local time) ---
-  const [from, setFrom] = useState(thirtyDaysAgoStr);
-  const [to, setTo] = useState(localDateStr);
+  const [from, setFrom] = useState(() => nDaysAgoStr(30));
+  const [to, setTo] = useState(() => localDateStr());
+  const [activePreset, setActivePreset] = useState<'7d' | '30d' | '90d' | null>('30d');
 
   // Ensure from <= to; swap if inverted
   const validFrom = from <= to ? from : to;
@@ -114,6 +115,13 @@ export default function AnalyticsPage() {
   // --- Queries ---
   const overview = trpc.analytics.overview.useQuery({ from: validFrom, to: validTo });
   const artifacts = trpc.artifact.list.useQuery({ activeOnly: false });
+
+  // --- Auto-select when exactly one agent exists ---
+  useEffect(() => {
+    if (selectedArtifactId === '' && artifacts.data?.length === 1) {
+      setSelectedArtifactId(artifacts.data[0].id);
+    }
+  }, [artifacts.data, selectedArtifactId]);
 
   const artifactMetrics = trpc.analytics.artifactMetrics.useQuery(
     { artifactId: selectedArtifactId, from: validFrom, to: validTo },
@@ -140,6 +148,14 @@ export default function AnalyticsPage() {
       .slice(0, 8)
       .map(([label, value]) => ({ label, value }));
   }, [recentLogs.data, selectedArtifactId]);
+
+  // --- Preset helper ---
+  function applyPreset(preset: '7d' | '30d' | '90d') {
+    const days = preset === '7d' ? 7 : preset === '30d' ? 30 : 90;
+    setFrom(nDaysAgoStr(days));
+    setTo(localDateStr());
+    setActivePreset(preset);
+  }
 
   // --- Primary query gate ---
   if (overview.isLoading) return (
@@ -171,28 +187,46 @@ export default function AnalyticsPage() {
       {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}
 
       {/* Date range controls */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelFrom')}</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-          />
+      <div className="space-y-3">
+        {/* Preset pills — primary control */}
+        <div className="flex flex-wrap gap-2">
+          {(['7d', '30d', '90d'] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => applyPreset(p)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors
+                ${activePreset === p
+                  ? 'bg-teal text-white'
+                  : 'border border-charcoal/15 bg-cream text-charcoal hover:bg-sand'
+                }`}
+            >
+              {t(p === '7d' ? 'preset7d' : p === '30d' ? 'preset30d' : 'preset90d')}
+            </button>
+          ))}
         </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelTo')}</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-          />
+
+        {/* Custom range — demoted but always rendered */}
+        <div className="flex flex-wrap items-end gap-3">
+          <span className="text-xs font-medium text-dune self-center">{t('customRange')}</span>
+          <div>
+            <label className="mb-1 block text-xs text-charcoal/60">{t('labelFrom')}</label>
+            <input
+              type="date" value={from}
+              onChange={(e) => { setFrom(e.target.value); setActivePreset(null); }}
+              className="rounded-md border border-charcoal/15 bg-cream px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-charcoal/60">{t('labelTo')}</label>
+            <input
+              type="date" value={to}
+              onChange={(e) => { setTo(e.target.value); setActivePreset(null); }}
+              className="rounded-md border border-charcoal/15 bg-cream px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+            />
+          </div>
+          {dateSwapped && <span className="text-xs text-gold">{t('datesSwapped')}</span>}
         </div>
-        {dateSwapped && (
-          <span className="text-xs text-gold">{t('datesSwapped')}</span>
-        )}
       </div>
 
       {/* Unified agent selector */}
@@ -211,7 +245,7 @@ export default function AnalyticsPage() {
             ))}
           </select>
         )}
-        {!selectedArtifactId && (
+        {!selectedArtifactId && (artifacts.data?.length ?? 0) > 1 && (
           <span className="text-sm text-dune">{t('agentSpecificPrompt')}</span>
         )}
       </div>

@@ -691,7 +691,11 @@
     "sectionPerformance": "Performance",
     "sectionIntents": "Top Intents",
     "sectionSalesComparison": "Sales Comparison",
-    "sectionForecast": "Revenue Forecast"
+    "sectionForecast": "Revenue Forecast",
+    "preset7d": "7 days",
+    "preset30d": "30 days",
+    "preset90d": "90 days",
+    "customRange": "Custom range"
   },
   "billing": {
     "pageTitle": "Billing",

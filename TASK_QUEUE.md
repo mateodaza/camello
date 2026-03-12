@@ -779,7 +779,7 @@ The Knowledge page serves two audiences: content managers (Documents section) an
 
 ### P0 — Analytics: zero-click to insight
 
-#### NC-252 [ ] Analytics: date presets + auto-select agent
+#### NC-252 [x] Analytics: date presets + auto-select agent
 
 The first interaction with Analytics should require zero setup. Today users see 4 numbers and a blank "select an agent" prompt.
 
