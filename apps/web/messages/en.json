@@ -181,7 +181,8 @@
     "testHintSupport": "Try: \"I have a problem with my order\" or \"How do I reset my password?\"",
     "testHintMarketing": "Try: \"What's new?\" or \"Tell me about your latest promotion\"",
     "testHintCustom": "Try chatting with your custom agent",
-    "openWorkspace": "Workspace"
+    "openWorkspace": "Workspace",
+    "comingSoon": "Coming soon"
   },
   "agentWorkspace": {
     "backToAgents": "Back to agents",

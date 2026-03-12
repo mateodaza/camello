@@ -23,6 +23,8 @@ interface Archetype {
   nameKey: string;
   descKey: string;
   defaultNameKey: string;
+  disabled?: boolean;
+  comingSoonKey?: string;
 }
 
 const TONE_PRESETS = [
@@ -43,10 +45,10 @@ function matchTonePreset(tone: string): string {
 }
 
 const ARCHETYPES: Archetype[] = [
-  { type: 'sales', icon: DollarSign, nameKey: 'salesName', descKey: 'salesDesc', defaultNameKey: 'salesDefaultName' },
-  { type: 'support', icon: Headphones, nameKey: 'supportName', descKey: 'supportDesc', defaultNameKey: 'supportDefaultName' },
-  { type: 'marketing', icon: Megaphone, nameKey: 'marketingName', descKey: 'marketingDesc', defaultNameKey: 'marketingDefaultName' },
-  { type: 'custom', icon: Wrench, nameKey: 'customName', descKey: 'customDesc', defaultNameKey: 'customDefaultName' },
+  { type: 'sales',     icon: DollarSign, nameKey: 'salesName',     descKey: 'salesDesc',     defaultNameKey: 'salesDefaultName' },
+  { type: 'support',   icon: Headphones, nameKey: 'supportName',   descKey: 'supportDesc',   defaultNameKey: 'supportDefaultName',   disabled: true, comingSoonKey: 'comingSoon' },
+  { type: 'marketing', icon: Megaphone,  nameKey: 'marketingName', descKey: 'marketingDesc', defaultNameKey: 'marketingDefaultName', disabled: true, comingSoonKey: 'comingSoon' },
+  { type: 'custom',    icon: Wrench,     nameKey: 'customName',    descKey: 'customDesc',    defaultNameKey: 'customDefaultName',    disabled: true, comingSoonKey: 'comingSoon' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -340,6 +342,7 @@ export default function ArtifactsPage() {
   }
 
   function handleToggle(arch: Archetype) {
+    if (arch.disabled) return;   // defense-in-depth: unreachable if button disabled prop works
     const artifact = byType.get(arch.type);
     if (!artifact) {
       if (arch.type === 'custom' && !customName.trim()) {
@@ -392,10 +395,28 @@ export default function ArtifactsPage() {
         {ARCHETYPES.map((arch) => {
           const artifact = byType.get(arch.type);
           const isActive = artifact?.isActive ?? false;
+          const isDisabled = arch.disabled ?? false;
+          // [EXPLICIT RULE] Sales card always highlighted as default option.
+          // Other non-disabled cards highlighted only when their artifact isActive.
+          const shouldHighlight = !isDisabled && (arch.type === 'sales' || isActive);
           const Icon = arch.icon;
 
           return (
-            <Card key={arch.type} className={isActive ? 'ring-2 ring-teal' : ''}>
+            <Card
+              key={arch.type}
+              className={`relative ${
+                isDisabled
+                  ? 'opacity-50 cursor-not-allowed'
+                  : shouldHighlight
+                  ? 'ring-2 ring-teal'
+                  : ''
+              }`}
+            >
+              {arch.comingSoonKey && (
+                <span className="absolute right-3 top-3 rounded-full bg-charcoal/10 px-2 py-0.5 text-xs font-medium text-charcoal/60">
+                  {t(arch.comingSoonKey as Parameters<typeof t>[0])}
+                </span>
+              )}
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -414,7 +435,7 @@ export default function ArtifactsPage() {
                     {artifact && <Badge variant={isActive ? 'active' : 'default'}>{isActive ? t('on') : t('off')}</Badge>}
                     <button
                       onClick={() => handleToggle(arch)}
-                      disabled={createArtifact.isPending || updateArtifact.isPending}
+                      disabled={isDisabled || createArtifact.isPending || updateArtifact.isPending}
                       className={`relative h-6 w-11 rounded-full transition-colors ${isActive ? 'bg-teal' : 'bg-charcoal/20'}`}
                     >
                       <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-cream shadow transition-transform ${isActive ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -424,7 +445,6 @@ export default function ArtifactsPage() {
               </CardHeader>
 
               <CardContent className="space-y-3 pt-0">
-                {/* Custom name input (when no artifact and toggling on) */}
                 {arch.type === 'custom' && !artifact && showCustomInput && (
                   <div className="flex gap-2">
                     <input
@@ -450,14 +470,10 @@ export default function ArtifactsPage() {
                   </div>
                 )}
 
-                {/* Action buttons */}
-                {artifact && (
+                {/* Action buttons — suppressed entirely for disabled cards regardless of artifact state */}
+                {artifact && !isDisabled && (
                   <div className="flex flex-wrap items-center gap-2 border-t border-charcoal/8 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openPersonality(arch)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => openPersonality(arch)}>
                       <Settings className="mr-1 h-3.5 w-3.5" />
                       {t('personalitySection')}
                     </Button>

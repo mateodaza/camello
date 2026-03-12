@@ -696,7 +696,8 @@ Submit business docs for Paddle verification.
 
 ### P0 — Sales-only lock
 
-#### NC-247 [ ] Sales-only mode: hide support/marketing/custom agent types
+#### NC-247 [x] Sales-only mode: hide support/marketing/custom agent types
+**DONE.** `Archetype` interface extended with `disabled?`/`comingSoonKey?`. `ARCHETYPES` marks support/marketing/custom as `disabled: true, comingSoonKey: 'comingSoon'`. `handleToggle` bails early on disabled archetypes. Card render block: `opacity-50 cursor-not-allowed` + absolute "Coming soon" badge + toggle `disabled` prop includes `isDisabled` + action buttons gated `{artifact && !isDisabled && (...)}`. Sales card always highlighted via `shouldHighlight`. `comingSoon` key added to `en.json` + `es.json`. 4 tests in `artifacts-disabled.test.tsx`. Type-check passes.
 The platform is shipping as "AI Sales Agent" first. Disable non-sales archetypes in the new-agent UI.
 
 **Files to modify:** `apps/web/src/app/dashboard/artifacts/page.tsx`
