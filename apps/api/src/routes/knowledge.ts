@@ -173,7 +173,7 @@ export const knowledgeRouter = router({
     .query(async ({ ctx }) => {
       return ctx.tenantDb.query(async (db) => {
         const rows = await db
-          .select({ count: sql<number>`COUNT(DISTINCT ${knowledgeDocs.title})::int` })
+          .select({ count: sql<number>`COUNT(*)::int` })
           .from(knowledgeDocs)
           .where(eq(knowledgeDocs.tenantId, ctx.tenantId));
         return rows[0]?.count ?? 0;

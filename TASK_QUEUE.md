@@ -622,7 +622,8 @@ Sandbox conversations (from "Test Chat" in the dashboard) should be visually dis
 
 **Depends on:** NC-241
 
-#### NC-243 [ ] Knowledge base empty state nudge
+#### NC-243 [x] Knowledge base empty state nudge
+**DONE.** Agent config page: gold nudge card when `knowledgeCount === 0`. Knowledge page: `KnowledgeGuidedEmptyState` (3 cards: Website URL, Product Documentation, Quick facts) replaces basic empty state. Dashboard: `KnowledgeBanner` shown when `docCountQuery.data === 0 && activeAgents.length > 0`. Components in `components/dashboard/`. i18n: 3 agentWorkspace keys + 14 knowledge keys + 2 dashboard keys (en+es). 3 tests in `knowledge-nudge.test.tsx`. Type-check passes.
 When the KB is empty, the agent says "I don't have those details loaded yet" — which is correct but means the agent is handicapped. Help the owner fix this.
 
 **Acceptance Criteria:**
