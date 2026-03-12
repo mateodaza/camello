@@ -70,6 +70,17 @@ type ErrorKind = 'not_found' | 'connection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
+// ── Debug helpers (dev only) ──────────────────────────────────────────────────
+const DEBUG = process.env.NODE_ENV === 'development';
+function dbg(label: string, data?: unknown) {
+  if (!DEBUG) return;
+  console.log(`%c[chat-page] ${label}`, 'color:#00897B;font-weight:bold', data ?? '');
+}
+function dbgWarn(label: string, data?: unknown) {
+  if (!DEBUG) return;
+  console.warn(`%c[chat-page] ${label}`, 'color:#E8613C;font-weight:bold', data ?? '');
+}
+
 // Social link icons (inline SVG paths)
 const SOCIAL_ICONS: Record<string, string> = {
   twitter: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z',
@@ -149,15 +160,24 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
     initCalled.current = true;
     setState('connecting');
 
+    dbg('bootstrap start', { API_URL, slug, NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL });
+
     try {
       const fingerprint = await getVisitorFingerprint();
-      const sessionRes = await fetch(`${API_URL}/api/widget/session`, {
+      const sessionUrl = `${API_URL}/api/widget/session`;
+      dbg('POST session →', sessionUrl);
+
+      const sessionRes = await fetch(sessionUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenant_slug: slug, visitor_fingerprint: fingerprint }),
       });
 
+      dbg('session response', { status: sessionRes.status, ok: sessionRes.ok, url: sessionRes.url });
+
       if (!sessionRes.ok) {
+        const body = await sessionRes.text().catch(() => '(unreadable)');
+        dbgWarn('session failed', { status: sessionRes.status, body });
         setErrorKind(sessionRes.status === 400 ? 'not_found' : 'connection');
         setState('error');
         return;
@@ -170,23 +190,30 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
         language?: string;
       };
 
+      dbg('session ok', { tenant_name: session.tenant_name, artifact_name: session.artifact_name, language: session.language, tokenPrefix: session.token?.slice(0, 20) + '…' });
+
       setToken(session.token);
       setTenantName(session.tenant_name);
       setLang(session.language ?? 'en');
 
       // Load history
-      const historyRes = await fetch(`${API_URL}/api/widget/history`, {
+      const historyUrl = `${API_URL}/api/widget/history`;
+      dbg('GET history →', historyUrl);
+      const historyRes = await fetch(historyUrl, {
         headers: { Authorization: `Bearer ${session.token}` },
       });
 
       let restoredMessages: ChatMessage[] = [];
       let restoredConvId: string | null = null;
 
+      dbg('history response', { status: historyRes.status, ok: historyRes.ok });
+
       if (historyRes.ok) {
         const history = await historyRes.json() as {
           conversation_id: string | null;
           messages: Array<{ id: string; role: string; content: string }>;
         };
+        dbg('history loaded', { conversation_id: history.conversation_id, messageCount: history.messages.length });
         if (history.messages.length > 0) {
           restoredMessages = history.messages
             .filter((m) => m.role === 'customer' || m.role === 'artifact' || m.role === 'human')
@@ -198,6 +225,8 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
             knownServerIdsRef.current.add(m.id);
           }
         }
+      } else {
+        dbgWarn('history failed', { status: historyRes.status });
       }
 
       // Show greeting from SSR info if no history
@@ -205,10 +234,12 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
         restoredMessages = [{ role: 'artifact', content: ssrInfo.greeting }];
       }
 
+      dbg('bootstrap complete → ready', { restoredMessageCount: restoredMessages.length, conversationId: restoredConvId });
       setChatMessages(restoredMessages);
       setConversationId(restoredConvId);
       setState('ready');
-    } catch {
+    } catch (err) {
+      dbgWarn('bootstrap threw', err);
       setErrorKind('connection');
       setState('error');
     }
@@ -218,7 +249,10 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
 
   // Send message
   const handleSend = useCallback(async (text: string) => {
-    if (!token || isSending || !text.trim() || inputDisabled) return;
+    if (!token || isSending || !text.trim() || inputDisabled) {
+      dbgWarn('handleSend blocked', { hasToken: !!token, isSending, hasText: !!text.trim(), inputDisabled });
+      return;
+    }
     setIsSending(true);
     setSendError(null);
     setHasUserSent(true);
@@ -226,8 +260,11 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
     const trimmed = text.trim();
     setChatMessages((prev) => [...prev, { role: 'customer', content: trimmed }]);
 
+    const messageUrl = `${API_URL}/api/widget/message`;
+    dbg('POST message →', { url: messageUrl, conversationId, textLength: trimmed.length });
+
     try {
-      const res = await fetch(`${API_URL}/api/widget/message`, {
+      const res = await fetch(messageUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -235,6 +272,7 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
         },
         body: JSON.stringify({ message: trimmed, conversation_id: conversationId }),
       });
+      dbg('message response', { status: res.status, ok: res.ok, url: res.url });
 
       if (res.status === 429) {
         setSendError(t('slowDown', lang));
@@ -268,7 +306,8 @@ export default function ChatPage({ slug, ssrInfo }: ChatPageProps) {
       } else {
         setChatMessages((prev) => [...prev, { role: 'artifact', content: data.response_text }]);
       }
-    } catch {
+    } catch (err) {
+      dbgWarn('message send threw', err);
       setSendError(t('errorSend', lang));
       setChatMessages((prev) => prev.slice(0, -1));
     } finally {

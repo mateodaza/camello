@@ -122,6 +122,8 @@ export const sendQuoteInputSchema = z.object({
   items: z.array(sendQuoteLineItemSchema).min(1).describe('Quote line items'),
   currency: supportedCurrencySchema.default('USD'),
   valid_days: z.number().default(30).describe('Days until quote expires'),
+  recipient_email: z.string().email().optional().describe('Customer email address to send the quote to'),
+  recipient_name: z.string().optional().describe('Customer name for the email greeting'),
 });
 
 export const sendQuoteOutputSchema = z.object({

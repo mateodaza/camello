@@ -971,7 +971,7 @@
     "ogFallbackDescription": "Habla con nuestro agente de IA para ayuda inmediata"
   },
   "inbox": {
-    "filterAll": "Todas",
+    "filterAll": "Abiertas",
     "filterActive": "Activas",
     "filterEscalated": "Escaladas",
     "filterResolved": "Resueltas",

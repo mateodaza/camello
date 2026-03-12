@@ -48,7 +48,8 @@ import { t as tmsg } from '@camello/shared/messages';
 import { createClient } from '@supabase/supabase-js';
 import { buildTelemetry, createTrace } from '../lib/langfuse.js';
 import { getUtcMonthWindow } from '../lib/date-utils.js';
-import { sendEmail, renderBaseEmail } from '../lib/email.js';
+import { sendEmail, renderBaseEmail, renderQuoteEmail, quoteEmailSubject } from '../lib/email.js';
+import { insertPaymentForQuote } from '../lib/insert-payment-for-quote.js';
 
 // ---------------------------------------------------------------------------
 // Rate limiting
@@ -465,6 +466,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
 
   // ── 3. Classify intent (first potentially paid step — LLM fallback) ──
   const intent = await trace.span('classify-intent', () => classifyIntent(messageText));
+  console.log('[orchestration] intent:', JSON.stringify({ type: intent.type, confidence: intent.confidence }));
 
   // 4. Resolve artifact via normal resolver (only when no override)
   if (!resolved) {
@@ -761,7 +763,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           console.warn('[handleMessage] Approval email failed:', err instanceof Error ? err.message : String(err));
         });
       } else {
-        // ownerEmail missing — expected for pre-existing tenants, no action needed
+        console.warn('[handleMessage] Approval email skipped: ownerEmail not set in tenant settings');
       }
     }).catch((err: unknown) => {
       console.warn('[handleMessage] approval_needed notification failed:', err instanceof Error ? err.message : String(err));
@@ -913,6 +915,13 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
         ? enrichedModules.filter((m) => intentProfile.allowedModuleSlugs!.includes(m.moduleSlug))
         : enrichedModules)
     : [];
+  console.log('[orchestration] tools available:', {
+    intentType: intent.type,
+    includeModules: intentProfile.includeModules,
+    allowedSlugs: intentProfile.allowedModuleSlugs ?? 'all',
+    boundModuleSlugs: enrichedModules.map((m) => m.moduleSlug),
+    filteredSlugs: filteredModules.map((m) => `${m.moduleSlug}(${m.autonomyLevel})`),
+  });
   const tools = filteredModules.length > 0
     ? buildToolsFromBindings(filteredModules, {
         tenantId,
@@ -922,6 +931,50 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
         triggerMessageId,
         db: moduleDbCallbacks,
         onApprovalNeeded,
+        onModuleExecuted: async (moduleSlug, executionId, input, output) => {
+          if (moduleSlug === 'send_quote') {
+            const quoteInput = input as { recipient_email?: string; recipient_name?: string };
+            const quoteOutput = output as { quote_id: string; items: { description: string; quantity: number; unit_price: number }[]; total: string; currency: string; valid_until: string };
+
+            await insertPaymentForQuote(tenantDb, {
+              tenantId,
+              artifactId: resolved.artifactId,
+              conversationId,
+              quoteExecutionId: executionId,
+              output: quoteOutput,
+            });
+
+            if (quoteInput.recipient_email) {
+              const agentName = artifact?.name ?? 'Your agent';
+              const tenantName = (tenant?.settings as Record<string, unknown>)?.businessName as string | undefined
+                ?? tenant?.name
+                ?? agentName;
+              const tenantLogoUrl = (artifact?.personality as Record<string, unknown>)?.avatarUrl as string | undefined;
+              const html = renderQuoteEmail({
+                recipientName: quoteInput.recipient_name,
+                agentName,
+                tenantName,
+                tenantLogoUrl,
+                quoteId: quoteOutput.quote_id,
+                items: quoteOutput.items,
+                total: quoteOutput.total,
+                currency: quoteOutput.currency,
+                validUntil: quoteOutput.valid_until,
+                locale: artifactLocale,
+              });
+              sendEmail({
+                to: quoteInput.recipient_email,
+                subject: quoteEmailSubject(agentName, artifactLocale),
+                html,
+              }).then((r) => {
+                if (r.sent) console.info(`[handleMessage] Quote email sent to ${quoteInput.recipient_email}`);
+                else console.warn(`[handleMessage] Quote email failed for ${quoteInput.recipient_email}`);
+              }).catch((err: unknown) => {
+                console.warn('[handleMessage] Quote email error:', err instanceof Error ? err.message : String(err));
+              });
+            }
+          }
+        },
         channel,
         metadata: conversationMetadata
           ? { sourcePage: conversationMetadata.sourcePage }
@@ -960,6 +1013,12 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       }
     }
   }
+  console.log('[orchestration] LLM done:', {
+    model: modelId,
+    steps: steps?.length ?? 0,
+    toolCallsMade: executedModules.map((m) => m.moduleSlug),
+    responsePreview: rawResponseText.slice(0, 120),
+  });
 
   // 12b. Post-generation grounding check
   // Fail-closed for high-risk intents OR when response contains specific claims.

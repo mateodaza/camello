@@ -10,8 +10,11 @@ const sendQuoteModule: ModuleDefinition<Input, Output> = {
   slug: 'send_quote',
   name: 'Send Quote',
   description:
-    'Generate a structured quote with line items. ' +
-    'Call this when the customer requests a price quote or estimate.',
+    'Generate and email a structured quote with line items. ' +
+    'Call this when the customer requests a quote, pricing summary, or asks for prices to be sent. ' +
+    'Use prices already discussed in the conversation or from the knowledge base — do NOT ask for information you already have. ' +
+    'If the customer picked a specific plan, use that as the line item. Use quantity 1 when not specified. ' +
+    'Always pass recipient_email if the customer has provided their email address in the conversation.',
   category: 'sales',
   riskTier: 'high',
   inputSchema: sendQuoteInputSchema,
@@ -39,7 +42,7 @@ const sendQuoteModule: ModuleDefinition<Input, Output> = {
   },
 
   formatForLLM: (output) =>
-    `Quote ${output.quote_id} created (draft): ${output.items.length} item(s), total ${output.currency} ${output.total}. Valid until ${output.valid_until}. Awaiting owner approval before sending.`,
+    `Quote ${output.quote_id} created: ${output.items.length} item(s), total ${output.currency} ${output.total}. Valid until ${output.valid_until}.`,
 };
 
 registerModule(sendQuoteModule as ModuleDefinition);

@@ -83,7 +83,7 @@ function makeCtx(tenantDb: TenantDb) {
 // ---------------------------------------------------------------------------
 
 describe('conversation.list filters', () => {
-  it('1 — happy path: no filters returns items and nextCursor null', async () => {
+  it('1 — no status filter defaults to open (active + escalated), not all conversations', async () => {
     const rows = [
       makeRow('00000000-0000-0000-0000-000000000011'),
       makeRow('00000000-0000-0000-0000-000000000012'),
@@ -95,11 +95,14 @@ describe('conversation.list filters', () => {
 
     expect(result.items).toHaveLength(2);
     expect(result.nextCursor).toBeNull();
-    // Baseline WHERE clause has exactly 1 bound param: the tenantId
     expect(whereSpy).toHaveBeenCalledOnce();
-    const params = getWhereParams(whereSpy.mock.calls[0][0]);
+    const sqlNode = whereSpy.mock.calls[0][0];
+    const params = getWhereParams(sqlNode);
     expect(params).toContain(TENANT_ID);
-    expect(params).toHaveLength(1);
+    // Default query must hard-filter to open conversations — status IN ('active', 'escalated').
+    // These are SQL literals (not bound params), so we verify via the generated SQL string.
+    const generatedSql = new PgDialect().sqlToQuery(sqlNode as any).sql;
+    expect(generatedSql).toMatch(/IN \('active', 'escalated'\)/);
   });
 
   it('2 — pagination: nextCursor set when mock returns limit+1 rows', async () => {
