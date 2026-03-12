@@ -1026,7 +1026,11 @@
     "notesAddError": "No se pudo guardar la nota. Inténtalo de nuevo.",
     "notesLoadError": "No se pudieron cargar las notas",
     "activityShowAll": "Ver todo ({count})",
-    "activityShowLess": "Ver menos"
+    "activityShowLess": "Ver menos",
+    "sandboxBadge": "Prueba",
+    "sandboxBanner": "Esta es una conversación de prueba del sandbox del panel.",
+    "filterHideSandbox": "Ocultar prueba",
+    "filterShowSandbox": "Mostrar prueba"
   },
   "notifications": {
     "panelTitle": "Notificaciones del Agente",

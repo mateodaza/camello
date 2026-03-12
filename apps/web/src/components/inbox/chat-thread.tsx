@@ -295,6 +295,7 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
   }
 
   const status = conv.isError ? 'active' : (conv.data?.status ?? 'active');
+  const isSandbox = (conv.data?.metadata as Record<string, unknown> | null)?.sandbox === true;
 
   return (
     <div className="flex flex-col h-full">
@@ -345,6 +346,17 @@ function ChatThreadInner({ conversationId }: { conversationId: string }) {
           </button>
         </div>
       </div>
+
+      {/* SANDBOX BANNER */}
+      {!conv.isLoading && !conv.isError && isSandbox && (
+        <div
+          data-testid="sandbox-banner"
+          role="status"
+          className="shrink-0 px-4 py-2 text-xs text-gold bg-gold/10 border-b border-gold/20"
+        >
+          {t('sandboxBanner')}
+        </div>
+      )}
 
       {/* LOADING SKELETON */}
       {msgs.isLoading && (

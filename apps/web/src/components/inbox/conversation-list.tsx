@@ -23,6 +23,7 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
   const { goToChat } = useInboxPanel();
 
   const [statusFilter, setStatusFilter] = useState<'active' | 'escalated' | 'resolved' | undefined>(undefined);
+  const [showSandbox, setShowSandbox] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [focusedIdx, setFocusedIdx] = useState(0);
@@ -36,6 +37,7 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
     trpc.conversation.list.useInfiniteQuery(
       {
         limit: 30,
+        showSandbox,
         ...(statusFilter && { status: statusFilter }),
         ...(searchDebounced && { search: searchDebounced }),
         ...(artifactId && { artifactId }),
@@ -96,6 +98,15 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
             {label}
           </Button>
         ))}
+        <Button
+          size="sm"
+          type="button"
+          variant="ghost"
+          className="min-h-[36px]"
+          onClick={() => setShowSandbox((v) => !v)}
+        >
+          {showSandbox ? t('filterHideSandbox') : t('filterShowSandbox')}
+        </Button>
       </div>
 
       {/* Search input */}
@@ -179,9 +190,20 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="font-medium text-sm truncate text-charcoal">
-                      {c.customerName}
-                    </span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="font-medium text-sm truncate text-charcoal">
+                        {c.customerName}
+                      </span>
+                      {c.isSandbox && (
+                        <span
+                          className="text-[10px] font-medium rounded px-1 py-0.5 bg-gold/20 text-gold shrink-0"
+                          data-testid="sandbox-badge"
+                          aria-label={t('sandboxBadge')}
+                        >
+                          {t('sandboxBadge')}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {c.lastMessageRole === 'customer' && (
                         <span

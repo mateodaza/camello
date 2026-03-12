@@ -23,13 +23,16 @@ export const conversationRouter = router({
         artifactId: z.string().uuid().optional(),
         limit: z.number().int().min(1).max(100).default(50),
         cursor: z.string().uuid().optional(),
+        showSandbox: z.boolean().default(true),
       }).default({}),
     )
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
         const conditions = [
           eq(conversations.tenantId, ctx.tenantId),
-          sql`NOT (${conversations.metadata} @> '{"sandbox": true}'::jsonb)`,
+          ...(input.showSandbox === false
+            ? [sql`NOT (${conversations.metadata} @> '{"sandbox": true}'::jsonb)`]
+            : []),
         ];
         if (input.status) {
           conditions.push(eq(conversations.status, input.status));
@@ -95,6 +98,7 @@ export const conversationRouter = router({
             updatedAt: conversations.updatedAt,
             customerName: sql<string>`COALESCE(${customers.displayName}, ${customers.name}, 'Visitor')`,
             customerExternalId: customers.externalId,
+            isSandbox: sql<boolean>`(${conversations.metadata} @> '{"sandbox": true}'::jsonb)`,
             lastMessage: sql<{
               preview: string | null;
               role: string | null;
@@ -134,6 +138,7 @@ export const conversationRouter = router({
             updatedAt: r.updatedAt,
             customerName: r.customerName,
             customerExternalId: r.customerExternalId,
+            isSandbox: (r.isSandbox as boolean | null) ?? false,
             lastMessagePreview: lm?.preview ?? null,
             lastMessageRole: lm?.role ?? null,
             lastMessageAt: lm?.at ? new Date(lm.at) : null,

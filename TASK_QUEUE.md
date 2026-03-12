@@ -607,8 +607,9 @@ The conversations list (`/dashboard/conversations`) is the first thing a tenant 
 - At least 3 tests (list with preview, unread indicator logic, empty state)
 - `pnpm type-check` passes
 
-#### NC-242 [ ] Widget sandbox visual indicator
+#### NC-242 [x] Widget sandbox visual indicator
 Sandbox conversations (from "Test Chat" in the dashboard) should be visually distinct so owners don't confuse them with real customer conversations.
+**DONE.** Added `showSandbox` input + conditional exclusion filter + `isSandbox` SQL boolean to `conversation.list`; "Test" badge in `conversation-list.tsx` + `showSandbox` toggle button; sandbox banner in `ChatThreadInner` derived from `byId.metadata`; 4 i18n keys (en+es); 9 tests across `conversation-sandbox.test.ts` and `sandbox-indicator.test.tsx`. Type-check + build pass.
 
 **Acceptance Criteria:**
 - In `apps/web/src/components/test-chat/` (the dashboard test chat component): ensure conversations created via sandbox have `metadata.sandbox = true` (already implemented — verify)

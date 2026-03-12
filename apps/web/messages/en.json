@@ -1026,7 +1026,11 @@
     "notesAddError": "Failed to save note. Please try again.",
     "notesLoadError": "Failed to load notes",
     "activityShowAll": "Show all ({count})",
-    "activityShowLess": "Show less"
+    "activityShowLess": "Show less",
+    "sandboxBadge": "Test",
+    "sandboxBanner": "This is a test conversation from the dashboard sandbox.",
+    "filterHideSandbox": "Hide Test",
+    "filterShowSandbox": "Show Test"
   },
   "notifications": {
     "panelTitle": "Agent Notifications",
