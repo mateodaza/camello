@@ -452,3 +452,74 @@ Time:     252ms >>> FULL TURBO
 | Intent profile static (no per-tenant) | Low | All tenants get same curation; no customization yet |
 | `context_curation` telemetry unexposed | Low | Data captured but no dashboard; black box for now |
 | Node 22 engine warning | Low | No functional impact; cosmetic fix needed |
+
+---
+
+## Sprint NC-241–246: Sales Agent Polish Sprint
+
+**Date:** 2026-03-12
+**Branch:** `nightcrawler/dev`
+**Type-check:** ✅ `pnpm type-check` — all packages pass
+**Build:** ✅ `pnpm build` — 4/4 targets successful
+**API tests:** ✅ 418 tests, 0 failed
+**AI tests:** ✅ 279 tests, 0 failed
+
+### Changelog
+| Hash | Message |
+|------|---------|
+| `2926fc7` | feat(NC-246): Research + encode best-in-class sales strategies into agent prompt |
+| `a540ef5` | feat(NC-241): Conversations page polish (customer name + preview + unread) |
+| `6661e69` | feat(NC-243): Knowledge base empty state nudge |
+| `b98dfc6` | feat(NC-242): Widget sandbox visual indicator |
+| `89cc017` | feat(NC-244): Smoke tests for prompt + intent profile changes |
+| (this commit) | feat(NC-245): Sprint smoke tests + summary |
+
+### Files Modified (sprint scope)
+
+**New files (10):**
+- `packages/ai/src/__tests__/sales-prompt.test.ts`
+- `packages/ai/src/__tests__/sales-intent-profiles.test.ts`
+- `apps/api/src/__tests__/routes/conversation-sandbox.test.ts`
+- `apps/api/src/__tests__/routes/conversation-list-preview.test.ts`
+- `apps/web/src/components/dashboard/knowledge-banner.tsx`
+- `apps/web/src/components/dashboard/knowledge-guided-empty-state.tsx`
+- `apps/web/src/__tests__/knowledge-nudge.test.tsx`
+- `apps/web/src/__tests__/sandbox-indicator.test.tsx`
+- `apps/web/src/__tests__/conversation-list.test.tsx`
+- `apps/web/src/__tests__/format.test.ts`
+
+**Modified files (12):**
+- `packages/ai/src/archetypes/sales.ts` (SPIN/BANT/Challenger/Sandler EN+ES rewrite)
+- `apps/api/src/routes/conversation.ts` (preview subquery, isSandbox SQL, COALESCE fix)
+- `apps/api/src/routes/knowledge.ts` (docCount COUNT(*) fix)
+- `apps/api/src/__tests__/routes/conversation-list-filters.test.ts` (updated)
+- `apps/web/src/lib/format.ts` (fmtConversationTime)
+- `apps/web/src/components/inbox/conversation-list.tsx` (unread dot, preview, sandbox badge/toggle)
+- `apps/web/src/components/inbox/chat-thread.tsx` (isSandbox sandbox banner)
+- `apps/web/src/app/dashboard/agents/[id]/page.tsx` (knowledge empty nudge card)
+- `apps/web/src/app/dashboard/knowledge/page.tsx` (KnowledgeGuidedEmptyState, search pre-fill)
+- `apps/web/src/app/dashboard/page.tsx` (KnowledgeBanner gate)
+- `apps/web/messages/en.json` (i18n keys added)
+- `apps/web/messages/es.json` (i18n keys added, symmetric)
+
+**Sprint total: 22 files (10 new + 12 modified)**
+
+### New Test Count (sprint scope)
+
+| Package | New tests | Files |
+|---------|-----------|-------|
+| `@camello/ai` | 11 | `sales-prompt.test.ts` (3), `sales-intent-profiles.test.ts` (8) |
+| `@camello/api` | 5 | `conversation-sandbox.test.ts` (4), `conversation-list-preview.test.ts` (1) |
+| `apps/web` | 17 | `sandbox-indicator.test.tsx` (5), `knowledge-nudge.test.tsx` (5), `conversation-list.test.tsx` (3), `format.test.ts` (4) |
+| **Sprint total** | **33** | 8 new test files, 2 new component files |
+
+> **Note:** `knowledge-nudge.test.tsx` contains 5 tests across 3 describe blocks: `KnowledgeBanner` (2 tests), `KnowledgeGuidedEmptyState` (1 test), `DashboardOverview knowledge banner gate` (2 tests). PROGRESS.md's NC-243 entry originally recorded "3 tests" — this was a tracking error that omitted the 2 gate tests; corrected in this commit.
+
+**Cumulative total: ~841+ tests across all packages.**
+
+### Known Limitations
+
+1. **Knowledge banner no dismissal persistence** — `KnowledgeBanner` shows on every `/dashboard` visit when `docCount === 0` and active agents exist. No localStorage or DB state tracks dismissal, so refreshing the page shows it again.
+2. **Sandbox toggle is display-only** — The "Hide Test / Show Test" toggle in `ConversationList` filters the rendered list client-side but does not update any server-side state. Navigating away and back resets to `showSandbox: true`.
+3. **`fmtConversationTime` is UTC-based** — "yesterday" is computed from a UTC day boundary. Users in far-east timezones (UTC+10/+12) may see "yesterday" for messages that were sent earlier the same local calendar day.
+4. **Sales prompt quality is qualitative** — No A/B metrics, conversion rate tracking, or per-session analysis exists to measure whether the SPIN/Challenger/Sandler framework improves conversation outcomes. Effects are inferred from prompt coverage, not measured.
