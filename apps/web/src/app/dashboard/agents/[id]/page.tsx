@@ -162,18 +162,6 @@ export default function AgentConfigPage() {
       <div className="flex gap-1 rounded-lg bg-charcoal/5 p-1">
         <button
           type="button"
-          onClick={() => setActiveTab('setup')}
-          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'setup'
-              ? 'bg-white text-charcoal shadow-sm'
-              : 'text-dune hover:text-charcoal'
-          }`}
-        >
-          <Settings className="h-4 w-4" />
-          {t('tabSetup')}
-        </button>
-        <button
-          type="button"
           onClick={() => setActiveTab('dashboard')}
           className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === 'dashboard'
@@ -183,6 +171,18 @@ export default function AgentConfigPage() {
         >
           <LayoutDashboard className="h-4 w-4" />
           {t('tabDashboard')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('setup')}
+          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'setup'
+              ? 'bg-white text-charcoal shadow-sm'
+              : 'text-dune hover:text-charcoal'
+          }`}
+        >
+          <Settings className="h-4 w-4" />
+          {t('tabSetup')}
         </button>
       </div>
 
