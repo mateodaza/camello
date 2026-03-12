@@ -220,7 +220,7 @@ const QUOTE_EMAIL_STRINGS = {
     total: 'Total',
     quoteId: 'Quote ID',
     validUntil: 'Valid until',
-    footer: 'To accept this quote or ask any questions, simply reply to this email or continue the conversation.',
+    footer: 'To accept this quote or ask any questions, continue the conversation with our agent.',
     subject: (agent: string) => `Your quote from ${agent}`,
   },
   es: {
@@ -232,7 +232,7 @@ const QUOTE_EMAIL_STRINGS = {
     total: 'Total',
     quoteId: 'N.º de cotización',
     validUntil: 'Válida hasta',
-    footer: 'Para aceptar esta cotización o hacer preguntas, responde a este correo o continúa la conversación.',
+    footer: 'Para aceptar esta cotización o hacer preguntas, continúa la conversación con nuestro agente.',
     subject: (agent: string) => `Tu cotización de ${agent}`,
   },
 } as const;
@@ -240,7 +240,8 @@ const QUOTE_EMAIL_STRINGS = {
 export function renderQuoteEmail(data: QuoteEmailData): string {
   const lang = data.locale === 'es' ? 'es' : 'en';
   const s = QUOTE_EMAIL_STRINGS[lang];
-  const greeting = s.greeting(data.recipientName ? escapeContent(data.recipientName) : undefined);
+  const safeName = typeof data.recipientName === 'string' && data.recipientName.trim() ? data.recipientName.trim() : undefined;
+  const greeting = s.greeting(safeName ? escapeContent(safeName) : undefined);
 
   const rows = data.items.map((item) => `
     <tr>

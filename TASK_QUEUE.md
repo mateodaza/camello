@@ -6,16 +6,16 @@
 > After completing a task: mark `[x]`, add summary line, update `PROGRESS.md`, commit together.
 > When starting a new sprint: update the goal below, add new tasks, collapse old completed tasks.
 
-> **Current sprint:** Sales Agent Dashboard (NC-221 → NC-230)
-> Inbox sprint (NC-201→NC-220) is complete. This sprint adds a Dashboard tab to the Agent Workspace that surfaces all module outputs (quotes, meetings, payments, follow-ups) with inline approval actions. Progressive autonomy model: start 70% manual review, graduate to fully autonomous over time. See `SALES_DASHBOARD_PLAN.md` for full architecture.
+> **Current sprint:** Sales-Only Polish (NC-247 → NC-251)
+> Previous sprints (NC-201→NC-246) are complete. This sprint locks the product to sales-only mode, optimizes the agent workspace and analytics UX, and sets up onboarding redesign for a future pass. See "Sales-Only Polish Sprint" section below.
 
 ### Sprint guardrails
 
-**Foundation:** The inbox (NC-201→NC-220) is the shared operational layer. This sprint extends the Agent Workspace config page with an operational Dashboard tab — it does NOT replace or compete with the inbox.
+**Scope:** This sprint is UI-only polish — no new backend routes, no migrations. All changes are in `apps/web/src/`.
 
-**Reuse rule for NC:** Before writing new backend routes, check `apps/api/src/routes/module.ts` and `apps/api/src/routes/agent.ts` for existing queries/mutations. Key existing backends: `module.pendingExecutions`, `module.approve`, `module.reject` (with `processRejection()` learning feedback loop), `agent.salesQuotes`, `agent.salesPayments`. Extend only if fields are missing — do NOT duplicate.
+**Reuse rule for NC:** Don't create new tRPC procedures. All data is already available via existing queries (`trpc.agent.workspace`, `trpc.knowledge.list`, `trpc.learning.list`, `trpc.analytics.*`). This sprint only touches how things are displayed.
 
-**Decision rule for NC:** if a task requires interpretation about inbox vs workspace vs analytics responsibilities, consult `WORKSPACE_ARCHITECTURE.md` first, then `GENERALIST_PLATFORM_SPEC.md`.
+**Sales-only lock:** NC-247 disables non-sales archetype cards in the UI only. Do NOT delete archetype files, DB records, or backend logic — the lock is purely cosmetic/interactive.
 
 ## Completed (previous sprints)
 
@@ -685,3 +685,92 @@ Submit business docs for Paddle verification.
 
 #### CAM-202 [manual] Apply migration 0023 to Supabase cloud (Mateo)
 `context_curation` JSONB column on `interaction_logs`. Review SQL in `packages/db/migrations/0023_context_curation_telemetry.sql` and apply.
+
+---
+
+## Sales-Only Polish Sprint (NC-247 → NC-251)
+
+> **Sprint goal:** Ship a clean, focused Sales AI experience before real user testing. Lock the product to sales-only mode (no support/marketing/custom), optimize the agent workspace (dashboard as default tab, remove visual noise), clean up analytics and knowledge pages, and redesign onboarding to feel like a conversation, not a form.
+
+> **Context:** The intent+quote email flow now works (cotización → send_quote → Resend delivery with tenant branding + Spanish i18n). Progressive autonomy is live. This sprint is about polish — making every screen feel intentional and cohesive for a sales agent owner.
+
+### P0 — Sales-only lock
+
+#### NC-247 [ ] Sales-only mode: hide support/marketing/custom agent types
+The platform is shipping as "AI Sales Agent" first. Disable non-sales archetypes in the new-agent UI.
+
+**Files to modify:** `apps/web/src/app/dashboard/artifacts/page.tsx`
+
+**Acceptance Criteria:**
+- In `ARCHETYPES` array (line 46-49), mark `support`, `marketing`, and `custom` as disabled: add `disabled: true` and `comingSoonKey: 'comingSoon'` (or similar) to each non-sales entry
+- Disabled archetype cards render as grayed-out (opacity-50) with a "Coming soon" badge in the top-right corner, and `cursor-not-allowed`
+- Clicking a disabled card does nothing (no modal, no mutation)
+- The Sales card remains fully functional and is visually the highlighted/default option
+- Existing agents that are `support`/`marketing`/`custom` type still render correctly in the agent list (this is display-only — no DB changes)
+- i18n key: add `comingSoon` to `en.json` + `es.json` under `artifacts` namespace
+- At least 2 tests: (1) disabled card renders with "Coming soon" badge, (2) clicking disabled card doesn't open the create flow
+- `pnpm type-check` passes
+
+### P1 — Dashboard UX optimization
+
+#### NC-248 [ ] Agent workspace: Dashboard tab as default + layout cleanup
+The Setup tab is a configuration panel; the Dashboard tab is the operational view. Owners opening their agent's page want to see what's happening, not edit config.
+
+**Files to modify:** `apps/web/src/app/dashboard/agents/[id]/page.tsx`
+
+**Acceptance Criteria:**
+- Change `useState<'setup' | 'dashboard'>('setup')` default to `'dashboard'` (line 57)
+- On the **Dashboard tab**: add a visible "Configure agent →" text link (below TrustGraduationCard or in the tab header area) that switches to the Setup tab — replacing the current hidden path
+- On the **Dashboard tab**: remove the `<div className="border-t border-charcoal/8" />` divider between ApprovalsSection and AgentPerformance — the sections already have their own borders
+- On the **Dashboard tab**: `AgentActivity` (raw `interaction_logs` table) feels like debug info. Gate it behind a collapsible "Show activity log" disclosure widget (`<details>`/`<summary>` or a simple toggle button) — collapsed by default
+- On the **Setup tab**: the Knowledge section (lines 333-366) shows a count and a link — this is fine. Remove the `KnowledgeGapsSection` from Setup tab; it belongs on the Knowledge page, not the config panel
+- Page header (lines 145-155): the "View Conversations" link is useful — keep it. Optionally add the agent status badge (active/inactive) inline next to the name.
+- i18n: add `dashboardConfigureLink` key to `agentWorkspace` namespace (en + es): "Configure agent" / "Configurar agente"
+- At least 3 tests: (1) Dashboard tab is default on mount, (2) "Configure agent" link switches to setup tab, (3) AgentActivity collapsed by default
+- `pnpm type-check` passes
+
+#### NC-249 [ ] Analytics page: focus on business insights, remove debug noise
+The analytics page currently mixes sales KPIs, raw LLM telemetry, billing period records, and interaction logs in one scroll. Sales agent owners care about conversations, leads, and revenue — not token counts and model names.
+
+**Files to modify:** `apps/web/src/app/dashboard/analytics/page.tsx`
+
+**Acceptance Criteria:**
+- **Remove** the "Recent Interaction Logs" section (Section C, lines 413-461). This is LLM debug info — it has no value to an agent owner. The Langfuse integration exists for this.
+- **Remove** the "Billing Periods" section (Section D, lines 463-505). Usage/cost records belong in `/dashboard/settings` (billing tab), not analytics.
+- **Move** the `DeltaBadge` and `ForecastCard` components to `apps/web/src/components/agent-workspace/sales/` as their own files (they are duplicated from `registry/sales.tsx` — extract into a shared component, import from both places). Note: if fully deduplicating the `ForecastCard` is complex, simply remove the inlined version and import from the existing registry component.
+- **Rename** "Per-Artifact Metrics" section (Section B) to "Daily Performance" — the raw table of `handoffsIn/handoffsOut/resolutionsCount/avgLatencyMs/llmCostUsd` is useful for an agent owner monitoring trends. Keep it but improve column labels: "Conversations In" (handoffsIn), "Conversations Out" (handoffsOut), "Resolved" (resolutionsCount), "Avg Response" (avgLatencyMs), "LLM Cost" (llmCostUsd).
+- **Update** i18n keys accordingly: rename/remove section keys, update column labels (en + es)
+- At least 2 tests: (1) removed sections don't render, (2) daily performance table shows renamed columns
+- `pnpm type-check` passes
+
+#### NC-250 [ ] Knowledge page: collapse Learnings section, simplify controls
+The Knowledge page serves two audiences: content managers (Documents section) and technical admins (Learnings section). The Learnings section is power-user tooling that clutters the page for most users.
+
+**Files to modify:** `apps/web/src/app/dashboard/knowledge/page.tsx`
+
+**Acceptance Criteria:**
+- Wrap the entire "Learnings" section (Section 2, lines 427-529) in a collapsible disclosure widget. Default state: **collapsed**. Collapsed view shows: section heading "What your agent has learned" + a summary line "N active learnings" + a "Show" toggle button. Expanded view shows the existing table + filter controls.
+- The `filterModuleSlug` text input (filter by module slug) is a developer-facing control — replace it with a `<select>` populated from the unique `sourceModuleSlug` values in the loaded learnings data. Option: "All modules" (empty). This removes the need to know module slug strings.
+- The "Bulk Clear" button should only appear when a specific module is selected (already conditional on `filterModuleSlug.trim()` — keep this logic, just adapt to select).
+- The `includeArchived` checkbox is fine — keep as-is.
+- i18n: add `sectionLearningsToggle` (en: "Show", es: "Mostrar"), `sectionLearningsCount` (en: "{{count}} active learnings", es: "{{count}} aprendizajes activos"), `filterByModuleSelect` (en: "All modules", es: "Todos los módulos")
+- At least 2 tests: (1) learnings section is collapsed by default, (2) toggle shows the table
+- `pnpm type-check` passes
+
+### P2 — Onboarding redesign (future sprint)
+
+#### NC-251 [ ] Onboarding: chat-like single-page scroll (scope TBD)
+The current 6-step wizard with a progress stepper feels form-heavy. The vision is an infinite-scroll experience that feels like a conversation: the platform "asks" each question as a chat bubble, the user types/selects a response, and the form advances naturally. Voice-to-text input is a stretch goal (requires browser MediaRecorder API — out of scope for first pass).
+
+**Current wizard location:** `apps/web/src/app/dashboard/onboarding/` (6-step wizard)
+
+**This task is P2 — requires design alignment before NC executes it. Do NOT start until Mateo provides acceptance criteria or a Figma reference.**
+
+**Rough scope (for planning):**
+- Single scrollable page replacing the step-based progress stepper
+- Each "step" is a section that reveals after the previous one is completed (staggered reveal with CSS transition)
+- Questions styled as chat bubbles (left-aligned, with platform avatar). User answers in an inline input below each bubble.
+- Navigation: no explicit "Next" button — form advances on Enter or on selecting an option. "Go back" = scroll up.
+- Step 1 (Org name) and Step 6 (Test Chat) may remain as modal/overlay gates since they require external actions (Clerk + widget load).
+- Voice-to-text (Step 2 "Describe your business"): future — add a mic icon placeholder but wire to `navigator.mediaDevices` only if user requests.
+- This redesign feeds the future "Agent Internal Advisor" feature — the onboarding transcript becomes the advisor's initial context.
