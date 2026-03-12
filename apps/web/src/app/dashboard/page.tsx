@@ -6,6 +6,7 @@ import { useOrganization } from '@clerk/nextjs';
 import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { fmtDateTime } from '@/lib/format';
+import { KnowledgeBanner } from '@/components/dashboard/knowledge-banner';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/stat-card';
@@ -20,6 +21,7 @@ export default function DashboardOverview() {
   const artifacts = trpc.artifact.list.useQuery({});
   const dashboardOverview = trpc.agent.dashboardOverview.useQuery();
   const activityFeed = trpc.agent.dashboardActivityFeed.useQuery(undefined, { refetchInterval: 30_000 });
+  const docCountQuery = trpc.knowledge.docCount.useQuery();
 
   // Auto-sync tenant name when Clerk org name changes
   const updateName = trpc.tenant.updateName.useMutation({
@@ -37,6 +39,12 @@ export default function DashboardOverview() {
   }, [organization?.name, tenant.data?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = dashboardOverview.data;
+  const activeAgents = artifacts.data?.filter((a) => a.isActive) ?? [];
+  const showKnowledgeBanner =
+    !docCountQuery.isLoading &&
+    docCountQuery.data !== undefined &&
+    docCountQuery.data === 0 &&
+    activeAgents.length > 0;
 
   return (
     <div className="space-y-6 md:space-y-8 lg:space-y-10">
@@ -49,6 +57,10 @@ export default function DashboardOverview() {
 
       {/* ===== Public Chat Link ===== */}
       {tenant.data?.slug && <ShareLinkCard slug={tenant.data.slug} t={t} />}
+
+      {showKnowledgeBanner && (
+        <KnowledgeBanner agentName={activeAgents[0]!.name} t={t} />
+      )}
 
       {dashboardOverview.isError && <QueryError error={dashboardOverview.error} onRetry={() => dashboardOverview.refetch()} />}
       {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}

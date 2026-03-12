@@ -91,7 +91,7 @@ const PROFILES: Record<string, IntentProfile> = {
   availability: {
     includeArchetypeFramework: false,
     includeModules: true,
-    allowedModuleSlugs: ['book_meeting'],
+    allowedModuleSlugs: ['book_meeting', 'send_quote'],
     maxSteps: 3,
     maxResponseTokens: 200 + MEMORY_TAG_BUFFER,
     maxSentences: 4,
@@ -100,7 +100,8 @@ const PROFILES: Record<string, IntentProfile> = {
   booking_request: {
     includeArchetypeFramework: false,
     includeModules: true,
-    allowedModuleSlugs: ['book_meeting'],
+    // send_quote included: "schedule + send me a quote" gets classified here
+    allowedModuleSlugs: ['book_meeting', 'send_quote'],
     maxSteps: 3,
     maxResponseTokens: 250 + MEMORY_TAG_BUFFER,
     maxSentences: 4,

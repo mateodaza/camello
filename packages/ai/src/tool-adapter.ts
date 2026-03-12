@@ -17,6 +17,8 @@ export interface ToolAdapterDeps {
   db: ModuleDbCallbacks;
   /** Broadcast approval notification. Must be non-blocking (errors swallowed). */
   onApprovalNeeded?: (executionId: string, moduleSlug: string, input: unknown) => Promise<void>;
+  /** Called after a successful fully_autonomous execution. Must be non-blocking (errors swallowed). */
+  onModuleExecuted?: (moduleSlug: string, executionId: string, input: unknown, output: unknown) => Promise<void>;
   channel?: Channel;
   metadata?: Record<string, unknown>;
 }
@@ -134,7 +136,7 @@ async function executeModuleTool(
 
     const durationMs = Date.now() - startTime;
 
-    await deps.db.insertModuleExecution({
+    const executionId = await deps.db.insertModuleExecution({
       moduleId: binding.moduleId,
       moduleSlug: binding.moduleSlug,
       artifactId: deps.artifactId,
@@ -145,6 +147,10 @@ async function executeModuleTool(
       status: 'executed',
       durationMs,
     });
+
+    if (deps.onModuleExecuted) {
+      deps.onModuleExecuted(binding.moduleSlug, executionId, input, output).catch(() => {});
+    }
 
     return moduleDef.formatForLLM(output);
   } catch (error) {

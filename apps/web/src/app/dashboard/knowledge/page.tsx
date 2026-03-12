@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Pencil, BookOpen, Lightbulb } from 'lucide-react';
+import { KnowledgeGuidedEmptyState } from '@/components/dashboard/knowledge-guided-empty-state';
 import { useToast } from '@/hooks/use-toast';
 
 const sourceTypes = ['upload', 'url', 'api'] as const;
@@ -334,15 +335,13 @@ export default function KnowledgePage() {
 
         {/* Docs table */}
         {filteredDocs.length === 0 && !filterSearch ? (
-          <div className="flex flex-col items-center gap-3 py-12">
-            <BookOpen className="h-12 w-12 text-dune/40" />
-            <p className="font-heading text-lg font-semibold text-charcoal">{t('emptyDocsTitle')}</p>
-            <p className="max-w-sm text-center text-sm text-dune">{t('emptyDocsDescription')}</p>
-            <Button variant="outline" onClick={() => setShowIngest(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              {t('emptyDocsAction')}
-            </Button>
-          </div>
+          <KnowledgeGuidedEmptyState
+            t={t}
+            onAddType={(type) => {
+              setSourceType(type);
+              setShowIngest(true);
+            }}
+          />
         ) : filteredDocs.length === 0 ? (
           <p className="py-6 text-center text-sm text-dune">{t('noSearchResults')}</p>
         ) : (

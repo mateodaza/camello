@@ -346,6 +346,23 @@ export default function AgentConfigPage() {
         <p className="mt-2 text-sm text-dune">
           {t('configKnowledgeDocs', { count: knowledgeCount })}
         </p>
+
+        {/* NEW: nudge when KB is empty */}
+        {!knowledgeList.isLoading && knowledgeCount === 0 && (
+          <div
+            data-testid="knowledge-empty-nudge"
+            className="mt-3 rounded-lg border border-gold/30 bg-gold/5 p-4"
+          >
+            <p className="text-sm font-semibold text-charcoal">{t('configKnowledgeEmptyTitle')}</p>
+            <p className="mt-1 text-sm text-dune">{t('configKnowledgeEmptyDesc')}</p>
+            <Link
+              href="/dashboard/knowledge"
+              className="mt-3 inline-flex items-center rounded-md bg-teal px-4 py-1.5 text-sm font-medium text-white hover:bg-teal/90"
+            >
+              {t('configKnowledgeEmptyAction')}
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* 4b. Knowledge Gaps */}

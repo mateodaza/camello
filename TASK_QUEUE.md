@@ -560,6 +560,113 @@ Final pass on all new strings + verification.
 
 **Depends on:** NC-235, NC-232, NC-237, NC-239
 
+## Sales Agent Polish Sprint (NC-241 → NC-246)
+
+> **Sprint goal:** Make the sales agent feel like a real, world-class salesperson — not a chatbot. Fix UX gaps that make the dashboard feel incomplete (conversations list, empty KB nudge, sandbox indicator). Research and encode proven sales methodologies so the agent adapts its strategy to any business.
+
+### Sprint guardrails
+
+**Prompt changes:** The sales archetype prompt (`packages/ai/src/archetypes/sales.ts`) was just updated with a PROACTIVE ENGAGEMENT section and intent profiles were changed to include the framework on greetings/simple questions. Build ON TOP of these changes — don't revert or duplicate them.
+
+**Business context:** The system prompt builder already receives `artifact.personality`, `artifact.config`, and `companyName` from the tenant. The `parseBusinessModel` LLM call during onboarding extracts industry, services, target audience, and tone. All of this is available in the system prompt via `personality` and `constraints` fields. USE this context — don't ask for it again at runtime.
+
+**Research task (NC-246):** NC has web search access. Use it to research real sales frameworks (SPIN, Challenger, Sandler, consultative, solution selling). Distill the BEST patterns into the archetype prompt. The prompt must be concise (LLMs lose focus on long prompts) — aim for maximum signal in minimum tokens. Test the new prompt against varied business descriptions.
+
+### P0 — World-Class Sales Agent
+
+#### NC-246 [x] Research + encode best-in-class sales strategies into agent prompt
+Rewrote `packages/ai/src/archetypes/sales.ts` (EN + ES) with SPIN discovery, BANT qualification, Challenger/Sandler objection handling, conversational closes, re-engagement tactics, and business-context adaptation. Added 3 tests in `sales-prompt.test.ts`. Type-check passes.
+Make the sales agent the best AI salesperson possible. Research proven sales methodologies and encode the most effective patterns into the archetype prompt, adapted for AI chat.
+
+**Acceptance Criteria:**
+- **Research phase:** Use web search to study SPIN Selling, Challenger Sale, Sandler System, consultative selling, solution selling, and modern conversational sales patterns. Focus on what translates to AI chat (not phone/in-person-only techniques).
+- **Distill into prompt:** Rewrite `packages/ai/src/archetypes/sales.ts` (both `en` and `es`) with:
+  - **Discovery framework:** How to ask the right questions to uncover needs (open → pain → implication → payoff, adapted for chat)
+  - **Qualification signals:** Explicit patterns to detect buying intent, budget, timeline, authority, need (BANT adapted for chat)
+  - **Objection handling patterns:** Upgrade the current basic framework with research-backed techniques
+  - **Conversational closes:** Natural, non-pushy ways to advance toward a decision in chat
+  - **Re-engagement tactics:** How to handle "just browsing", "not sure", "maybe later" — based on real sales psychology
+  - **Business-context adaptation:** Instructions telling the agent to USE the company description, services, and target audience from its personality/constraints to personalize its pitch. Example: "If the company sells consulting services, ask about current pain points and team size. If they sell physical products, ask about quantity and delivery timeline."
+- Keep the total prompt under ~800 tokens (en) — concise and high-signal. LLMs degrade with prompt bloat.
+- The agent should feel like a seasoned sales consultant, not a script-reader. Prioritize natural conversation flow over rigid frameworks.
+- At least 3 tests in `packages/ai/src/__tests__/sales-prompt.test.ts`: (1) prompt includes discovery framework, (2) prompt includes business-context adaptation, (3) buildSystemPrompt for sales+greeting intent includes the framework
+- `pnpm type-check` passes
+
+### P1 — Dashboard UX Gaps
+
+#### NC-241 [x] Conversations page polish (customer name + preview + unread)
+**DONE.** Fixed COALESCE to `displayName`→`name`→`'Visitor'`; replaced `summary` subquery with single `row_to_json` subquery returning `lastMessage`; added post-query mapping step in `conversation.ts`; added `fmtConversationTime(value, t)` to `format.ts`; updated `conversation-list.tsx` (unread dot, `lastMessagePreview`, `fmtConversationTime`, empty state link to profile); added 9 i18n keys to en.json+es.json; 8 tests across 3 files. Type-check passes.
+The conversations list (`/dashboard/conversations`) is the first thing a tenant sees after their agent talks to someone. Make it feel real.
+
+**Acceptance Criteria:**
+- Each conversation row shows: customer display name (from `customers.displayName` or `customers.name`, fallback to "Visitor"), last message preview (truncated to ~80 chars), relative timestamp ("2m ago", "1h ago", "yesterday"), unread indicator (dot) if last message is from customer and there's no subsequent artifact/human reply
+- The `conversation.list` tRPC procedure already exists — extend it if needed to include `lastMessagePreview`, `lastMessageRole`, `lastMessageAt` (use a subquery or lateral join, not N+1)
+- Mobile: single column, touch-friendly rows (min 48px height)
+- Empty state: "No conversations yet. Share your agent link to start getting messages." with link to profile/share page
+- i18n keys (en + es)
+- At least 3 tests (list with preview, unread indicator logic, empty state)
+- `pnpm type-check` passes
+
+#### NC-242 [x] Widget sandbox visual indicator
+Sandbox conversations (from "Test Chat" in the dashboard) should be visually distinct so owners don't confuse them with real customer conversations.
+**DONE.** Added `showSandbox` input + conditional exclusion filter + `isSandbox` SQL boolean to `conversation.list`; "Test" badge in `conversation-list.tsx` + `showSandbox` toggle button; sandbox banner in `ChatThreadInner` derived from `byId.metadata`; 4 i18n keys (en+es); 9 tests across `conversation-sandbox.test.ts` and `sandbox-indicator.test.tsx`. Type-check + build pass.
+
+**Acceptance Criteria:**
+- In `apps/web/src/components/test-chat/` (the dashboard test chat component): ensure conversations created via sandbox have `metadata.sandbox = true` (already implemented — verify)
+- In conversation list: sandbox conversations show a small "Test" badge/tag next to the customer name
+- In conversation detail: sandbox banner at top ("This is a test conversation from the dashboard sandbox")
+- Filter option: ability to hide sandbox conversations from the list (toggle or tab)
+- i18n keys (en + es)
+- At least 2 tests
+- `pnpm type-check` passes
+
+**Depends on:** NC-241
+
+#### NC-243 [x] Knowledge base empty state nudge
+**DONE.** Agent config page: gold nudge card when `knowledgeCount === 0`. Knowledge page: `KnowledgeGuidedEmptyState` (3 cards: Website URL, Product Documentation, Quick facts) replaces basic empty state. Dashboard: `KnowledgeBanner` shown when `docCountQuery.data === 0 && activeAgents.length > 0`. Components in `components/dashboard/`. i18n: 3 agentWorkspace keys + 14 knowledge keys + 2 dashboard keys (en+es). 5 tests in `knowledge-nudge.test.tsx` (KnowledgeBanner: 2, KnowledgeGuidedEmptyState: 1, DashboardOverview banner gate: 2; previously undercounted as 3). Type-check passes.
+When the KB is empty, the agent says "I don't have those details loaded yet" — which is correct but means the agent is handicapped. Help the owner fix this.
+
+**Acceptance Criteria:**
+- On the agent config page (Setup tab, Knowledge section): if the agent has 0 knowledge documents, show a prominent call-to-action card: "Your agent doesn't have any product knowledge yet. Upload your website, pricing page, or FAQ so it can answer customer questions accurately." with a button linking to `/dashboard/knowledge`
+- On the Knowledge page itself: if empty, show a guided empty state with 3 suggested upload types (Website URL, PDF/document, Quick facts) and example content for each
+- On the dashboard home: if ANY active agent has 0 knowledge docs, show a warning banner: "Your agent [name] has no knowledge base — it can't answer product questions yet" with CTA
+- i18n keys (en + es)
+- At least 2 tests
+- `pnpm type-check` passes
+
+### P2 — Verification
+
+#### NC-244 [x] Smoke tests for prompt + intent profile changes
+**DONE.** Created `packages/ai/src/__tests__/sales-intent-profiles.test.ts` with 8 tests across 3 describe blocks: `getIntentProfile` (greeting:regex → framework true, farewell → false), `buildSystemPrompt` with intent profiles (greeting:regex, simple_question, farewell), and customer memory agent-name filter. All 8 tests pass. Type-check passes.
+Verify the prompt engineering changes from this session don't regress.
+
+**Acceptance Criteria:**
+- Test file: `packages/ai/src/__tests__/sales-intent-profiles.test.ts`
+- Tests:
+  1. `buildSystemPrompt` for sales artifact + `greeting:regex` intent includes "BEHAVIORAL FRAMEWORK" text
+  2. `buildSystemPrompt` for sales artifact + `greeting:regex` intent includes "PROACTIVE ENGAGEMENT" text
+  3. `buildSystemPrompt` for sales artifact + `simple_question` intent includes framework
+  4. `buildSystemPrompt` for sales artifact + `farewell` intent does NOT include framework (farewells stay lightweight)
+  5. Customer memory injection filters out facts where name matches artifact name
+  6. `getIntentProfile` returns `includeArchetypeFramework: true` for `greeting:regex`
+- At least 6 tests
+- `pnpm type-check` passes
+
+#### NC-245 [x] Sprint smoke tests + summary
+Final verification pass.
+
+**Acceptance Criteria:**
+- Run `pnpm type-check` — must pass
+- Run `pnpm build` — must pass
+- Run `pnpm --filter @camello/api exec vitest run` — all tests must pass
+- Run `pnpm --filter @camello/ai exec vitest run` — all tests must pass
+- Update `PROGRESS.md` with sprint summary
+- Write `SPRINT_REPORT.md` with: tasks completed, files modified, test count, known limitations, build status
+- `pnpm type-check` passes
+
+**Depends on:** NC-241, NC-242, NC-243, NC-244, NC-246
+> Completed: pnpm type-check, build, API+AI vitest suites all pass. SPRINT_REPORT.md + PROGRESS.md updated (NC-243 test count corrected 3→5).
+
 ## Deferred — Post User Feedback
 
 #### CAM-210 [deferred] Invoice module

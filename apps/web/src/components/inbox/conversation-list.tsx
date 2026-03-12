@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Search, Monitor, MessageCircle, MessageSquare } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QueryError } from '@/components/query-error';
-import { fmtTimeAgo, truncate } from '@/lib/format';
+import { fmtConversationTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useInboxPanel } from './inbox-layout';
 
@@ -22,6 +23,7 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
   const { goToChat } = useInboxPanel();
 
   const [statusFilter, setStatusFilter] = useState<'active' | 'escalated' | 'resolved' | undefined>(undefined);
+  const [showSandbox, setShowSandbox] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [focusedIdx, setFocusedIdx] = useState(0);
@@ -35,6 +37,7 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
     trpc.conversation.list.useInfiniteQuery(
       {
         limit: 30,
+        showSandbox,
         ...(statusFilter && { status: statusFilter }),
         ...(searchDebounced && { search: searchDebounced }),
         ...(artifactId && { artifactId }),
@@ -95,6 +98,15 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
             {label}
           </Button>
         ))}
+        <Button
+          size="sm"
+          type="button"
+          variant="ghost"
+          className="min-h-[36px]"
+          onClick={() => setShowSandbox((v) => !v)}
+        >
+          {showSandbox ? t('filterHideSandbox') : t('filterShowSandbox')}
+        </Button>
       </div>
 
       {/* Search input */}
@@ -127,6 +139,12 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
             <MessageSquare className="h-8 w-8 text-dune/40" />
             <p className="font-medium text-sm text-charcoal">{t('emptyTitle')}</p>
             <p className="text-xs text-dune">{t('emptyDescription')}</p>
+            <Link
+              href="/dashboard/settings/profile"
+              className="text-xs text-teal underline underline-offset-2"
+            >
+              {t('emptyShareLink')}
+            </Link>
           </div>
         ) : (
           <>
@@ -172,16 +190,36 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="font-medium text-sm truncate text-charcoal">
-                      {c.customerName ?? c.customerExternalId ?? '—'}
-                    </span>
-                    <span className="text-xs text-dune shrink-0">
-                      {fmtTimeAgo(c.updatedAt)}
-                    </span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="font-medium text-sm truncate text-charcoal">
+                        {c.customerName}
+                      </span>
+                      {c.isSandbox && (
+                        <span
+                          className="text-[10px] font-medium rounded px-1 py-0.5 bg-gold/20 text-gold shrink-0"
+                          data-testid="sandbox-badge"
+                          aria-label={t('sandboxBadge')}
+                        >
+                          {t('sandboxBadge')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {c.lastMessageRole === 'customer' && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-gold"
+                          aria-label={t('unreadLabel')}
+                          data-testid="unread-dot"
+                        />
+                      )}
+                      <span className="text-xs text-dune shrink-0">
+                        {fmtConversationTime(c.lastMessageAt ?? c.updatedAt, t)}
+                      </span>
+                    </div>
                   </div>
-                  {c.summary && (
+                  {c.lastMessagePreview && (
                     <p className="text-xs text-dune truncate mt-0.5">
-                      {truncate(c.summary, 80)}
+                      {c.lastMessagePreview}
                     </p>
                   )}
                 </div>
