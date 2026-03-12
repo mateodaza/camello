@@ -636,7 +636,8 @@ When the KB is empty, the agent says "I don't have those details loaded yet" —
 
 ### P2 — Verification
 
-#### NC-244 [ ] Smoke tests for prompt + intent profile changes
+#### NC-244 [x] Smoke tests for prompt + intent profile changes
+**DONE.** Created `packages/ai/src/__tests__/sales-intent-profiles.test.ts` with 8 tests across 3 describe blocks: `getIntentProfile` (greeting:regex → framework true, farewell → false), `buildSystemPrompt` with intent profiles (greeting:regex, simple_question, farewell), and customer memory agent-name filter. All 8 tests pass. Type-check passes.
 Verify the prompt engineering changes from this session don't regress.
 
 **Acceptance Criteria:**

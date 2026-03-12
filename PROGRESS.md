@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-244 | Smoke tests for prompt + intent profile changes | Mar 12 | Created `packages/ai/src/__tests__/sales-intent-profiles.test.ts` with 8 tests (3 describe blocks): `getIntentProfile` greeting:regex/farewell intent profile assertions; `buildSystemPrompt` framework inclusion/exclusion by intent; customer memory name-filter for agent-name collision. All 279 AI tests pass. Type-check passes. |
 | NC-243 | Knowledge base empty state nudge | Mar 12 | Agent config: gold nudge card (`knowledge-empty-nudge`). Knowledge page: `KnowledgeGuidedEmptyState` 3-card guided state in `components/dashboard/knowledge-guided-empty-state.tsx`. Dashboard: `KnowledgeBanner` in `components/dashboard/knowledge-banner.tsx`, shown when `docCount===0 && activeAgents>0`. 17 i18n keys en+es. 3 tests in `knowledge-nudge.test.tsx`. Fixed `docCount` to use `COUNT(*)` instead of `COUNT(DISTINCT title)` — `title` is nullable so untitled entries were miscounted as zero. Type-check passes. |
 | NC-242 | Widget sandbox visual indicator | Mar 12 | `conversation.list`: `showSandbox` input (default true), conditional `NOT @> '{"sandbox":true}'` exclusion, `isSandbox` SQL boolean select + mapping. `conversation-list.tsx`: "Test" badge + Hide/Show Test toggle. `ChatThreadInner`: `isSandbox` derived from `byId.metadata`; gold banner. 4 i18n keys en+es. 9 tests: `conversation-sandbox.test.ts` (4 API, WHERE-clause inspection via `PgDialect.sqlToQuery`) + `sandbox-indicator.test.tsx` (5 RTL). Type-check + build pass. |
 | NC-241 | Conversations page polish (customer name + preview + unread) | Mar 12 | Fixed COALESCE order + replaced `summary` subquery with `row_to_json` single-row subquery in `conversation.ts`; added `fmtConversationTime(value, t)` to `format.ts`; updated `conversation-list.tsx` with unread dot, `lastMessagePreview`, i18n timestamps, profile link empty state; 9 i18n keys en+es; 8 tests across `conversation-list-preview.test.ts`, `conversation-list.test.tsx`, `format.test.ts`. Type-check passes. |
@@ -933,3 +934,4 @@
 - **NC-241** — 2026-03-12 — `2926fc7` — Session: 20260312-011103-camello
 - **NC-242** — 2026-03-12 — `a540ef5` — Session: 20260312-011103-camello
 - **NC-243** — 2026-03-12 — `b98dfc6` — Session: 20260312-011103-camello — ⚠ Committed after soft review rejections cap; local verification passed.
+- **NC-244** — 2026-03-12 — `6661e69` — Session: 20260312-011103-camello
