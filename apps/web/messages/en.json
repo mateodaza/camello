@@ -587,7 +587,11 @@
   "knowledge": {
     "pageTitle": "Knowledge",
     "sectionDocuments": "Documents",
-    "sectionLearnings": "Learnings",
+    "sectionLearnings": "What your agent has learned",
+    "sectionLearningsToggle": "Show",
+    "sectionLearningsHide": "Hide",
+    "sectionLearningsCount": "{count} active learnings",
+    "filterByModuleSelect": "All modules",
     "filterAllTypes": "All types",
     "addKnowledge": "Add Knowledge",
     "ingestKnowledge": "Ingest Knowledge",

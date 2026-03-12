@@ -746,7 +746,8 @@ The analytics page currently mixes sales KPIs, raw LLM telemetry, billing period
 - At least 2 tests: (1) removed sections don't render, (2) daily performance table shows renamed columns
 - `pnpm type-check` passes
 
-#### NC-250 [ ] Knowledge page: collapse Learnings section, simplify controls
+#### NC-250 [x] Knowledge page: collapse Learnings section, simplify controls
+Learnings section is now collapsible (default collapsed). Heading updated to "What your agent has learned". Active count summary in collapsed state. `<select>` with unique module slugs replaces text input. 2 tests in `knowledge-page.test.tsx`. Type-check passes.
 The Knowledge page serves two audiences: content managers (Documents section) and technical admins (Learnings section). The Learnings section is power-user tooling that clutters the page for most users.
 
 **Files to modify:** `apps/web/src/app/dashboard/knowledge/page.tsx`

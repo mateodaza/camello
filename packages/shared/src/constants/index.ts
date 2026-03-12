@@ -163,3 +163,17 @@ export const REJECTION_REASONS = [
   'incorrect_data',
   'policy_violation',
 ] as const;
+
+// === Module Slugs ===
+// Closed set of registered module slugs. Update when a new module is added to packages/ai/src/modules/.
+export const MODULE_SLUGS = [
+  'qualify_lead',
+  'book_meeting',
+  'collect_payment',
+  'send_quote',
+  'create_ticket',
+  'escalate_to_human',
+  'send_followup',
+  'capture_interest',
+  'draft_content',
+] as const;
