@@ -714,7 +714,8 @@ The platform is shipping as "AI Sales Agent" first. Disable non-sales archetypes
 
 ### P1 — Dashboard UX optimization
 
-#### NC-248 [ ] Agent workspace: Dashboard tab as default + layout cleanup
+#### NC-248 [x] Agent workspace: Dashboard tab as default + layout cleanup
+**DONE.** Default tab switched to 'dashboard'; status badge added inline next to name; "Configure agent →" button added after TrustGraduationCard; divider between ApprovalsSection and AgentPerformance removed; AgentActivity gated behind `<details data-testid="activity-log-disclosure">` collapsed by default; KnowledgeGapsSection removed from Setup tab + import dropped; `dashboardConfigureLink` i18n key added (en+es); 3 tests in `agent-config-page.test.tsx`. Type-check passes.
 The Setup tab is a configuration panel; the Dashboard tab is the operational view. Owners opening their agent's page want to see what's happening, not edit config.
 
 **Files to modify:** `apps/web/src/app/dashboard/agents/[id]/page.tsx`

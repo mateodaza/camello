@@ -529,6 +529,8 @@
     "configEventDealClosed": "Trato cerrado",
     "tabSetup": "Configuración",
     "tabDashboard": "Panel",
+    "dashboardConfigureLink": "Configurar agente",
+    "activityLogLabel": "Mostrar registro de actividad",
     "dashboardPlaceholder": "Las secciones del panel aparecerán aquí a medida que se construyan.",
     "quotesTitle": "Cotizaciones",
     "quotesColCustomer": "Cliente",

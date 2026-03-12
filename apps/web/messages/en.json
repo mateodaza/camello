@@ -529,6 +529,8 @@
     "configEventDealClosed": "Deal closed",
     "tabSetup": "Setup",
     "tabDashboard": "Dashboard",
+    "dashboardConfigureLink": "Configure agent",
+    "activityLogLabel": "Show activity log",
     "dashboardPlaceholder": "Dashboard sections will appear here as they are built.",
     "quotesTitle": "Quotes",
     "quotesColCustomer": "Customer",
