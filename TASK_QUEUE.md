@@ -731,7 +731,8 @@ The Setup tab is a configuration panel; the Dashboard tab is the operational vie
 - At least 3 tests: (1) Dashboard tab is default on mount, (2) "Configure agent" link switches to setup tab, (3) AgentActivity collapsed by default
 - `pnpm type-check` passes
 
-#### NC-249 [ ] Analytics page: focus on business insights, remove debug noise
+#### NC-249 [x] Analytics page: focus on business insights, remove debug noise
+Removed Section C (Recent Interaction Logs) and Section D (Billing Periods); extracted DeltaBadge and ForecastCard to sales/ shared components; renamed Section B to "Daily Performance" with improved column labels; updated en/es i18n; 2 tests added.
 The analytics page currently mixes sales KPIs, raw LLM telemetry, billing period records, and interaction logs in one scroll. Sales agent owners care about conversations, leads, and revenue — not token counts and model names.
 
 **Files to modify:** `apps/web/src/app/dashboard/analytics/page.tsx`

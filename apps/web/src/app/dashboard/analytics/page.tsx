@@ -3,101 +3,15 @@
 import { useState, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
-import { localDateStr, thirtyDaysAgoStr, fmtCost, fmtMicroCost, fmtInt, fmtDateTime, fmtMoney } from '@/lib/format';
+import { localDateStr, thirtyDaysAgoStr, fmtCost, fmtInt, fmtMoney } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { StatCard, Metric } from '@/components/stat-card';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChartCss } from '@/components/agent-workspace/primitives/bar-chart-css';
 import { AgentPerformance } from '@/components/agent-workspace/performance-panel';
-import { stageKey } from '@/components/agent-workspace/sales/constants';
-
-// ---------------------------------------------------------------------------
-// DeltaBadge — period-over-period comparison badge (inlined from registry/sales)
-// ---------------------------------------------------------------------------
-
-interface DeltaBadgeProps {
-  current: number;
-  pct: number | null;
-  format?: 'count' | 'currency';
-  locale?: string;
-}
-
-function DeltaBadge({ current, pct, format = 'count', locale }: DeltaBadgeProps) {
-  const t = useTranslations('agentWorkspace');
-
-  if (pct === null && current === 0) {
-    return <span className="text-xs text-dune">—</span>;
-  }
-  if (pct === null && current > 0) {
-    const text = format === 'currency'
-      ? t('salesComparisonBadgeCurrencyNew', { amount: fmtMoney(current, locale ?? 'en') })
-      : t('salesComparisonBadgeCountNew', { count: current });
-    return <span className="text-xs font-medium text-teal">{text}</span>;
-  }
-  if (pct === null || pct === 0) {
-    return <span className="text-xs text-dune">—</span>;
-  }
-  if (pct > 0) {
-    return <span className="text-xs font-medium text-teal">↑{pct}%</span>;
-  }
-  return <span className="text-xs font-medium" style={{ color: 'var(--color-sunset)' }}>↓{Math.abs(pct)}%</span>;
-}
-
-// ---------------------------------------------------------------------------
-// ForecastCard — 30-day revenue forecast (inlined from registry/sales)
-// ---------------------------------------------------------------------------
-
-interface ForecastData {
-  totalForecast: number;
-  stages: Array<{
-    stage: string;
-    leadCount: number;
-    pipelineValue: number;
-    conversionRate: number;
-    isFallback: boolean;
-    forecastValue: number;
-  }>;
-}
-
-function ForecastCard({ artifactId: _artifactId, salesForecast }: { artifactId: string; salesForecast: ForecastData | undefined }) {
-  const t = useTranslations('agentWorkspace');
-  const locale = useLocale();
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">{t('salesForecast30d')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="font-heading text-2xl font-bold tabular-nums text-charcoal">
-          {fmtMoney(salesForecast?.totalForecast ?? 0, locale)}
-        </p>
-        {salesForecast && salesForecast.stages.length > 0 ? (
-          <div className="mt-3 space-y-2">
-            {salesForecast.stages.map((s) => (
-              <div key={s.stage} className="flex items-center justify-between text-sm">
-                <span className="text-dune">
-                  {t(`salesStage${stageKey(s.stage)}` as Parameters<typeof t>[0])}
-                </span>
-                <span className="text-dune">
-                  {Math.round(s.conversionRate * 100)}%
-                  {s.isFallback && (
-                    <span className="ml-1 text-xs text-dune/70">({t('salesForecastEstimated')})</span>
-                  )}
-                </span>
-                <span className="tabular-nums text-charcoal">{fmtMoney(s.forecastValue, locale)}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-dune">{t('salesForecastEmpty')}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+import { DeltaBadge } from '@/components/agent-workspace/sales/delta-badge';
+import { ForecastCard } from '@/components/agent-workspace/sales/forecast-card';
 
 // ---------------------------------------------------------------------------
 // SalesComparisonSection — week-over-week deltas for a sales agent
@@ -183,7 +97,6 @@ function ForecastSection({ artifactId }: { artifactId: string }) {
 
 export default function AnalyticsPage() {
   const t = useTranslations('analytics');
-  const tc = useTranslations('common');
   const locale = useLocale();
 
   // --- Date range (local time) ---
@@ -211,8 +124,6 @@ export default function AnalyticsPage() {
     artifactId: selectedArtifactId || undefined,
     limit: 50,
   });
-
-  const usageRecords = trpc.analytics.usage.useQuery({ limit: 6 });
 
   // --- Derived ---
   const selectedArtifact = artifacts.data?.find((a) => a.id === selectedArtifactId);
@@ -368,9 +279,9 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* ===== SECTION B: Per-Artifact Metrics ===== */}
+      {/* ===== SECTION B: Daily Performance ===== */}
       <div className="space-y-3">
-        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('artifactMetrics')}</h2>
+        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('dailyPerformance')}</h2>
 
         {artifactMetrics.isError && <QueryError error={artifactMetrics.error} onRetry={() => artifactMetrics.refetch()} />}
 
@@ -402,100 +313,6 @@ export default function AnalyticsPage() {
                     <td className="px-4 py-3">{row.resolutionsCount}</td>
                     <td className="px-4 py-3">{Number(row.avgLatencyMs).toFixed(0)} {t('ms')}</td>
                     <td className="px-4 py-3">{fmtCost(row.llmCostUsd, locale)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ===== SECTION C: Recent Interaction Logs ===== */}
-      <div className="space-y-3">
-        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('recentInteractions')}</h2>
-
-        {recentLogs.isError && <QueryError error={recentLogs.error} onRetry={() => recentLogs.refetch()} />}
-
-        {recentLogs.isLoading ? (
-          <div className="text-dune">{tc('loading')}</div>
-        ) : (recentLogs.data?.length ?? 0) === 0 ? (
-          <p className="text-dune">{t('noInteractions')}</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="min-w-[800px] w-full text-sm">
-              <thead>
-                <tr className="border-b border-charcoal/8 text-left text-dune">
-                  <th className="px-4 py-3 font-medium">{t('columnIntent')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnModel')}</th>
-                  <th className="px-4 py-3 font-medium">{t('tokensIn')}</th>
-                  <th className="px-4 py-3 font-medium">{t('tokensOut')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnCost')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnLatency')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnResolution')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnWhen')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentLogs.data?.map((log) => (
-                  <tr key={log.id} className="border-b border-charcoal/8 last:border-0">
-                    <td className="px-4 py-3">{log.intent}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-dune">{log.modelUsed}</td>
-                    <td className="px-4 py-3">{fmtInt(log.tokensIn, locale)}</td>
-                    <td className="px-4 py-3">{fmtInt(log.tokensOut, locale)}</td>
-                    <td className="px-4 py-3">{fmtMicroCost(log.costUsd, locale)}</td>
-                    <td className="px-4 py-3">{log.latencyMs} {t('ms')}</td>
-                    <td className="px-4 py-3">
-                      {log.resolutionType ? (
-                        <Badge>{log.resolutionType}</Badge>
-                      ) : (
-                        <span className="text-dune">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-dune">{fmtDateTime(log.createdAt, locale)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ===== SECTION D: Billing Periods ===== */}
-      <div className="space-y-3">
-        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('billingPeriods')}</h2>
-
-        {usageRecords.isError && <QueryError error={usageRecords.error} onRetry={() => usageRecords.refetch()} />}
-
-        {usageRecords.isLoading ? (
-          <div className="text-dune">{t('loadingUsage')}</div>
-        ) : (usageRecords.data?.length ?? 0) === 0 ? (
-          <p className="text-dune">{t('noUsageRecords')}</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="min-w-[550px] w-full text-sm">
-              <thead>
-                <tr className="border-b border-charcoal/8 text-left text-dune">
-                  <th className="px-4 py-3 font-medium">{t('columnPeriodStart')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnPeriodEnd')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnResolutions')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnLLMCost')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnOverage')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usageRecords.data?.map((rec) => (
-                  <tr key={rec.id} className="border-b border-charcoal/8 last:border-0">
-                    <td className="px-4 py-3">{rec.periodStart}</td>
-                    <td className="px-4 py-3">{rec.periodEnd}</td>
-                    <td className="px-4 py-3">{rec.resolutionsCount}</td>
-                    <td className="px-4 py-3">{fmtCost(rec.llmCostUsd, locale)}</td>
-                    <td className="px-4 py-3">
-                      {Number(rec.overageCostUsd) > 0 ? (
-                        <span className="text-error">{fmtCost(rec.overageCostUsd, locale)}</span>
-                      ) : (
-                        <span className="text-dune">$0.0000</span>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
