@@ -6,16 +6,16 @@
 > After completing a task: mark `[x]`, add summary line, update `PROGRESS.md`, commit together.
 > When starting a new sprint: update the goal below, add new tasks, collapse old completed tasks.
 
-> **Current sprint:** Sales-Only Polish (NC-247 → NC-251)
-> Previous sprints (NC-201→NC-246) are complete. This sprint locks the product to sales-only mode, optimizes the agent workspace and analytics UX, and sets up onboarding redesign for a future pass. See "Sales-Only Polish Sprint" section below.
+> **Current sprint:** UX Polish + Repo Quality (NC-252 → NC-256)
+> Previous sprints (NC-201→NC-251 where done) are complete. This sprint makes Analytics and Knowledge immediately useful for non-technical business owners, promotes the sales card as the product hero, then does a quality pass on the codebase before shipping to real users. See "UX Polish + Repo Quality Sprint" section below.
 
 ### Sprint guardrails
 
-**Scope:** This sprint is UI-only polish — no new backend routes, no migrations. All changes are in `apps/web/src/`.
+**Scope:** NC-252 through NC-255 are UI-only — no new backend routes, no migrations, all changes in `apps/web/src/`. NC-256 is a read-and-fix pass across `apps/` and `packages/` — no logic changes, no API changes.
 
-**Reuse rule for NC:** Don't create new tRPC procedures. All data is already available via existing queries (`trpc.agent.workspace`, `trpc.knowledge.list`, `trpc.learning.list`, `trpc.analytics.*`). This sprint only touches how things are displayed.
+**Reuse rule for NC:** Don't create new tRPC procedures. All data is already available via existing queries (`trpc.analytics.overview`, `trpc.artifact.list`, `trpc.analytics.artifactMetrics`, `trpc.learning.list`).
 
-**Sales-only lock:** NC-247 disables non-sales archetype cards in the UI only. Do NOT delete archetype files, DB records, or backend logic — the lock is purely cosmetic/interactive.
+**User lens:** Optimize for a non-technical small business owner, not a developer. Every section should answer "what does this mean for me?" without jargon or manual setup.
 
 ## Completed (previous sprints)
 
@@ -760,6 +760,116 @@ The Knowledge page serves two audiences: content managers (Documents section) an
 - i18n: add `sectionLearningsToggle` (en: "Show", es: "Mostrar"), `sectionLearningsCount` (en: "{{count}} active learnings", es: "{{count}} aprendizajes activos"), `filterByModuleSelect` (en: "All modules", es: "Todos los módulos")
 - At least 2 tests: (1) learnings section is collapsed by default, (2) toggle shows the table
 - `pnpm type-check` passes
+
+---
+
+## UX Polish + Repo Quality Sprint (NC-252 → NC-256)
+
+> **Sprint goal:** Make Analytics and Knowledge actually useful for a business owner in one glance. Clean up the artifacts page so the sales card feels like the product. Then do one quality pass on the repo to fix easy wins without breaking anything.
+
+> **Context:** Pre-user-testing polish. Real users (small Colombian businesses) are non-technical — they should be able to open Analytics and immediately understand how their agent is doing and what to do next. No date picker fiddling, no table-hunting.
+
+### Sprint guardrails
+
+**Scope:** UI-only for NC-252 through NC-255. No new tRPC procedures — all data is already available. NC-256 is a read-and-fix pass across the full codebase; it must not break any working code.
+
+**Reuse rule:** Use existing queries (`trpc.analytics.overview`, `trpc.artifact.list`, `trpc.analytics.artifactMetrics`, `trpc.learning.list`). Don't add new backend routes.
+
+**Design rule:** Optimize for a non-technical business owner. Every section should have a clear answer to "what does this mean for me?" — not raw numbers or developer jargon.
+
+### P0 — Analytics: zero-click to insight
+
+#### NC-252 [ ] Analytics: date presets + auto-select agent
+
+The first interaction with Analytics should require zero setup. Today users see 4 numbers and a blank "select an agent" prompt.
+
+**Files to modify:** `apps/web/src/app/dashboard/analytics/page.tsx`
+
+**Acceptance Criteria:**
+- **Auto-select:** On mount, if `artifacts.data` contains exactly one artifact, auto-set `selectedArtifactId` to that artifact's id. Use a `useEffect` that watches `artifacts.data` and only fires when `selectedArtifactId` is still `''` (never overwrite a user's manual selection).
+- **Date presets:** Replace the two raw `<input type="date">` fields as the primary control with three pill buttons: `7d`, `30d`, `90d`. Each sets `from` = N days ago and `to` = today (use `localDateStr` and a helper like `nDaysAgoStr(n)`). Keep the raw date inputs visible but demote them — show them below the pills as a "Custom range" option (or inside a collapsible `<details>`). Default selected preset: `30d`.
+- **Hide the "select an agent" hint** text when an agent is auto-selected or manually selected. Only show it when `selectedArtifactId` is truly empty AND there are multiple agents.
+- i18n: add preset keys `preset7d`, `preset30d`, `preset90d`, `customRange` to `analytics` namespace (en + es)
+- At least 2 tests: (1) preset button sets correct date range, (2) auto-select fires when single agent exists
+- `pnpm type-check` passes
+
+#### NC-253 [ ] Analytics: visual conversation health + simplified layout
+
+Replace the 4 flat stat cards with one visual health card. Surface top intents as the hero insight.
+
+**Files to modify:** `apps/web/src/app/dashboard/analytics/page.tsx`
+
+**Acceptance Criteria:**
+- **Conversation health card:** Replace the 4 `<StatCard>` tiles (total, active, resolved, escalated) with a single card. Layout: large headline number (total conversations), then a horizontal proportional bar divided into three color segments — resolved (teal), active (charcoal/20), escalated (sunset). Below the bar: three inline labels with counts ("X resolved · Y active · Z escalated"). Use CSS `flex` with percentage widths derived from counts; handle `total === 0` with a neutral empty bar.
+- **Hide technical columns by default:** In the Daily Performance table, hide `avgLatencyMs` and `llmCostUsd` columns. Add a `<button>` toggle "Show technical details" below the table that reveals them. Collapsed by default.
+- **Intents section placement:** Move the "Top Intents" section (intent bar chart) to appear **before** the Daily Performance table — it's the most actionable signal for a business owner.
+- **Intents context hint:** Below the bar chart, if `intentBars.length > 0`, show a one-line hint: "Your customers mostly ask about **[top intent label]**. Add knowledge on this topic to improve resolution." Wrap in a `<p className="text-sm text-dune">`. If `intentBars.length === 0` and an agent is selected, show: "No conversations yet. Share your agent link to get started."
+- i18n: `convHealthTotal`, `convHealthResolved`, `convHealthActive`, `convHealthEscalated`, `intentsContextHint`, `intentsEmptyHint`, `showTechnicalDetails`, `hideTechnicalDetails` (en + es)
+- At least 3 tests: (1) health bar renders with correct segments, (2) technical columns hidden by default, (3) intents section appears before daily table
+- `pnpm type-check` passes
+
+### P1 — Knowledge: surface what matters
+
+#### NC-254 [ ] Knowledge: gaps first, learnings polished
+
+Knowledge gaps are more actionable than learnings — a gap is something the agent *couldn't* answer right now. Promote them. Polish the learnings table so non-technical users understand it.
+
+**Files to modify:** `apps/web/src/app/dashboard/knowledge/page.tsx`
+
+**Acceptance Criteria:**
+- **Reorder sections:** Move Knowledge Gaps above the Learnings section. New order: (1) Documents, (2) Knowledge Gaps, (3) Learnings. Knowledge Gaps should be always visible (not collapsible) — it's a short list and always actionable.
+- **Knowledge Gaps empty state:** When there are no gaps, show a small success callout: a teal checkmark icon + "Your agent is answering all questions confidently." — not a blank section.
+- **Learnings polish (when expanded):**
+  - Confidence column: replace the raw decimal (e.g., `0.85`) with a narrow progress bar (`h-1.5 w-16 rounded-full bg-charcoal/10` container, `bg-teal` fill at `width: ${(confidence * 100).toFixed(0)}%`). Show the percentage as a tooltip (`title` attribute on the bar container).
+  - Module slug column: humanize the display value — split on `_`, title-case each word (`qualify_lead` → "Qualify Lead"). The filter `<select>` value and `onChange` still use the raw slug.
+  - Type badge: color-code — `correction` gets `bg-gold/15 text-gold`, `preference` gets `bg-teal/10 text-teal`, others use the default badge style.
+  - Add a one-line explanation above the learnings table (only when expanded): "Boost a learning to reinforce it in your agent's memory. Dismiss to remove it." Use `text-xs text-dune`.
+- i18n: `gapsEmptySuccess`, `learningsHelpText` (en + es); update `sectionLearnings` heading if desired
+- At least 3 tests: (1) knowledge gaps section appears before learnings, (2) gaps empty state shows success message, (3) learnings table shows confidence bar (not raw decimal)
+- `pnpm type-check` passes
+
+### P1 — Artifacts: sales card hero
+
+#### NC-255 [ ] Artifacts page: sales card as hero
+
+With 3 dimmed cards around it, the sales card needs to visually communicate "this is your product."
+
+**Files to modify:** `apps/web/src/app/dashboard/artifacts/page.tsx`
+
+**Acceptance Criteria:**
+- **Layout change:** The sales card spans full width (outside/above the 2-col grid). The 3 disabled cards render in a row below it — a 3-col grid (`sm:grid-cols-3`) at reduced visual weight (smaller padding, `text-sm` descriptions, no action buttons — just the "Coming soon" badge).
+- **Sales card CTA:** Promote "Open Workspace" to a full-width `bg-teal text-white` primary button at the bottom of the card content (when the artifact exists and is active). Move the "Personality" settings link to a secondary ghost button inline above it.
+- **Mini stat strip:** Below the agent name/description and above the CTAs, show a small 2-stat row: "Conversations this week: N" and "Active: yes/no". Use `trpc.analytics.overview.useQuery({ from: sevenDaysAgoStr, to: localDateStr })` — `sevenDaysAgoStr` follows the same pattern as the existing `thirtyDaysAgoStr` in `apps/web/src/lib/format.ts`. Only render the stat row when the artifact exists; show a skeleton while loading.
+- i18n: `salesCardConversationsThisWeek`, `salesCardActive` (en + es) under `artifacts` namespace
+- At least 2 tests: (1) sales card renders full-width above disabled cards, (2) stat strip shows conversation count
+- `pnpm type-check` passes
+
+### P2 — Repo quality pass
+
+#### NC-256 [ ] Repo quality: easy wins sweep
+
+A focused read-and-fix pass. Goal: leave the codebase a bit cleaner without touching working logic. NC has full latitude to explore and decide what to fix — the acceptance criteria are minimum bars, not an exhaustive list.
+
+**Scope:** `apps/web/src/`, `apps/api/src/`, `packages/ai/src/`, `packages/shared/src/`. Skip `__tests__/`, generated files, and `*.d.ts`.
+
+**What to look for and fix:**
+- **Dead `console.log` / `console.warn`** left in production code paths (not test files, not intentional `logger.*` wrappers). Remove them.
+- **Unused imports** — if TypeScript `noUnusedLocals` would flag it, remove it. Don't suppress with `_` prefixes.
+- **Commented-out code blocks** — remove them if they're clearly stale (old implementations, replaced logic). Leave comments that explain *why* something works the way it does.
+- **Redundant type assertions** — `as any`, `as unknown as X`, `!` non-null assertions that are provably unnecessary. Only remove when confidence is high; leave uncertain ones alone.
+- **Duplicate small utilities** — if the same 2-3 line helper is copy-pasted in 2+ places and a shared location exists, consolidate. Don't create new shared files — only consolidate into existing ones.
+- **Stale TODO/FIXME comments** — remove ones that describe work that's already done. Keep ones that describe real known limitations.
+- **i18n key hygiene** — if `en.json` has keys that are no longer referenced anywhere in `apps/web/src/`, remove them from both `en.json` and `es.json`. Be conservative — only remove keys you've confirmed are unreferenced by grepping.
+
+**Hard constraints:**
+- Do NOT refactor working logic or restructure files. Read-and-fix only.
+- Do NOT change public API signatures, exported types, or tRPC procedure inputs/outputs.
+- Do NOT touch migration files or DB schema.
+- If unsure whether something is safe to remove, leave it.
+- `pnpm type-check` must pass after all changes.
+- At least 1 test per meaningful change category (e.g., verify removed i18n keys don't appear in source).
+
+---
 
 ### P2 — Onboarding redesign (future sprint)
 
