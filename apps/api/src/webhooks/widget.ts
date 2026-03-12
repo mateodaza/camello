@@ -239,7 +239,9 @@ widgetRoutes.get('/info', async (c) => {
     }
 
     const artifactConfig = artifact.config as Record<string, unknown> | null;
-    const primaryColor = typeof artifactConfig?.widgetPrimaryColor === 'string'
+    const HEX_COLOR_RE = /^#[0-9a-fA-F]{3,8}$/;
+    const primaryColor = (typeof artifactConfig?.widgetPrimaryColor === 'string'
+      && HEX_COLOR_RE.test(artifactConfig.widgetPrimaryColor))
       ? artifactConfig.widgetPrimaryColor
       : '#4f46e5';
     const position = artifactConfig?.widgetPosition === 'bottom-left' ? 'bottom-left' : 'bottom-right';
@@ -363,7 +365,9 @@ widgetRoutes.post('/session', async (c) => {
     }
 
     const sessionConfig = artifact.config as Record<string, unknown> | null;
-    const sessionPrimaryColor = typeof sessionConfig?.widgetPrimaryColor === 'string'
+    const HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
+    const sessionPrimaryColor = (typeof sessionConfig?.widgetPrimaryColor === 'string'
+      && HEX_RE.test(sessionConfig.widgetPrimaryColor))
       ? sessionConfig.widgetPrimaryColor
       : '#4f46e5';
     const sessionPosition = sessionConfig?.widgetPosition === 'bottom-left' ? 'bottom-left' : 'bottom-right';

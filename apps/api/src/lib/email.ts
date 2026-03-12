@@ -52,14 +52,19 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     return { sent: false };
   }
 
-  const { data, error } = await resend.emails.send({ from: FROM, to, subject, html });
+  try {
+    const { data, error } = await resend.emails.send({ from: FROM, to, subject, html });
 
-  if (error || !data?.id) {
-    console.warn(`Resend error: ${error?.message ?? 'no data returned'}`);
+    if (error || !data?.id) {
+      console.error(`[email] Resend API error: ${error?.name ?? 'unknown'} — ${error?.message ?? 'no data returned'}`);
+      return { sent: false };
+    }
+
+    return { sent: true, id: data.id };
+  } catch (err) {
+    console.error('[email] Resend transport error:', err instanceof Error ? err.message : String(err));
     return { sent: false };
   }
-
-  return { sent: true, id: data.id };
 }
 
 // ---------------------------------------------------------------------------
@@ -73,19 +78,28 @@ interface RenderBaseEmailOptions {
   ctaUrl?: string;
 }
 
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeContent(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export function renderBaseEmail(options: RenderBaseEmailOptions): string {
   const { title, body, ctaText, ctaUrl } = options;
 
+  const safeTitle = escapeContent(title);
   const ctaBlock =
     ctaText && ctaUrl
       ? `
         <tr>
           <td style="padding: 0 40px 32px;">
-            <a href="${ctaUrl}"
+            <a href="${escapeAttr(ctaUrl)}"
                style="display: inline-block; background-color: #4ECDC4; color: #ffffff;
                       font-family: 'Jost', sans-serif; font-size: 15px; font-weight: 600;
                       text-decoration: none; padding: 12px 28px; border-radius: 6px;">
-              ${ctaText}
+              ${escapeContent(ctaText)}
             </a>
           </td>
         </tr>`
@@ -96,7 +110,7 @@ export function renderBaseEmail(options: RenderBaseEmailOptions): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${title}</title>
+  <title>${safeTitle}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #FFF8F0;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"

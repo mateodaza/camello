@@ -61,6 +61,17 @@ const APPROVAL_EMAIL_COOLDOWN_MS = 5 * 60 * 1000;
 const _knowledgeGapDigestCooldowns = new Map<string, number>(); // tenantId → epoch ms
 const KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// Periodic cleanup of stale cooldown entries (every 10 min) to prevent unbounded growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, ts] of _approvalEmailCooldowns) {
+    if (now - ts >= APPROVAL_EMAIL_COOLDOWN_MS) _approvalEmailCooldowns.delete(k);
+  }
+  for (const [k, ts] of _knowledgeGapDigestCooldowns) {
+    if (now - ts >= KNOWLEDGE_GAP_DIGEST_COOLDOWN_MS) _knowledgeGapDigestCooldowns.delete(k);
+  }
+}, 10 * 60 * 1000).unref();
+
 // ---------------------------------------------------------------------------
 // HTML escaping (for user-controlled fields injected into email body)
 // ---------------------------------------------------------------------------
@@ -112,7 +123,7 @@ async function sendApprovalNotificationEmail(params: ApprovalEmailParams): Promi
     title: `Action needed: ${params.moduleName} approval`,
     body: `<p>Hi,</p>
            <p><strong>${safeCustomerName}</strong> has triggered the <strong>${params.moduleName}</strong> action.</p>
-           <p>${params.moduleDescription}</p>
+           <p>${escapeHtml(params.moduleDescription)}</p>
            <p><em>Input summary:</em> ${safeInputSummary}</p>
            <p>Please review and approve or reject this action in the Camello dashboard.</p>`,
     ctaText: 'Review in Camello',
@@ -750,7 +761,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           console.warn('[handleMessage] Approval email failed:', err instanceof Error ? err.message : String(err));
         });
       } else {
-        console.warn(`[handleMessage] ownerEmail missing for tenant ${tenantId} — skipping approval email`);
+        // ownerEmail missing — expected for pre-existing tenants, no action needed
       }
     }).catch((err: unknown) => {
       console.warn('[handleMessage] approval_needed notification failed:', err instanceof Error ? err.message : String(err));
@@ -999,8 +1010,15 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   }
 
   // 12c. Parse + strip LLM memory tags from response (before saving)
-  const memoryTagFacts = parseMemoryTags(responseText, conversationId);
-  if (memoryTagFacts.length > 0) {
+  // Filter out facts that match the agent's own name — the LLM sometimes emits
+  // [MEMORY:name=Sofía] from its self-introduction, polluting customer memory.
+  const rawMemoryFacts = parseMemoryTags(responseText, conversationId);
+  const artifactNameLower = artifact.name.toLowerCase().trim();
+  const memoryTagFacts = rawMemoryFacts.filter((f) => {
+    if (f.key === 'name' && f.value.toLowerCase().trim() === artifactNameLower) return false;
+    return true;
+  });
+  if (rawMemoryFacts.length > 0) {
     responseText = stripMemoryTags(responseText);
   }
 

@@ -16,7 +16,10 @@ const mocks = vi.hoisted(() => ({
   generateEmbedding: vi.fn(),
   buildToolsFromBindings: vi.fn(),
   shouldCheckGrounding: vi.fn(),
-  checkGrounding: vi.fn(),
+  checkGroundingWithRetry: vi.fn(),
+  getIntentProfile: vi.fn(),
+  isHighRiskIntent: vi.fn(),
+  responseContainsClaims: vi.fn(),
   generateText: vi.fn(),
   createTrace: vi.fn(),
   createClient: vi.fn(),
@@ -37,9 +40,14 @@ vi.mock('@camello/ai', () => ({
   generateEmbedding: mocks.generateEmbedding,
   buildToolsFromBindings: mocks.buildToolsFromBindings,
   shouldCheckGrounding: mocks.shouldCheckGrounding,
-  checkGrounding: mocks.checkGrounding,
+  checkGroundingWithRetry: mocks.checkGroundingWithRetry,
+  getIntentProfile: mocks.getIntentProfile,
+  isHighRiskIntent: mocks.isHighRiskIntent,
+  responseContainsClaims: mocks.responseContainsClaims,
+  SAFE_FALLBACKS: { en: 'I apologize, but I need to verify that information.', es: 'Disculpe, necesito verificar esa información.' },
   flattenRagChunks: (chunks: Array<{ content: string }>) => chunks.map((c) => c.content),
   parseMemoryFacts: () => [],
+  mergeMemoryFacts: (existing: unknown[], incoming: unknown[]) => [...(existing ?? []), ...incoming],
   sanitizeFactValue: (v: string) => v,
   MAX_INJECTED_FACTS: 6,
   parseMemoryTags: vi.fn(() => []),
@@ -123,6 +131,7 @@ function setupBudgetExceededFlow(opts: {
               planTier: opts.planTier ?? 'starter',
               monthlyCostBudgetUsd: opts.monthlyCostBudgetUsd ?? null,
               defaultArtifactId: ARTIFACT_ID,
+              settings: {},
             }],
           }),
         }),
@@ -345,10 +354,20 @@ function setupUnderBudgetFlow(opts: {
 
 describe('handleMessage — budget gate integration', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.stubEnv('SUPABASE_URL', 'http://localhost:54321');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test_key');
     mocks.shouldCheckGrounding.mockReturnValue(false);
+    mocks.getIntentProfile.mockReturnValue({
+      includeModules: true,
+      allowedModuleSlugs: undefined,
+      includeArchetypeFramework: false,
+      maxResponseTokens: 300,
+      maxSteps: 5,
+      skipGrounding: true,
+    });
+    mocks.isHighRiskIntent.mockReturnValue(false);
+    mocks.responseContainsClaims.mockReturnValue(false);
   });
 
   it('blocks pipeline at budget gate — no AI calls', async () => {
@@ -410,7 +429,18 @@ describe('handleMessage — budget gate integration', () => {
     expect(mocks.generateText).toHaveBeenCalledOnce();
 
     // Reset for second call
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mocks.shouldCheckGrounding.mockReturnValue(false);
+    mocks.getIntentProfile.mockReturnValue({
+      includeModules: true,
+      allowedModuleSlugs: undefined,
+      includeArchetypeFramework: false,
+      maxResponseTokens: 300,
+      maxSteps: 5,
+      skipGrounding: true,
+    });
+    mocks.isHighRiskIntent.mockReturnValue(false);
+    mocks.responseContainsClaims.mockReturnValue(false);
 
     // Growth tier — cost $25.00 hits the limit
     setupBudgetExceededFlow({ planTier: 'growth', currentMonthCost: '25.00' });

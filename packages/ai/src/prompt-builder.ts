@@ -173,18 +173,32 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 
   // Customer memory — untrusted, user-reported facts
   if (ctx.customerMemory && ctx.customerMemory.length > 0) {
-    const capped = ctx.customerMemory.slice(0, MAX_INJECTED_FACTS);
-    parts.push(t.customerMemoryStart);
-    parts.push('This is a returning customer. Known facts:');
-    for (const fact of capped) {
-      // Re-sanitize at injection time (defense-in-depth)
-      const safeValue = sanitizeFactValue(fact.value);
-      if (safeValue) {
-        parts.push(`- ${fact.key}: ${safeValue}`);
+    // Filter out facts that match the agent's own name (the LLM sometimes emits
+    // [MEMORY:name=Sofía] from its own self-introduction, polluting customer memory).
+    const agentNameLower = artifact.name.toLowerCase().trim();
+    const capped = ctx.customerMemory
+      .filter((fact) => {
+        if (fact.key === 'name') {
+          const valLower = fact.value.toLowerCase().trim();
+          if (valLower === agentNameLower) return false;
+        }
+        return true;
+      })
+      .slice(0, MAX_INJECTED_FACTS);
+
+    if (capped.length > 0) {
+      parts.push(t.customerMemoryStart);
+      parts.push('This is a returning customer. Known facts:');
+      for (const fact of capped) {
+        // Re-sanitize at injection time (defense-in-depth)
+        const safeValue = sanitizeFactValue(fact.value);
+        if (safeValue) {
+          parts.push(`- ${fact.key}: ${safeValue}`);
+        }
       }
+      parts.push(t.customerMemoryInstruction);
+      parts.push(t.customerMemoryEnd);
     }
-    parts.push(t.customerMemoryInstruction);
-    parts.push(t.customerMemoryEnd);
   }
 
   // Module instructions (skipped or filtered by intent profile)

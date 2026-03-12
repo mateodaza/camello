@@ -16,7 +16,10 @@ const mocks = vi.hoisted(() => ({
   generateEmbedding: vi.fn(),
   buildToolsFromBindings: vi.fn(),
   shouldCheckGrounding: vi.fn(),
-  checkGrounding: vi.fn(),
+  checkGroundingWithRetry: vi.fn(),
+  getIntentProfile: vi.fn(),
+  isHighRiskIntent: vi.fn(),
+  responseContainsClaims: vi.fn(),
   generateText: vi.fn(),
   createTrace: vi.fn(),
   createClient: vi.fn(),
@@ -37,9 +40,14 @@ vi.mock('@camello/ai', () => ({
   generateEmbedding: mocks.generateEmbedding,
   buildToolsFromBindings: mocks.buildToolsFromBindings,
   shouldCheckGrounding: mocks.shouldCheckGrounding,
-  checkGrounding: mocks.checkGrounding,
+  checkGroundingWithRetry: mocks.checkGroundingWithRetry,
+  getIntentProfile: mocks.getIntentProfile,
+  isHighRiskIntent: mocks.isHighRiskIntent,
+  responseContainsClaims: mocks.responseContainsClaims,
+  SAFE_FALLBACKS: { en: 'I apologize, but I need to verify that information.', es: 'Disculpe, necesito verificar esa información.' },
   flattenRagChunks: (chunks: Array<{ content: string }>) => chunks.map((c) => c.content),
   parseMemoryFacts: () => [],
+  mergeMemoryFacts: (existing: unknown[], incoming: unknown[]) => [...(existing ?? []), ...incoming],
   sanitizeFactValue: (v: string) => v,
   MAX_INJECTED_FACTS: 6,
   parseMemoryTags: vi.fn(() => []),
@@ -60,6 +68,19 @@ vi.mock('@supabase/supabase-js', () => ({
 vi.mock('@camello/shared/constants', () => ({
   COST_BUDGET_DEFAULTS: { starter: 5, growth: 25, scale: 100 } as Record<string, number>,
   LEARNING_CONFIDENCE: { retrieval_floor: 0.5 },
+}));
+
+vi.mock('@camello/shared/messages', () => ({
+  t: (key: string) => key === 'error.budgetExceeded' ? 'Budget exceeded.' : key,
+}));
+
+vi.mock('../../lib/email.js', () => ({
+  sendEmail: vi.fn().mockResolvedValue({ sent: false }),
+  renderBaseEmail: vi.fn().mockReturnValue('<html></html>'),
+}));
+
+vi.mock('../../orchestration/knowledge-gap.js', () => ({
+  recordKnowledgeGap: () => Promise.resolve(false),
 }));
 
 import { handleMessage } from '../../orchestration/message-handler.js';
@@ -171,6 +192,7 @@ function setupRagFlow(opts?: {
             limit: () => [{
               name: 'Acme Corp', planTier: 'starter',
               monthlyCostBudgetUsd: null, defaultArtifactId: ARTIFACT_ID,
+              settings: {},
             }],
           }),
         }),
@@ -316,10 +338,20 @@ function setupRagFlow(opts?: {
 
 describe('handleMessage — RAG knowledge flow integration', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.stubEnv('SUPABASE_URL', 'http://localhost:54321');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test_key');
     mocks.shouldCheckGrounding.mockReturnValue(false);
+    mocks.getIntentProfile.mockReturnValue({
+      includeModules: true,
+      allowedModuleSlugs: undefined,
+      includeArchetypeFramework: false,
+      maxResponseTokens: 300,
+      maxSteps: 5,
+      skipGrounding: true,
+    });
+    mocks.isHighRiskIntent.mockReturnValue(false);
+    mocks.responseContainsClaims.mockReturnValue(false);
   });
 
   it('includes RAG context in system prompt', async () => {

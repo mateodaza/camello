@@ -67,7 +67,7 @@ describe('sendEmail', () => {
 
   it('returns sent: false when Resend API returns an error', async () => {
     process.env.RESEND_API_KEY = 'test-key';
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockSend.mockResolvedValueOnce({
       data: null,
       error: { message: 'Invalid API key', name: 'validation_error' },
@@ -82,9 +82,9 @@ describe('sendEmail', () => {
     expect(result.sent).toBe(false);
     expect(result.id).toBeUndefined();
     expect(mockSend).toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Resend error'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Resend API error'));
 
-    warnSpy.mockRestore();
+    errorSpy.mockRestore();
     delete process.env.RESEND_API_KEY;
   });
 });
