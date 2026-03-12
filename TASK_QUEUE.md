@@ -594,7 +594,8 @@ Make the sales agent the best AI salesperson possible. Research proven sales met
 
 ### P1 — Dashboard UX Gaps
 
-#### NC-241 [ ] Conversations page polish (customer name + preview + unread)
+#### NC-241 [x] Conversations page polish (customer name + preview + unread)
+**DONE.** Fixed COALESCE to `displayName`→`name`→`'Visitor'`; replaced `summary` subquery with single `row_to_json` subquery returning `lastMessage`; added post-query mapping step in `conversation.ts`; added `fmtConversationTime(value, t)` to `format.ts`; updated `conversation-list.tsx` (unread dot, `lastMessagePreview`, `fmtConversationTime`, empty state link to profile); added 9 i18n keys to en.json+es.json; 8 tests across 3 files. Type-check passes.
 The conversations list (`/dashboard/conversations`) is the first thing a tenant sees after their agent talks to someone. Make it feel real.
 
 **Acceptance Criteria:**

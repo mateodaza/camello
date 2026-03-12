@@ -93,13 +93,25 @@ export const conversationRouter = router({
             status: conversations.status,
             createdAt: conversations.createdAt,
             updatedAt: conversations.updatedAt,
-            customerName: sql<string>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
+            customerName: sql<string>`COALESCE(${customers.displayName}, ${customers.name}, 'Visitor')`,
             customerExternalId: customers.externalId,
-            summary: sql<string | null>`COALESCE(
-              ${conversations.metadata}->>'summary',
-              (SELECT LEFT(m.content, 80) FROM messages m
-               WHERE m.conversation_id = ${conversations.id} AND m.role = 'customer'
-               ORDER BY m.created_at ASC LIMIT 1)
+            lastMessage: sql<{
+              preview: string | null;
+              role: string | null;
+              at: string | null;
+            } | null>`(
+              SELECT row_to_json(t)
+              FROM (
+                SELECT
+                  LEFT(m.content, 80) AS preview,
+                  m.role              AS role,
+                  m.created_at        AS at
+                FROM messages m
+                WHERE m.conversation_id = ${conversations.id}
+                  AND m.role != 'system'
+                ORDER BY m.created_at DESC, m.id DESC
+                LIMIT 1
+              ) t
             )`,
           })
           .from(conversations)
@@ -108,8 +120,28 @@ export const conversationRouter = router({
           .orderBy(desc(conversations.updatedAt), desc(conversations.id))
           .limit(input.limit + 1);
 
-        const hasMore = rows.length > input.limit;
-        const items = hasMore ? rows.slice(0, input.limit) : rows;
+        type LastMsg = { preview: string | null; role: string | null; at: string | null } | null;
+
+        const mappedRows = rows.map((r) => {
+          const lm = r.lastMessage as LastMsg;
+          return {
+            id: r.id,
+            artifactId: r.artifactId,
+            customerId: r.customerId,
+            channel: r.channel,
+            status: r.status,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+            customerName: r.customerName,
+            customerExternalId: r.customerExternalId,
+            lastMessagePreview: lm?.preview ?? null,
+            lastMessageRole: lm?.role ?? null,
+            lastMessageAt: lm?.at ? new Date(lm.at) : null,
+          };
+        });
+
+        const hasMore = mappedRows.length > input.limit;
+        const items = hasMore ? mappedRows.slice(0, input.limit) : mappedRows;
 
         return {
           items,
@@ -134,7 +166,7 @@ export const conversationRouter = router({
             createdAt: conversations.createdAt,
             updatedAt: conversations.updatedAt,
             resolvedAt: conversations.resolvedAt,
-            customerName: sql<string>`COALESCE(${customers.name}, ${customers.displayName}, 'Unknown')`,
+            customerName: sql<string>`COALESCE(${customers.displayName}, ${customers.name}, 'Visitor')`,
             customerEmail: customers.email,
             customerPhone: customers.phone,
             customerChannel: customers.channel,

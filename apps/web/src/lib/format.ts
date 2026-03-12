@@ -76,6 +76,44 @@ export function fmtTimeAgo(value: Date | string | null | undefined): string {
   return `${Math.floor(diffD / 7)}w`;
 }
 
+/**
+ * Translation function type accepted by fmtConversationTime.
+ * Compatible with next-intl's useTranslations return type.
+ */
+type ConvTimeTFn = (key: string, values?: { count?: number }) => string;
+
+/**
+ * Inbox-optimized relative time using i18n keys from the 'inbox' namespace.
+ * Produces: "just now", "5m ago", "2h ago", "yesterday", "3d ago", "2w ago".
+ * Pass the `t` function from `useTranslations('inbox')` as the second argument.
+ */
+export function fmtConversationTime(
+  value: Date | string | null | undefined,
+  t: ConvTimeTFn,
+): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return t('timeJustNow');
+
+  // Calendar-day comparison in local time for "yesterday" detection
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayDiff = Math.round((today.getTime() - msgDay.getTime()) / 86_400_000);
+
+  if (dayDiff === 0) {
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return t('timeMinutesAgo', { count: diffMin });
+    return t('timeHoursAgo', { count: Math.floor(diffMin / 60) });
+  }
+  if (dayDiff === 1) return t('timeYesterday');
+  const diffD = Math.floor(diffMs / 86_400_000);
+  if (diffD < 7) return t('timeDaysAgo', { count: diffD });
+  return t('timeWeeksAgo', { count: Math.floor(diffD / 7) });
+}
+
 /** Integer number of days between two dates. Returns null if either is null. */
 export function daysBetween(from: Date | string | null | undefined, to: Date | string | null | undefined): number | null {
   if (!from || !to) return null;

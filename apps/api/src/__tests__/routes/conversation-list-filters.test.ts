@@ -39,7 +39,7 @@ function makeRow(id: string) {
     updatedAt: new Date('2026-01-02T00:00:00Z'),
     customerName: 'Alice',
     customerExternalId: 'ext-1',
-    summary: null,
+    lastMessage: null,
   };
 }
 
