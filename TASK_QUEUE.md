@@ -574,7 +574,8 @@ Final pass on all new strings + verification.
 
 ### P0 — World-Class Sales Agent
 
-#### NC-246 [ ] Research + encode best-in-class sales strategies into agent prompt
+#### NC-246 [x] Research + encode best-in-class sales strategies into agent prompt
+Rewrote `packages/ai/src/archetypes/sales.ts` (EN + ES) with SPIN discovery, BANT qualification, Challenger/Sandler objection handling, conversational closes, re-engagement tactics, and business-context adaptation. Added 3 tests in `sales-prompt.test.ts`. Type-check passes.
 Make the sales agent the best AI salesperson possible. Research proven sales methodologies and encode the most effective patterns into the archetype prompt, adapted for AI chat.
 
 **Acceptance Criteria:**
