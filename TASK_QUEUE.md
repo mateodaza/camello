@@ -208,7 +208,7 @@ When the agent sends a payment link, it creates a `payments` row with `status: '
 
 ## P2 — Chat-Style Onboarding
 
-#### NC-263 [ ] Chat onboarding shell: replace stepper with conversational UI
+#### NC-263 [x] Chat onboarding shell: replace stepper with conversational UI
 
 Replace the 6-step stepper (`apps/web/src/app/onboarding/page.tsx` + `components/Step*.tsx`) with a single-page chat-style flow. Keep ALL existing tRPC procedures — only the UI changes.
 
