@@ -793,7 +793,8 @@ The first interaction with Analytics should require zero setup. Today users see 
 - At least 2 tests: (1) preset button sets correct date range, (2) auto-select fires when single agent exists
 - `pnpm type-check` passes
 
-#### NC-253 [ ] Analytics: visual conversation health + simplified layout
+#### NC-253 [x] Analytics: visual conversation health + simplified layout
+**DONE.** Health card with flex bar replaces 4 StatCard tiles; intents block moved above Daily Performance with context hint + empty hint; technical columns hidden by default behind toggle; 8 i18n keys en+es; 3 new tests + 1 stale assertion fixed; type-check passes.
 
 Replace the 4 flat stat cards with one visual health card. Surface top intents as the hero insight.
 

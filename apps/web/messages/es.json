@@ -695,7 +695,15 @@
     "preset7d": "7 días",
     "preset30d": "30 días",
     "preset90d": "90 días",
-    "customRange": "Rango personalizado"
+    "customRange": "Rango personalizado",
+    "convHealthTotal": "Conversaciones Totales",
+    "convHealthResolved": "resueltas",
+    "convHealthActive": "activas",
+    "convHealthEscalated": "escaladas",
+    "intentsContextHint": "Tus clientes principalmente preguntan sobre <b>{topic}</b>. Agrega conocimiento sobre este tema para mejorar la resolución.",
+    "intentsEmptyHint": "Aún no hay conversaciones. Comparte el enlace de tu agente para comenzar.",
+    "showTechnicalDetails": "Mostrar detalles técnicos",
+    "hideTechnicalDetails": "Ocultar detalles técnicos"
   },
   "billing": {
     "pageTitle": "Facturación",

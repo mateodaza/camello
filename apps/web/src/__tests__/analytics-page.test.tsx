@@ -8,9 +8,17 @@ import { nDaysAgoStr, localDateStr } from '@/lib/format';
 // ---------------------------------------------------------------------------
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, params?: Record<string, unknown>) => {
-    if (params) return `${key}:${JSON.stringify(params)}`;
-    return key;
+  useTranslations: () => {
+    const tFn = (key: string, params?: Record<string, unknown>): string => {
+      if (params) return `${key}:${JSON.stringify(params)}`;
+      return key;
+    };
+    return Object.assign(tFn, {
+      rich: (key: string, params?: Record<string, unknown>): string => {
+        if (params) return `${key}:${JSON.stringify(params)}`;
+        return key;
+      },
+    });
   },
   useLocale: () => 'en',
 }));
@@ -179,7 +187,80 @@ describe('AnalyticsPage', () => {
     expect(screen.getByText('columnHandoffsIn')).toBeInTheDocument();
     expect(screen.getByText('columnHandoffsOut')).toBeInTheDocument();
     expect(screen.getByText('columnResolutions')).toBeInTheDocument();
+  });
+
+  it('NC-253-T1: renders health bar segments and old StatCard tiles are absent', async () => {
+    setQueryMock('analytics.overview', overviewData);
+    setQueryMock('artifact.list', []);
+    setQueryMock('analytics.recentLogs', []);
+
+    const mod = await import('@/app/dashboard/analytics/page');
+    render(createElement(mod.default));
+
+    expect(screen.queryByText('totalConversations')).toBeNull();
+    expect(screen.queryByText('active')).toBeNull();
+
+    const resolved = screen.getByTestId('health-bar-resolved');
+    expect(resolved.style.width).toContain('58.8'); // 10/17*100
+
+    const active = screen.getByTestId('health-bar-active');
+    expect(active.style.width).toContain('29.4'); // 5/17*100
+
+    const escalated = screen.getByTestId('health-bar-escalated');
+    expect(escalated.style.width).toContain('11.7'); // 2/17*100
+  });
+
+  it('NC-253-T2: technical columns hidden by default; toggle reveals them', async () => {
+    setQueryMock('analytics.overview', overviewData);
+    setQueryMock('artifact.list', artifactListData);
+    setQueryMock('analytics.recentLogs', []);
+    setQueryMock('analytics.artifactMetrics', [
+      {
+        id: 'row-1',
+        metricDate: '2026-03-01',
+        handoffsIn: 3,
+        handoffsOut: 1,
+        resolutionsCount: 2,
+        avgLatencyMs: '450',
+        llmCostUsd: '0.001',
+      },
+    ]);
+
+    const mod = await import('@/app/dashboard/analytics/page');
+    render(createElement(mod.default));
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'agent-1' } });
+
+    expect(screen.queryByText('columnAvgLatency')).toBeNull();
+    expect(screen.queryByText('columnLLMCost')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'showTechnicalDetails' }));
+
     expect(screen.getByText('columnAvgLatency')).toBeInTheDocument();
     expect(screen.getByText('columnLLMCost')).toBeInTheDocument();
+  });
+
+  it('NC-253-T3: intents heading precedes daily-performance heading in DOM', async () => {
+    setQueryMock('analytics.overview', overviewData);
+    setQueryMock('artifact.list', artifactListData);
+    setQueryMock('analytics.recentLogs', [
+      { intent: 'pricing', id: 'log-1' },
+      { intent: 'pricing', id: 'log-2' },
+      { intent: 'support', id: 'log-3' },
+    ]);
+    setQueryMock('analytics.artifactMetrics', []);
+
+    const mod = await import('@/app/dashboard/analytics/page');
+    render(createElement(mod.default));
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toHaveValue('agent-1');
+    });
+
+    const intentsHeading = screen.getByText('sectionIntents');
+    const dailyHeading = screen.getByText('dailyPerformance');
+    expect(
+      intentsHeading.compareDocumentPosition(dailyHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

@@ -695,7 +695,15 @@
     "preset7d": "7 days",
     "preset30d": "30 days",
     "preset90d": "90 days",
-    "customRange": "Custom range"
+    "customRange": "Custom range",
+    "convHealthTotal": "Total Conversations",
+    "convHealthResolved": "resolved",
+    "convHealthActive": "active",
+    "convHealthEscalated": "escalated",
+    "intentsContextHint": "Your customers mostly ask about <b>{topic}</b>. Add knowledge on this topic to improve resolution.",
+    "intentsEmptyHint": "No conversations yet. Share your agent link to get started.",
+    "showTechnicalDetails": "Show technical details",
+    "hideTechnicalDetails": "Hide technical details"
   },
   "billing": {
     "pageTitle": "Billing",

@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { localDateStr, nDaysAgoStr, fmtCost, fmtInt, fmtMoney } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { StatCard, Metric } from '@/components/stat-card';
+import { Metric } from '@/components/stat-card';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChartCss } from '@/components/agent-workspace/primitives/bar-chart-css';
@@ -111,6 +111,7 @@ export default function AnalyticsPage() {
 
   // --- Unified agent selector ---
   const [selectedArtifactId, setSelectedArtifactId] = useState('');
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   // --- Queries ---
   const overview = trpc.analytics.overview.useQuery({ from: validFrom, to: validTo });
@@ -175,9 +176,9 @@ export default function AnalyticsPage() {
   );
   if (overview.isError) return <QueryError error={overview.error} onRetry={() => overview.refetch()} />;
 
-  const convStats = overview.data?.conversations ?? {};
+  const convStats = overview.data?.conversations ?? { active: 0, resolved: 0, escalated: 0 };
   const cost = overview.data?.cost;
-  const total = Object.values(convStats).reduce((s, n) => s + n, 0);
+  const total = (convStats.resolved ?? 0) + (convStats.active ?? 0) + (convStats.escalated ?? 0);
 
   return (
     <div className="space-y-8">
@@ -250,13 +251,41 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* ===== SECTION A: Overview Stats ===== */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title={t('totalConversations')} value={total} />
-        <StatCard title={t('active')} value={convStats['active'] ?? 0} />
-        <StatCard title={t('resolved')} value={convStats['resolved'] ?? 0} />
-        <StatCard title={t('escalated')} value={convStats['escalated'] ?? 0} />
-      </div>
+      {/* ===== SECTION A: Conversation Health Card ===== */}
+      <Card>
+        <CardContent className="pt-5">
+          <p className="font-heading text-4xl font-bold text-charcoal tabular-nums">{total}</p>
+          <p className="text-sm text-dune">{t('convHealthTotal')}</p>
+
+          {total === 0 ? (
+            <div className="my-3 h-3 rounded-full bg-charcoal/10" />
+          ) : (
+            <div className="my-3 flex h-3 overflow-hidden rounded-full">
+              <div
+                data-testid="health-bar-resolved"
+                className="bg-teal"
+                style={{ width: `${((convStats.resolved ?? 0) / total) * 100}%` }}
+              />
+              <div
+                data-testid="health-bar-active"
+                className="bg-charcoal/20"
+                style={{ width: `${((convStats.active ?? 0) / total) * 100}%` }}
+              />
+              <div
+                data-testid="health-bar-escalated"
+                className="bg-sunset"
+                style={{ width: `${((convStats.escalated ?? 0) / total) * 100}%` }}
+              />
+            </div>
+          )}
+
+          <p className="text-sm text-dune">
+            {convStats.resolved ?? 0} {t('convHealthResolved')}
+            {' · '}{convStats.active ?? 0} {t('convHealthActive')}
+            {' · '}{convStats.escalated ?? 0} {t('convHealthEscalated')}
+          </p>
+        </CardContent>
+      </Card>
 
       {cost && (
         <Card>
@@ -283,18 +312,6 @@ export default function AnalyticsPage() {
             <AgentPerformance artifactId={selectedArtifactId} />
           </div>
 
-          {/* Top Intents */}
-          {intentBars.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionIntents')}</h2>
-              <Card>
-                <CardContent className="pt-5">
-                  <BarChartCss bars={intentBars} ariaLabel={t('sectionIntents')} />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
           {/* Sales Comparison (sales agents only) */}
           {isSalesAgent && (
             <div className="space-y-3">
@@ -313,6 +330,34 @@ export default function AnalyticsPage() {
         </div>
       )}
 
+      {/* ===== Top Intents (standalone, before daily performance) ===== */}
+      {selectedArtifactId && (
+        <div className="space-y-3">
+          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionIntents')}</h2>
+          {recentLogs.isLoading ? (
+            <Skeleton className="h-24 rounded-xl" />
+          ) : recentLogs.isError ? (
+            <QueryError error={recentLogs.error} onRetry={() => recentLogs.refetch()} />
+          ) : intentBars.length > 0 ? (
+            <>
+              <Card>
+                <CardContent className="pt-5">
+                  <BarChartCss bars={intentBars} ariaLabel={t('sectionIntents')} />
+                </CardContent>
+              </Card>
+              <p className="text-sm text-dune">
+                {t.rich('intentsContextHint', {
+                  topic: intentBars[0].label,
+                  b: (chunks) => <strong>{chunks}</strong>,
+                })}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-dune">{t('intentsEmptyHint')}</p>
+          )}
+        </div>
+      )}
+
       {/* ===== SECTION B: Daily Performance ===== */}
       <div className="space-y-3">
         <h2 className="font-heading text-lg font-semibold text-charcoal">{t('dailyPerformance')}</h2>
@@ -326,6 +371,7 @@ export default function AnalyticsPage() {
         ) : (artifactMetrics.data?.length ?? 0) === 0 ? (
           <p className="text-dune">{t('noMetrics')}</p>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
             <table className="min-w-[650px] w-full text-sm">
               <thead>
@@ -334,8 +380,8 @@ export default function AnalyticsPage() {
                   <th className="px-4 py-3 font-medium">{t('columnHandoffsIn')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnHandoffsOut')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnResolutions')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnAvgLatency')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnLLMCost')}</th>
+                  {showTechnicalDetails && <th className="px-4 py-3 font-medium">{t('columnAvgLatency')}</th>}
+                  {showTechnicalDetails && <th className="px-4 py-3 font-medium">{t('columnLLMCost')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -345,13 +391,25 @@ export default function AnalyticsPage() {
                     <td className="px-4 py-3">{row.handoffsIn}</td>
                     <td className="px-4 py-3">{row.handoffsOut}</td>
                     <td className="px-4 py-3">{row.resolutionsCount}</td>
-                    <td className="px-4 py-3">{Number(row.avgLatencyMs).toFixed(0)} {t('ms')}</td>
-                    <td className="px-4 py-3">{fmtCost(row.llmCostUsd, locale)}</td>
+                    {showTechnicalDetails && (
+                      <td className="px-4 py-3">{Number(row.avgLatencyMs).toFixed(0)} {t('ms')}</td>
+                    )}
+                    {showTechnicalDetails && (
+                      <td className="px-4 py-3">{fmtCost(row.llmCostUsd, locale)}</td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowTechnicalDetails((v) => !v)}
+            className="mt-3 text-sm text-dune underline-offset-2 hover:underline"
+          >
+            {t(showTechnicalDetails ? 'hideTechnicalDetails' : 'showTechnicalDetails')}
+          </button>
+          </>
         )}
       </div>
     </div>
