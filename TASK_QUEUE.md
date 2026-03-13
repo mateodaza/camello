@@ -58,7 +58,7 @@ Generate formatted invoices from quotes (new module + table + shareable public l
 Done: Clerk production instance created (cloned from dev). Google OAuth configured with production credentials. 5 DNS CNAMEs verified on Cloudflare (gray cloud). Webhook registered with Svix signing secret. Env vars swapped on Railway (API) + Vercel (Web). Onboarding cache invalidation bug fixed (stale `tenant.me` after `onboarding.complete` → bounce loop).
 
 #### CAM-201 [waiting] Paddle business verification (Mateo)
-Submitted: legal pages created (/terms, /privacy, /refund), business info filled. Provisional approval received — 3 feedback items addressed (removed refund qualifiers, added 14-day window, fixed legal name to "Camello"). Waiting for Paddle final review.
+Submitted: legal pages created (/terms, /privacy, /refund), business info filled. Provisional approval received — 3 feedback items addressed (removed refund qualifiers, added 14-day window, fixed legal name to "Camello"). Production API key + client-side token generated and ready to set on Railway/Vercel. Products/prices to be created once plan structure finalized. Waiting for Paddle final verification approval.
 
 #### CAM-202 [manual] Apply migration 0023 to Supabase cloud (Mateo)
 `context_curation` JSONB column on `interaction_logs`. Review SQL in `packages/db/migrations/0023_context_curation_telemetry.sql` and apply via Supabase dashboard.
