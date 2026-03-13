@@ -118,7 +118,7 @@ The WhatsApp adapter + webhook handler are fully built. The only missing piece i
 
 ---
 
-#### NC-258 [ ] WhatsApp onboarding: add token + phone number ID fields to Step 5
+#### NC-258 [x] WhatsApp onboarding: add token + phone number ID fields to Step 5
 
 The current onboarding Step 5 (Connect Channel) already has a WhatsApp path that collects the phone number. It needs the access token field added, and the phone number input relabeled as "Phone Number ID".
 
@@ -139,6 +139,7 @@ The current onboarding Step 5 (Connect Channel) already has a WhatsApp path that
 - `pnpm type-check` passes
 
 **Depends on:** NC-257
+_Done: Relabeled phone→Phone Number ID, added access token field, webhook URL + verify token read-only from `channel.webhookConfig`, inline validation, `copy` i18n key added (en+es), 3 tests in `step4-connect-channel.test.tsx`._
 
 ---
 
