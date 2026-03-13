@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Pencil, BookOpen, Lightbulb } from 'lucide-react';
+import { Plus, Pencil, BookOpen, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { KnowledgeGuidedEmptyState } from '@/components/dashboard/knowledge-guided-empty-state';
 import { useToast } from '@/hooks/use-toast';
 
@@ -53,6 +53,22 @@ export default function KnowledgePage() {
   const [filterModuleSlug, setFilterModuleSlug] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
   const [learningsExpanded, setLearningsExpanded] = useState(false);
+
+  const [selectedArtifactId, setSelectedArtifactId] = useState('');
+
+  const artifacts = trpc.artifact.list.useQuery({ activeOnly: false });
+
+  // Auto-select when exactly one agent exists (same pattern as analytics page)
+  useEffect(() => {
+    if (selectedArtifactId === '' && artifacts.data?.length === 1) {
+      setSelectedArtifactId(artifacts.data[0].id);
+    }
+  }, [artifacts.data, selectedArtifactId]);
+
+  const knowledgeGaps = trpc.agent.supportKnowledgeGaps.useQuery(
+    { artifactId: selectedArtifactId },
+    { enabled: !!selectedArtifactId },
+  );
 
   // Reset pagination + state on filter change
   function handleSourceTypeChange(val: string) {
@@ -235,6 +251,16 @@ export default function KnowledgePage() {
     setContent('');
     setTitle('');
     setSourceUrl('');
+  }
+
+  function humanizeSlug(slug: string): string {
+    return slug.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function typeBadgeClass(type: string): string {
+    if (type === 'correction') return 'rounded-full px-2 py-0.5 text-xs font-medium bg-gold/15 text-gold';
+    if (type === 'preference') return 'rounded-full px-2 py-0.5 text-xs font-medium bg-teal/10 text-teal';
+    return '';
   }
 
   return (
@@ -446,7 +472,61 @@ export default function KnowledgePage() {
         )}
       </div>
 
-      {/* ===== SECTION 2: Learnings ===== */}
+      {/* ===== SECTION 2: Knowledge Gaps ===== */}
+      <div className="space-y-4" data-testid="knowledge-gaps-section">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionGaps')}</h2>
+          {/* Agent selector — shown only when multiple agents exist */}
+          {(artifacts.data?.length ?? 0) > 1 && (
+            <select
+              value={selectedArtifactId}
+              onChange={(e) => setSelectedArtifactId(e.target.value)}
+              className="ml-auto rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+            >
+              <option value="">—</option>
+              {artifacts.data!.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {artifacts.isError ? (
+          <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />
+        ) : !selectedArtifactId ? (
+          <p className="text-sm text-dune">{t('gapsSelectAgent')}</p>
+        ) : knowledgeGaps.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : knowledgeGaps.isError ? (
+          <QueryError error={knowledgeGaps.error} onRetry={() => knowledgeGaps.refetch()} />
+        ) : (knowledgeGaps.data?.length ?? 0) === 0 ? (
+          /* Success empty state — only reached when query succeeded with zero results */
+          <div data-testid="gaps-empty-state" className="flex items-center gap-2 rounded-lg bg-teal/8 px-4 py-3">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-teal" />
+            <p className="text-sm text-teal">{t('gapsEmptySuccess')}</p>
+          </div>
+        ) : (
+          <ul data-testid="gaps-list" className="divide-y divide-charcoal/8 rounded-xl border-2 border-charcoal/8 bg-cream">
+            {knowledgeGaps.data!.map((gap) => (
+              <li key={gap.intent} className="flex items-start gap-3 px-4 py-3">
+                <span className="inline-block rounded bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal lowercase shrink-0">
+                  {gap.intent}
+                </span>
+                <div className="flex-1 min-w-0">
+                  {gap.sampleQuestion && (
+                    <p className="text-sm text-charcoal line-clamp-2">{gap.sampleQuestion}</p>
+                  )}
+                </div>
+                <span className="shrink-0 text-xs text-dune">{gap.count}×</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* ===== SECTION 3: Learnings ===== */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="font-heading text-lg font-semibold text-charcoal">
@@ -476,7 +556,7 @@ export default function KnowledgePage() {
               >
                 <option value="">{t('filterByModuleSelect')}</option>
                 {uniqueModuleSlugs.map((slug) => (
-                  <option key={slug} value={slug}>{slug}</option>
+                  <option key={slug} value={slug}>{humanizeSlug(slug)}</option>
                 ))}
               </select>
               <label className="flex items-center gap-2 text-sm text-charcoal">
@@ -498,6 +578,8 @@ export default function KnowledgePage() {
                 </Button>
               )}
             </div>
+
+            <p className="text-xs text-dune">{t('learningsHelpText')}</p>
 
             {learningList.isLoading ? (
               <div className="space-y-2">
@@ -528,13 +610,27 @@ export default function KnowledgePage() {
                     {learnings.map((l) => (
                       <tr key={l.id} className="border-b border-charcoal/8 last:border-0">
                         <td className="px-4 py-3">
-                          <Badge>{l.type}</Badge>
+                          {l.type === 'correction' || l.type === 'preference' ? (
+                            <span className={typeBadgeClass(l.type)}>{l.type}</span>
+                          ) : (
+                            <Badge>{l.type}</Badge>
+                          )}
                         </td>
                         <td className="max-w-xs px-4 py-3 text-charcoal" title={l.content}>
                           {l.contentShort}
                         </td>
-                        <td className="px-4 py-3">{Number(l.confidence).toFixed(2)}</td>
-                        <td className="px-4 py-3 text-dune">{l.sourceModuleSlug ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          <div
+                            className="h-1.5 w-16 rounded-full bg-charcoal/10"
+                            title={`${(Number(l.confidence) * 100).toFixed(0)}%`}
+                          >
+                            <div
+                              className="h-full rounded-full bg-teal"
+                              style={{ width: `${(Number(l.confidence) * 100).toFixed(0)}%` }}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-dune">{l.sourceModuleSlug ? humanizeSlug(l.sourceModuleSlug) : '—'}</td>
                         <td className="px-4 py-3">
                           {l.archivedAt ? (
                             <Badge>{t('archived')}</Badge>

@@ -811,7 +811,8 @@ Replace the 4 flat stat cards with one visual health card. Surface top intents a
 
 ### P1 — Knowledge: surface what matters
 
-#### NC-254 [ ] Knowledge: gaps first, learnings polished
+#### NC-254 [x] Knowledge: gaps first, learnings polished
+**DONE.** Inserted Knowledge Gaps section (always-visible, error-safe branch order) between Documents and Learnings; confidence bar replaces raw decimal; module slug humanized; type badge color-coded; help text above learnings table; 4 i18n keys (en+es); 4 tests. Type-check passes.
 
 Knowledge gaps are more actionable than learnings — a gap is something the agent *couldn't* answer right now. Promote them. Polish the learnings table so non-technical users understand it.
 

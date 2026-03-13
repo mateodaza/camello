@@ -657,7 +657,11 @@
     "emptyLearningsTitle": "No learnings yet",
     "emptyLearningsDescription": "Learnings are generated automatically as your agent has conversations.",
     "searchKnowledge": "Search knowledge documents...",
-    "noSearchResults": "No documents match your search."
+    "noSearchResults": "No documents match your search.",
+    "sectionGaps": "Knowledge Gaps",
+    "gapsSelectAgent": "Select an agent to see knowledge gaps.",
+    "gapsEmptySuccess": "Your agent is answering all questions confidently.",
+    "learningsHelpText": "Boost a learning to reinforce it in your agent's memory. Dismiss to remove it."
   },
   "analytics": {
     "pageTitle": "Analytics",

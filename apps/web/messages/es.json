@@ -657,7 +657,11 @@
     "emptyLearningsTitle": "Sin aprendizajes aún",
     "emptyLearningsDescription": "Los aprendizajes se generan automáticamente cuando tu agente tiene conversaciones.",
     "searchKnowledge": "Buscar documentos de conocimiento...",
-    "noSearchResults": "Ningún documento coincide con tu búsqueda."
+    "noSearchResults": "Ningún documento coincide con tu búsqueda.",
+    "sectionGaps": "Brechas de Conocimiento",
+    "gapsSelectAgent": "Selecciona un agente para ver brechas de conocimiento.",
+    "gapsEmptySuccess": "Tu agente está respondiendo todas las preguntas con confianza.",
+    "learningsHelpText": "Refuerza un aprendizaje para consolidarlo en la memoria de tu agente. Descarta para eliminarlo."
   },
   "analytics": {
     "pageTitle": "Analítica",

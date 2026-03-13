@@ -13,6 +13,7 @@ vi.mock('next-intl', () => ({
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => ({ get: () => null }),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -102,6 +103,20 @@ describe('KnowledgePage', () => {
       error: null,
       refetch: vi.fn(),
     });
+    queryMocks.set('artifact.list', {
+      data: [{ id: 'a1', name: 'Test Agent', type: 'support' }],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    queryMocks.set('agent.supportKnowledgeGaps', {
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
   });
 
   it('learnings section is collapsed by default', async () => {
@@ -116,5 +131,59 @@ describe('KnowledgePage', () => {
     render(createElement(mod.default));
     fireEvent.click(screen.getByRole('button', { name: 'sectionLearningsToggle' }));
     expect(screen.getByTestId('learnings-table')).toBeInTheDocument();
+  });
+
+  it('knowledge gaps section appears before learnings section', async () => {
+    const mod = await import('@/app/dashboard/knowledge/page');
+    const { container } = render(createElement(mod.default));
+    const headings = Array.from(container.querySelectorAll('h2'));
+    const headingTexts = headings.map((h) => h.textContent);
+    const gapsIdx = headingTexts.findIndex((t) => t === 'sectionGaps');
+    const learningsIdx = headingTexts.findIndex((t) => t === 'sectionLearnings');
+    expect(gapsIdx).toBeGreaterThanOrEqual(0);
+    expect(learningsIdx).toBeGreaterThanOrEqual(0);
+    expect(gapsIdx).toBeLessThan(learningsIdx);
+  });
+
+  it('shows success callout when agent has no knowledge gaps', async () => {
+    // isError: false, data: [] → must reach gapsEmptySuccess branch, not QueryError
+    queryMocks.set('agent.supportKnowledgeGaps', {
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    const mod = await import('@/app/dashboard/knowledge/page');
+    render(createElement(mod.default));
+    expect(screen.getByTestId('gaps-empty-state')).toBeInTheDocument();
+    expect(screen.getByText('gapsEmptySuccess')).toBeInTheDocument();
+  });
+
+  it('shows error state (not success callout) when gaps query fails', async () => {
+    queryMocks.set('agent.supportKnowledgeGaps', {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('network error'),
+      refetch: vi.fn(),
+    });
+    const mod = await import('@/app/dashboard/knowledge/page');
+    render(createElement(mod.default));
+    // Success callout must not appear
+    expect(screen.queryByTestId('gaps-empty-state')).toBeNull();
+    // QueryError retry button must be present, confirming the error branch rendered
+    expect(screen.getAllByText('error.retry').length).toBeGreaterThan(0);
+  });
+
+  it('shows confidence bar instead of raw decimal when learnings are expanded', async () => {
+    const mod = await import('@/app/dashboard/knowledge/page');
+    render(createElement(mod.default));
+    fireEvent.click(screen.getByRole('button', { name: 'sectionLearningsToggle' }));
+    const table = screen.getByTestId('learnings-table');
+    // Progress bar fill exists
+    expect(table.querySelector('.bg-teal')).toBeInTheDocument();
+    // Raw decimal 0.90 should not appear as text
+    expect(screen.queryByText('0.90')).toBeNull();
   });
 });
