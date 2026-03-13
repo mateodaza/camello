@@ -849,7 +849,8 @@ With 3 dimmed cards around it, the sales card needs to visually communicate "thi
 
 ### P2 — Repo quality pass
 
-#### NC-256 [ ] Repo quality: easy wins sweep
+#### NC-256 [x] Repo quality: easy wins sweep
+**DONE.** Removed 71 orphaned i18n keys per file: entire `conversations` namespace (30 keys), 34 stale `dashboard` keys (legacy stats/intent breakdown widgets), 7 stale `agentWorkspace` keys (unshipped channels + removed widget). Added `i18n-orphans.test.ts` (≥19 assertions: primary JSON parse + secondary source scan). Type-check passes.
 
 A focused read-and-fix pass. Goal: leave the codebase a bit cleaner without touching working logic. NC has full latitude to explore and decide what to fix — the acceptance criteria are minimum bars, not an exhaustive list.
 
