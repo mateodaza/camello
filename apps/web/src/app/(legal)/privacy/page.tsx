@@ -20,7 +20,7 @@ export default function PrivacyPage() {
 
       <p className="text-charcoal/85 leading-relaxed mb-10">
         Camello (&ldquo;we,&rdquo; &ldquo;us,&rdquo; &ldquo;our&rdquo;) is
-        operated by Mateo Daza as a sole proprietorship based in Colombia.
+        based in Colombia.
         This Privacy Policy explains how we collect, use, share, and protect
         your information when you use the Camello platform at{' '}
         <a
@@ -362,7 +362,7 @@ export default function PrivacyPage() {
           <a href="mailto:privacy@camello.xyz">privacy@camello.xyz</a>.
         </p>
         <p>
-          Data Controller: Mateo Daza, operating as Camello
+          Data Controller: Camello
           <br />
           Location: Colombia
         </p>
