@@ -11,7 +11,7 @@ import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DollarSign, Headphones, Megaphone, Wrench,
-  MessageSquare, Settings, X, Zap, BarChart3,
+  MessageSquare, Settings, X, Zap, BarChart3, BrainCircuit,
 } from 'lucide-react';
 import { TestChatPanel } from '@/components/test-chat-panel';
 import { useToast } from '@/hooks/use-toast';
@@ -313,6 +313,34 @@ function DisabledCard({ arch }: { arch: Archetype }) {
 }
 
 // ---------------------------------------------------------------------------
+// AdvisorCard — compact gold-accented card for the internal advisor agent
+// ---------------------------------------------------------------------------
+
+function AdvisorCard({ artifact, onChat }: { artifact: { id: string; name: string; type: string }; onChat: () => void }) {
+  const t = useTranslations('artifacts');
+  return (
+    <div data-testid="advisor-card">
+      <Card className="ring-1 ring-gold/30">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BrainCircuit className="h-5 w-5 text-gold" />
+              <div>
+                <p className="text-sm font-semibold text-charcoal">{artifact.name}</p>
+                <p className="text-xs text-dune">{t('advisorDesc')}</p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" onClick={onChat}>
+              {t('chatWithAdvisor')}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SalesHeroSection — full-width hero card for the sales archetype
 // ---------------------------------------------------------------------------
 
@@ -556,6 +584,17 @@ export default function ArtifactsPage() {
           ))}
         </div>
       </div>
+
+      {/* Advisor card — shown below the main grid when an advisor artifact exists */}
+      {byType.get('advisor') && (
+        <AdvisorCard
+          artifact={byType.get('advisor')!}
+          onChat={() => {
+            const a = byType.get('advisor')!;
+            setTestingArtifact({ id: a.id, name: a.name, type: a.type });
+          }}
+        />
+      )}
 
       {/* Personality Drawer */}
       {editingArtifact && (

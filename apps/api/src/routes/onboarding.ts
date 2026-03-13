@@ -30,7 +30,7 @@ const constraintsSchema = z.object({
 export const BusinessModelSuggestionSchema = z.object({
   template: z.enum(['services', 'ecommerce', 'saas', 'restaurant', 'realestate']),
   agentName: z.string(),
-  agentType: z.enum(['sales', 'support', 'marketing', 'custom']),
+  agentType: z.enum(['sales', 'support', 'marketing', 'custom', 'advisor']),
   personality: personalitySchema,
   constraints: constraintsSchema,
   industry: z.string(),
@@ -472,7 +472,7 @@ Directrices:
     }),
 
   /**
-   * Marks onboarding as complete.
+   * Marks onboarding as complete. Idempotently creates the internal advisor artifact.
    */
   complete: tenantProcedure.mutation(async ({ ctx }) => {
     await ctx.tenantDb.query(async (db) => {
@@ -484,6 +484,32 @@ Directrices:
         })
         .where(eq(tenants.id, ctx.tenantId));
     });
+
+    const [tenantRow] = await ctx.tenantDb.query(async (db) =>
+      db.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1),
+    );
+
+    const [existingAdvisor] = await ctx.tenantDb.query(async (db) =>
+      db
+        .select({ id: artifacts.id })
+        .from(artifacts)
+        .where(and(eq(artifacts.tenantId, ctx.tenantId), eq(artifacts.type, 'advisor')))
+        .limit(1),
+    );
+
+    if (!existingAdvisor) {
+      await ctx.tenantDb.query(async (db) => {
+        await db.insert(artifacts).values({
+          tenantId: ctx.tenantId,
+          name: `${tenantRow?.name ?? 'Unnamed'} Advisor`,
+          type: 'advisor',
+          isActive: true,
+          personality: { instructions: '', tone: 'analytical, direct, and specific' },
+          constraints: {},
+        });
+      });
+    }
+
     return { ok: true };
   }),
 });

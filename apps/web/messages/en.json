@@ -124,7 +124,9 @@
     "salesCardConversationsThisWeek": "Conversations this week",
     "salesCardActive": "Active",
     "salesCardActiveYes": "yes",
-    "salesCardActiveNo": "no"
+    "salesCardActiveNo": "no",
+    "advisorDesc": "Your internal business co-pilot — ask it anything about your sales activity",
+    "chatWithAdvisor": "Chat with Advisor"
   },
   "agentWorkspace": {
     "backToAgents": "Back to agents",

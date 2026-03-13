@@ -408,7 +408,7 @@ Final polish on the chat onboarding.
 
 ## P3 — Advisor Agent
 
-#### NC-268 [ ] Advisor archetype + auto-create in onboarding
+#### NC-268 [x] Advisor archetype + auto-create in onboarding
 
 Every Camello tenant gets an internal advisor agent — not customer-facing, but available in the dashboard as an AI co-pilot that knows their business, conversations, and knowledge base. Auto-created when onboarding completes.
 
@@ -492,6 +492,7 @@ await tenantDb.query(async (db) => {
 - `pnpm type-check` passes
 
 **Depends on:** NC-263 (onboarding complete() extension should run after chat onboarding is wired up)
+_Done: Migration 0026_advisor_artifact_type.sql adds 'advisor' to CHECK constraint. `advisor.ts` archetype self-registers with en/es prompts, ragBias, gold color, BrainCircuit icon. `onboarding.complete()` idempotently creates advisor artifact post-completion. Artifacts page shows gold-accented AdvisorCard with "Chat with Advisor" CTA. 2 i18n keys (en+es). 2 API tests (create + idempotent) + 1 web test (card renders). Type-check passes._
 
 ---
 
