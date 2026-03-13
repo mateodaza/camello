@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { createHmac } from 'node:crypto';
 import { createTenantDb } from '@camello/db';
 import {
   verifyWhatsAppSignature,
@@ -9,6 +10,7 @@ import {
   extractMetaMessage,
   normalizeMetaMessage,
   whatsappAdapter,
+  getWhatsappTenantIds,
 } from '../adapters/whatsapp.js';
 import { handleMessage } from '../orchestration/message-handler.js';
 
@@ -25,23 +27,35 @@ export const whatsappRoutes = new Hono();
  * GET /webhook — Meta verification challenge.
  *
  * Meta sends this when you register a webhook URL.
- * Responds with the challenge token if verify_token matches.
+ * Responds with the challenge token if the verify_token matches any tenant's
+ * per-tenant HMAC token (HMAC-SHA256 of tenantId with WA_VERIFY_TOKEN_SECRET).
+ * All tenants are checked — not just those with existing channel_configs rows —
+ * so first-time setup works before any channel row is saved.
  */
-whatsappRoutes.get('/webhook', (c) => {
+whatsappRoutes.get('/webhook', async (c) => {
   const mode = c.req.query('hub.mode');
   const token = c.req.query('hub.verify_token');
   const challenge = c.req.query('hub.challenge');
 
-  const verifyToken = process.env.WA_VERIFY_TOKEN;
-  if (!verifyToken) {
-    console.error('[whatsapp] WA_VERIFY_TOKEN not configured');
+  const secret = process.env.WA_VERIFY_TOKEN_SECRET;
+  if (!secret) {
+    console.error('[whatsapp] WA_VERIFY_TOKEN_SECRET not configured');
     return c.text('Server misconfigured', 500);
   }
 
-  if (mode === 'subscribe' && token === verifyToken) {
-    return c.text(challenge ?? '', 200);
+  if (mode !== 'subscribe' || !token) {
+    return c.text('Forbidden', 403);
   }
 
+  const tenantIds = await getWhatsappTenantIds();
+  const matched = tenantIds.some(
+    (tenantId) =>
+      createHmac('sha256', secret).update(tenantId).digest('hex').slice(0, 32) === token,
+  );
+
+  if (matched) {
+    return c.text(challenge ?? '', 200);
+  }
   return c.text('Forbidden', 403);
 });
 

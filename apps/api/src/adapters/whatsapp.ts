@@ -61,6 +61,48 @@ export async function resolveTenantByPhoneNumberId(
 }
 
 // ---------------------------------------------------------------------------
+// WhatsApp tenant enumeration — SECURITY DEFINER RPC (bypasses RLS)
+// ---------------------------------------------------------------------------
+
+/**
+ * Return all tenant_ids in the platform.
+ * Used by GET /webhook to verify per-tenant HMAC tokens without a known tenant context.
+ * Returns ALL tenants (not just those with channel_configs rows) so that first-time
+ * setup works: Meta's webhook challenge fires before any channel_configs row exists.
+ */
+export async function getWhatsappTenantIds(): Promise<string[]> {
+  const result = await db.execute(
+    sql`SELECT tenant_id FROM get_whatsapp_tenant_ids()`,
+  );
+  return (result.rows as Array<{ tenant_id: string }>).map((r) => r.tenant_id);
+}
+
+// ---------------------------------------------------------------------------
+// Phone number ID verification — Meta Graph API
+// ---------------------------------------------------------------------------
+
+/**
+ * Verify a WhatsApp phone number ID + access token against Meta Graph API.
+ * Returns the display_phone_number on success, null on any failure.
+ * Called by channel.verifyWhatsapp tRPC procedure.
+ */
+export async function verifyPhoneNumberId(
+  phoneNumberId: string,
+  accessToken: string,
+): Promise<{ displayPhoneNumber: string } | null> {
+  try {
+    const url = `${GRAPH_API_BASE}/${phoneNumberId}?fields=display_phone_number&access_token=${encodeURIComponent(accessToken)}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const data = (await response.json()) as { display_phone_number?: string };
+    if (!data.display_phone_number) return null;
+    return { displayPhoneNumber: data.display_phone_number };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Customer find-or-create
 // ---------------------------------------------------------------------------
 

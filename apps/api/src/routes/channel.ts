@@ -1,8 +1,11 @@
+import { createHmac } from 'node:crypto';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { channelConfigs } from '@camello/db';
 import { channelSchema } from '@camello/shared/schemas';
+import { verifyPhoneNumberId } from '../adapters/whatsapp.js';
 
 export const channelRouter = router({
   list: tenantProcedure.query(async ({ ctx }) => {
@@ -16,6 +19,7 @@ export const channelRouter = router({
           isActive: channelConfigs.isActive,
           createdAt: channelConfigs.createdAt,
           // credentials excluded for security — never sent to client
+          displayPhoneNumber: sql<string | null>`${channelConfigs.credentials}->>'display_phone_number'`,
         })
         .from(channelConfigs)
         .where(eq(channelConfigs.tenantId, ctx.tenantId));
@@ -73,5 +77,41 @@ export const channelRouter = router({
           .returning({ id: channelConfigs.id });
         return rows[0] ?? null;
       });
+    }),
+
+  webhookConfig: tenantProcedure.query(({ ctx }) => {
+    const secret = process.env.WA_VERIFY_TOKEN_SECRET;
+    if (!secret) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'WA_VERIFY_TOKEN_SECRET not configured' });
+    const apiUrl = process.env.API_URL;
+    if (!apiUrl) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'API_URL not configured' });
+    const verifyToken = createHmac('sha256', secret).update(ctx.tenantId).digest('hex').slice(0, 32);
+    const webhookUrl = `${apiUrl}/api/channels/whatsapp/webhook`;
+    return { webhookUrl, verifyToken };
+  }),
+
+  verifyWhatsapp: tenantProcedure
+    .input(z.object({ phoneNumberId: z.string().min(1), accessToken: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await verifyPhoneNumberId(input.phoneNumberId, input.accessToken);
+      if (!result) {
+        return { valid: false as const, error: 'Failed to verify credentials with Meta. Check your access token and phone number ID.' };
+      }
+
+      // Merge display_phone_number into existing credentials JSONB — preserves access_token
+      await ctx.tenantDb.query(async (db) => {
+        await db
+          .update(channelConfigs)
+          .set({
+            credentials: sql`${channelConfigs.credentials} || ${JSON.stringify({ display_phone_number: result.displayPhoneNumber })}::jsonb`,
+          })
+          .where(
+            and(
+              eq(channelConfigs.tenantId, ctx.tenantId),
+              eq(channelConfigs.channelType, 'whatsapp'),
+            ),
+          );
+      });
+
+      return { valid: true as const, displayPhoneNumber: result.displayPhoneNumber };
     }),
 });

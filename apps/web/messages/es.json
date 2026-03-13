@@ -1014,5 +1014,26 @@
     "terms": "Términos",
     "privacy": "Privacidad",
     "refund": "Reembolso"
+  },
+  "settings": {
+    "navProfile": "Perfil",
+    "navBilling": "Facturación",
+    "navChannels": "Canales"
+  },
+  "channels": {
+    "channelWhatsapp": "WhatsApp",
+    "channelWhatsappStatus": "Estado",
+    "channelWhatsappConnected": "Conectado — {displayPhone}",
+    "channelWhatsappNotConnected": "No conectado",
+    "channelWhatsappAccessToken": "Token de acceso",
+    "channelWhatsappAccessTokenHint": "Se encuentra en Meta Business Manager → WhatsApp Manager → Configuración de API → Token de acceso temporal o permanente",
+    "channelWhatsappPhoneNumberId": "ID de número de teléfono",
+    "channelWhatsappPhoneNumberIdHint": "El ID numérico junto a tu número de teléfono en Meta Business Manager → WhatsApp Manager. Ejemplo: 123456789012345",
+    "channelWebhookUrl": "URL de Webhook",
+    "channelWebhookVerifyToken": "Token de verificación",
+    "channelWebhookInstructions": "Pega esta URL en la configuración de webhook de tu aplicación de Meta, luego ingresa tu token de verificación a continuación.",
+    "channelSave": "Guardar",
+    "channelDisconnect": "Desconectar",
+    "channelVerifyError": "No se pudieron verificar las credenciales con Meta. Revisa tu token de acceso e ID de número de teléfono."
   }
 }

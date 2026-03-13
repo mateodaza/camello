@@ -88,7 +88,7 @@ Submit Camello's Meta App for Advanced Access (`whatsapp_business_messaging` + `
 
 ## P0 — WhatsApp Channel
 
-#### NC-257 [ ] WhatsApp settings UI — credential entry + webhook instructions
+#### NC-257 [x] WhatsApp settings UI — credential entry + webhook instructions
 
 The WhatsApp adapter + webhook handler are fully built. The only missing piece is a UI for the tenant to input their Meta access token + phone number ID, and instructions for registering the webhook in Meta Business Manager.
 
