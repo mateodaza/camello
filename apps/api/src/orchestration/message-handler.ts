@@ -1,6 +1,6 @@
 import { generateText } from 'ai';
 import { recordKnowledgeGap } from './knowledge-gap.js';
-import { eq, and, sql, desc, asc, isNull, gte, lt } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, isNull, gte, lt, inArray } from 'drizzle-orm';
 import type { TenantDb } from '@camello/db';
 import {
   artifacts,
@@ -1189,7 +1189,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
 // DB callback helpers for artifact resolver
 // ---------------------------------------------------------------------------
 
-async function findActiveConversation(
+export async function findActiveConversation(
   tenantDb: TenantDb,
   customerId: string,
 ) {
@@ -1214,7 +1214,7 @@ async function findActiveConversation(
       .where(
         and(
           eq(conversations.customerId, customerId),
-          eq(conversations.status, 'active'),
+          inArray(conversations.status, ['active', 'escalated']),
           eq(artifacts.isActive, true),
         ),
       )

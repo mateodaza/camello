@@ -143,7 +143,7 @@ _Done: Relabeled phone→Phone Number ID, added access token field, webhook URL 
 
 ---
 
-#### NC-260 [ ] Two-way WhatsApp conversation sync — validation + integration test
+#### NC-260 [x] Two-way WhatsApp conversation sync — validation + integration test
 
 The WhatsApp adapter already handles inbound messages and `conversation.replyAsOwner` sends outbound. Verify the full round-trip: customer sends → agent replies → customer sends again → lands in the SAME conversation (not a new one).
 
@@ -164,6 +164,7 @@ The WhatsApp adapter already handles inbound messages and `conversation.replyAsO
 - `pnpm type-check` passes
 
 **Depends on:** NC-257
+_Done: Fixed `findActiveConversation` bug — replaced `eq(conversations.status, 'active')` with `inArray(conversations.status, ['active', 'escalated'])` so customer messages after owner escalation continue in the same conversation. Exported `findActiveConversation` for direct testing. Created `apps/api/src/__tests__/whatsapp-roundtrip.test.ts` with 5 tests: (1) first message creates conversation with `channel: 'whatsapp'`; (2) second message reuses same conversation; (3) `replyAsOwner` inserts `role: 'human'` + WhatsApp delivery; (4) third message after owner reply continues same conversation (AC4 behavioral); (5) pg-proxy SQL regression test confirms `inArray` generates params containing `'escalated'`. All 427 tests pass._
 
 ---
 
