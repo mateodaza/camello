@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { eq, and, asc, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { knowledgeDocs, knowledgeSyncs, tenants } from '@camello/db';
+import { knowledgeDocs, knowledgeSyncs, tenants, ownerNotifications } from '@camello/db';
 import { ingestKnowledge, IngestionLimitError } from '@camello/ai';
 import type { PlanTier, KnowledgeChunk } from '@camello/shared/types';
 
@@ -177,6 +177,57 @@ export const knowledgeRouter = router({
           .from(knowledgeDocs)
           .where(eq(knowledgeDocs.tenantId, ctx.tenantId));
         return rows[0]?.count ?? 0;
+      });
+    }),
+
+  sufficiencyScore: tenantProcedure
+    .query(async ({ ctx }) => {
+      return ctx.tenantDb.query(async (db) => {
+        // ① Doc count
+        const docRows = await db
+          .select({ count: sql<number>`COUNT(*)::int` })
+          .from(knowledgeDocs)
+          .where(eq(knowledgeDocs.tenantId, ctx.tenantId));
+        const docCount = docRows[0]?.count ?? 0;
+
+        // ② Active synced URL (any knowledge_syncs row with status='synced')
+        const syncRows = await db
+          .select({ count: sql<number>`COUNT(*)::int` })
+          .from(knowledgeSyncs)
+          .where(and(
+            eq(knowledgeSyncs.tenantId, ctx.tenantId),
+            eq(knowledgeSyncs.status, 'synced'),
+          ));
+        const hasActiveSyncedUrl = (syncRows[0]?.count ?? 0) > 0;
+
+        // ③ Recent gaps — count owner_notifications of type 'knowledge_gap' in last 30 days.
+        // recordKnowledgeGap() (orchestration/knowledge-gap.ts) inserts rows here when the
+        // agent cannot answer a question, so this accurately reflects real knowledge gaps
+        // rather than all interaction logs.
+        const gapRows = await db
+          .select({ count: sql<number>`COUNT(*)::int` })
+          .from(ownerNotifications)
+          .where(and(
+            eq(ownerNotifications.tenantId, ctx.tenantId),
+            eq(ownerNotifications.type, 'knowledge_gap'),
+            sql`${ownerNotifications.createdAt} > now() - interval '30 days'`,
+          ));
+        const gapCount = gapRows[0]?.count ?? 0;
+
+        // Score formula
+        const base = Math.min(docCount * 20, 80);
+        const websiteBonus = hasActiveSyncedUrl ? 20 : 0;
+        const gapPenalty = Math.min(gapCount * 5, 40);
+        const score = Math.max(0, base + websiteBonus - gapPenalty);
+
+        // Human-readable signals (never empty when score < 60)
+        const signals: string[] = [];
+        if (docCount === 0) signals.push('No product information added yet');
+        if (docCount > 0 && docCount < 4) signals.push(`Only ${docCount} knowledge doc(s) added — add more to reach the full score`);
+        if (!hasActiveSyncedUrl) signals.push('No website connected');
+        if (gapCount > 0) signals.push(`${gapCount} questions your agent couldn't answer in the last 30 days`);
+
+        return { score, signals, docCount, gapCount };
       });
     }),
 

@@ -294,7 +294,8 @@ collecting_knowledge → ask_channel → done
 
 ---
 
-#### NC-264 [ ] Knowledge sufficiency score + dashboard nudge
+#### NC-264 [x] Knowledge sufficiency score + dashboard nudge
+> Added `sufficiencyScore` tenantProcedure (doc count, synced URL, gap count → formula). Gold banner on dashboard when score<60. Score widget (N/100 + label + bucket) on Knowledge page header. 6 i18n keys en+es. 5 API tests + 5 web tests updated. Gap query fixed (iter 3): uses `ownerNotifications` type='knowledge_gap' instead of `isNull(interactionLogs.resolutionType)` — `resolutionType` is never populated so the old query inflated gapCount.
 
 Track whether the tenant has enough knowledge to make their agent useful. Surface as a proactive nudge on the home dashboard.
 

@@ -8,14 +8,14 @@ import type { useTranslations } from 'next-intl';
 // ---------------------------------------------------------------------------
 
 const {
-  mockDocCount,
+  mockSufficiencyScore,
   mockArtifactList,
   mockTenantMe,
   mockDashboardOverview,
   mockActivityFeed,
   mockUpdateName,
 } = vi.hoisted(() => ({
-  mockDocCount: vi.fn(),
+  mockSufficiencyScore: vi.fn(),
   mockArtifactList: vi.fn(),
   mockTenantMe: vi.fn(),
   mockDashboardOverview: vi.fn(),
@@ -26,7 +26,7 @@ const {
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     knowledge: {
-      docCount: { useQuery: mockDocCount },
+      sufficiencyScore: { useQuery: mockSufficiencyScore },
     },
     artifact: {
       list: { useQuery: mockArtifactList },
@@ -99,8 +99,11 @@ beforeEach(() => {
     data: [{ id: 'a1', name: 'Aria', isActive: true, type: 'sales' }],
     isLoading: false, isError: false, refetch: vi.fn(),
   });
-  // Default: KB is non-empty (banner should be hidden)
-  mockDocCount.mockReturnValue({ data: 5, isLoading: false });
+  // Default: score=80 → banner hidden
+  mockSufficiencyScore.mockReturnValue({
+    data: { score: 80, signals: [], docCount: 5, gapCount: 0 },
+    isLoading: false,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -116,6 +119,8 @@ describe('KnowledgeBanner', () => {
     render(
       React.createElement(KnowledgeBanner, {
         agentName: 'Aria',
+        score: 45,
+        topSignal: 'No website connected',
         t: mockT,
       }),
     );
@@ -126,12 +131,14 @@ describe('KnowledgeBanner', () => {
     render(
       React.createElement(KnowledgeBanner, {
         agentName: 'Aria',
+        score: 45,
+        topSignal: 'No website connected',
         t: mockT,
       }),
     );
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', '/dashboard/knowledge');
-    expect(link.textContent).toBe('knowledgeBannerAction');
+    expect(link.textContent).toBe('knowledgeScoreAddCta');
   });
 });
 
@@ -167,20 +174,26 @@ describe('KnowledgeGuidedEmptyState', () => {
 // ---------------------------------------------------------------------------
 // DashboardOverview — knowledge banner gate tests
 //
-// These tests exercise trpc.knowledge.docCount.useQuery() through the real
+// These tests exercise trpc.knowledge.sufficiencyScore.useQuery() through the real
 // DashboardOverview component, verifying the showKnowledgeBanner gate logic:
-//   !docCountQuery.isLoading && docCountQuery.data === 0 && activeAgents.length > 0
+//   !sufficiencyScore.isLoading && sufficiencyScore.data.score < 60 && (artifacts.data?.length ?? 0) > 0
 // ---------------------------------------------------------------------------
 
 describe('DashboardOverview knowledge banner gate', () => {
-  it('4 — banner shows when docCount is 0 and an active agent exists', () => {
-    mockDocCount.mockReturnValue({ data: 0, isLoading: false });
+  it('4 — banner shows when score is below 60 and artifactsQuery.data is not empty', () => {
+    mockSufficiencyScore.mockReturnValue({
+      data: { score: 45, signals: ['Only 1 knowledge doc(s) added — add more to reach the full score'], docCount: 1, gapCount: 0 },
+      isLoading: false,
+    });
     render(React.createElement(DashboardOverview));
     expect(screen.getByTestId('knowledge-banner')).toBeInTheDocument();
   });
 
-  it('5 — banner is hidden when docCount is greater than 0', () => {
-    mockDocCount.mockReturnValue({ data: 3, isLoading: false });
+  it('5 — banner is hidden when score is 60 or above', () => {
+    mockSufficiencyScore.mockReturnValue({
+      data: { score: 80, signals: [], docCount: 5, gapCount: 0 },
+      isLoading: false,
+    });
     render(React.createElement(DashboardOverview));
     expect(screen.queryByTestId('knowledge-banner')).not.toBeInTheDocument();
   });

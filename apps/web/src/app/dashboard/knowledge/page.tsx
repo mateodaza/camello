@@ -57,6 +57,7 @@ export default function KnowledgePage() {
   const [selectedArtifactId, setSelectedArtifactId] = useState('');
 
   const artifacts = trpc.artifact.list.useQuery({ activeOnly: false });
+  const sufficiencyScore = trpc.knowledge.sufficiencyScore.useQuery();
 
   // Auto-select when exactly one agent exists (same pattern as analytics page)
   useEffect(() => {
@@ -104,6 +105,7 @@ export default function KnowledgePage() {
   const ingest = trpc.knowledge.ingest.useMutation({
     onSuccess: (data) => {
       utils.knowledge.list.invalidate();
+      utils.knowledge.sufficiencyScore.invalidate();
       setContent('');
       setTitle('');
       setSourceUrl('');
@@ -138,6 +140,7 @@ export default function KnowledgePage() {
   const deleteByTitle = trpc.knowledge.deleteByTitle.useMutation({
     onSuccess: () => {
       utils.knowledge.list.invalidate();
+      utils.knowledge.sufficiencyScore.invalidate();
       setDeleteConfirm(null);
       addToast(t('deletedToast'), 'success');
     },
@@ -265,7 +268,28 @@ export default function KnowledgePage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
+        {sufficiencyScore.data && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-dune">{t('knowledgeScore')}</span>
+            <span className="font-heading text-xl font-bold text-charcoal">
+              {sufficiencyScore.data.score}/100
+            </span>
+            <span className={`text-sm font-medium ${
+              sufficiencyScore.data.score >= 80 ? 'text-teal' :
+              sufficiencyScore.data.score >= 60 ? 'text-gold' :
+              'text-sunset'
+            }`}>
+              {sufficiencyScore.data.score >= 80
+                ? t('knowledgeScoreExcellent')
+                : sufficiencyScore.data.score >= 60
+                ? t('knowledgeScoreGood')
+                : t('knowledgeScoreNeedsWork')}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Secondary error banners */}
       {learningList.isError && <QueryError error={learningList.error} onRetry={() => learningList.refetch()} />}

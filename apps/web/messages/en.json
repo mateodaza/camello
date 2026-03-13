@@ -58,7 +58,9 @@
     "agentType_marketing": "Marketing",
     "agentType_custom": "Custom",
     "knowledgeBannerText": "Your agent {name} has no knowledge base — it can't answer product questions yet.",
-    "knowledgeBannerAction": "Add Knowledge"
+    "knowledgeBannerAction": "Add Knowledge",
+    "knowledgeScoreBanner": "{name}'s knowledge score: {score}/100. {signal}",
+    "knowledgeScoreAddCta": "Add Knowledge"
   },
   "artifacts": {
     "pageTitle": "Agents",
@@ -595,7 +597,11 @@
     "sectionGaps": "Knowledge Gaps",
     "gapsSelectAgent": "Select an agent to see knowledge gaps.",
     "gapsEmptySuccess": "Your agent is answering all questions confidently.",
-    "learningsHelpText": "Boost a learning to reinforce it in your agent's memory. Dismiss to remove it."
+    "learningsHelpText": "Boost a learning to reinforce it in your agent's memory. Dismiss to remove it.",
+    "knowledgeScore": "Knowledge Score",
+    "knowledgeScoreNeedsWork": "Needs improvement",
+    "knowledgeScoreGood": "Good",
+    "knowledgeScoreExcellent": "Excellent"
   },
   "analytics": {
     "pageTitle": "Analytics",

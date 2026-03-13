@@ -8,24 +8,28 @@ import { useTranslations } from 'next-intl';
 // Moved to this component file instead.
 export function KnowledgeBanner({
   agentName,
+  score,
+  topSignal,
   t,
 }: {
   agentName: string;
+  score: number;
+  topSignal: string;
   t: ReturnType<typeof useTranslations<'dashboard'>>;
 }) {
   return (
     <div
       data-testid="knowledge-banner"
-      className="flex items-center justify-between rounded-lg border border-sunset/30 bg-sunset/5 px-4 py-3"
+      className="flex items-center justify-between rounded-lg border border-gold/30 bg-gold/5 px-4 py-3"
     >
       <p className="text-sm text-charcoal">
-        {t('knowledgeBannerText', { name: agentName })}
+        {t('knowledgeScoreBanner', { name: agentName, score, signal: topSignal })}
       </p>
       <Link
         href="/dashboard/knowledge"
         className="ml-4 shrink-0 rounded-md bg-teal px-3 py-1.5 text-xs font-medium text-white hover:bg-teal/90"
       >
-        {t('knowledgeBannerAction')}
+        {t('knowledgeScoreAddCta')}
       </Link>
     </div>
   );

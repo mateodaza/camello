@@ -21,7 +21,7 @@ export default function DashboardOverview() {
   const artifacts = trpc.artifact.list.useQuery({});
   const dashboardOverview = trpc.agent.dashboardOverview.useQuery();
   const activityFeed = trpc.agent.dashboardActivityFeed.useQuery(undefined, { refetchInterval: 30_000 });
-  const docCountQuery = trpc.knowledge.docCount.useQuery();
+  const sufficiencyScore = trpc.knowledge.sufficiencyScore.useQuery();
 
   // Auto-sync tenant name when Clerk org name changes
   const updateName = trpc.tenant.updateName.useMutation({
@@ -39,12 +39,11 @@ export default function DashboardOverview() {
   }, [organization?.name, tenant.data?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = dashboardOverview.data;
-  const activeAgents = artifacts.data?.filter((a) => a.isActive) ?? [];
   const showKnowledgeBanner =
-    !docCountQuery.isLoading &&
-    docCountQuery.data !== undefined &&
-    docCountQuery.data === 0 &&
-    activeAgents.length > 0;
+    !sufficiencyScore.isLoading &&
+    sufficiencyScore.data !== undefined &&
+    sufficiencyScore.data.score < 60 &&
+    (artifacts.data?.length ?? 0) > 0;
 
   return (
     <div className="space-y-6 md:space-y-8 lg:space-y-10">
@@ -59,7 +58,12 @@ export default function DashboardOverview() {
       {tenant.data?.slug && <ShareLinkCard slug={tenant.data.slug} t={t} />}
 
       {showKnowledgeBanner && (
-        <KnowledgeBanner agentName={activeAgents[0]!.name} t={t} />
+        <KnowledgeBanner
+          agentName={artifacts.data![0]!.name}
+          score={sufficiencyScore.data!.score}
+          topSignal={sufficiencyScore.data!.signals[0] ?? ''}
+          t={t}
+        />
       )}
 
       {dashboardOverview.isError && <QueryError error={dashboardOverview.error} onRetry={() => dashboardOverview.refetch()} />}

@@ -58,7 +58,9 @@
     "agentType_marketing": "Marketing",
     "agentType_custom": "Personalizado",
     "knowledgeBannerText": "Tu agente {name} no tiene base de conocimiento — todavía no puede responder preguntas sobre productos.",
-    "knowledgeBannerAction": "Agregar Conocimiento"
+    "knowledgeBannerAction": "Agregar Conocimiento",
+    "knowledgeScoreBanner": "Puntuación de conocimiento de {name}: {score}/100. {signal}",
+    "knowledgeScoreAddCta": "Agregar Conocimiento"
   },
   "artifacts": {
     "pageTitle": "Agentes",
@@ -595,7 +597,11 @@
     "sectionGaps": "Brechas de Conocimiento",
     "gapsSelectAgent": "Selecciona un agente para ver brechas de conocimiento.",
     "gapsEmptySuccess": "Tu agente está respondiendo todas las preguntas con confianza.",
-    "learningsHelpText": "Refuerza un aprendizaje para consolidarlo en la memoria de tu agente. Descarta para eliminarlo."
+    "learningsHelpText": "Refuerza un aprendizaje para consolidarlo en la memoria de tu agente. Descarta para eliminarlo.",
+    "knowledgeScore": "Puntuación de Conocimiento",
+    "knowledgeScoreNeedsWork": "Necesita mejora",
+    "knowledgeScoreGood": "Bien",
+    "knowledgeScoreExcellent": "Excelente"
   },
   "analytics": {
     "pageTitle": "Analítica",
