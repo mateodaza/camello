@@ -178,7 +178,8 @@ _Done: Fixed `findActiveConversation` bug — replaced `eq(conversations.status,
 
 ---
 
-#### NC-262 [ ] "Mark as Paid" action in Payments section
+#### NC-262 [x] "Mark as Paid" action in Payments section
+Added `markPaymentPaid` tenantProcedure (preflight PRECONDITION_FAILED guard), Button in payments-section.tsx with stopPropagation + invalidate + toast, 3 i18n keys en+es, 2 tests. Type-check passes.
 
 When the agent sends a payment link, it creates a `payments` row with `status: 'pending'`. The owner needs to manually confirm when they receive the money. Add a "Mark as Paid" button in the Dashboard tab → Payments section.
 

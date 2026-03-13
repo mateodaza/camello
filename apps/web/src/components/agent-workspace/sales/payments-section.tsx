@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { CreditCard } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { DataTable } from '../primitives/data-table';
 
 interface PaymentsSectionProps {
@@ -50,10 +52,22 @@ function PaymentStatusBadge({ status }: { status: string | null }) {
 export function PaymentsSection({ artifactId }: PaymentsSectionProps) {
   const t = useTranslations('agentWorkspace');
   const router = useRouter();
+  const utils = trpc.useUtils();
+  const { addToast } = useToast();
 
-  const payments = trpc.agent.salesPayments.useQuery({ artifactId, limit: 50, offset: 0 });
+  const paymentsQuery = trpc.agent.salesPayments.useQuery({ artifactId, limit: 50, offset: 0 });
 
-  type PaymentRow = NonNullable<typeof payments.data>[number];
+  const markPaid = trpc.agent.markPaymentPaid.useMutation({
+    onSuccess: () => {
+      void utils.agent.salesPayments.invalidate();
+      addToast(t('paymentMarkedPaid'), 'success');
+    },
+    onError: (err) => {
+      addToast(err.message, 'error');
+    },
+  });
+
+  type PaymentRow = NonNullable<typeof paymentsQuery.data>[number];
 
   const columns = [
     {
@@ -77,6 +91,32 @@ export function PaymentsSection({ artifactId }: PaymentsSectionProps) {
       render: (row: PaymentRow) =>
         row.dueDate ? new Date(row.dueDate).toLocaleDateString() : '—',
     },
+    {
+      key: 'actions',
+      label: '',
+      render: (row: PaymentRow) => {
+        const status = row.status?.toLowerCase();
+        if (status !== 'pending' && status !== 'sent' && status !== 'viewed') return null;
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={markPaid.isPending}
+            onClick={(e) => {
+              e.stopPropagation();
+              markPaid.mutate({ paymentId: row.id });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation();
+              }
+            }}
+          >
+            {t('markAsPaid')}
+          </Button>
+        );
+      },
+    },
   ];
 
   return (
@@ -85,11 +125,11 @@ export function PaymentsSection({ artifactId }: PaymentsSectionProps) {
       icon={<CreditCard className="h-4 w-4 text-teal" />}
       cardClassName="bg-sand/20"
       columns={columns}
-      data={payments.data}
-      isLoading={payments.isLoading}
-      isError={payments.isError}
-      error={payments.error ?? undefined}
-      onRetry={() => payments.refetch()}
+      data={paymentsQuery.data}
+      isLoading={paymentsQuery.isLoading}
+      isError={paymentsQuery.isError}
+      error={paymentsQuery.error ?? undefined}
+      onRetry={() => paymentsQuery.refetch()}
       emptyTitle={t('paymentsEmptyTitle')}
       emptyDescription={t('paymentsEmptyDescription')}
       onRowClick={(row) => {

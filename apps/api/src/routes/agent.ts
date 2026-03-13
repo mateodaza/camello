@@ -1131,6 +1131,44 @@ export const agentRouter = router({
     }),
 
   // -------------------------------------------------------------------------
+  // markPaymentPaid — focused mutation that marks a single payment as paid
+  // Guards against double-marking with PRECONDITION_FAILED
+  // -------------------------------------------------------------------------
+
+  markPaymentPaid: tenantProcedure
+    .input(z.object({ paymentId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.tenantDb.transaction(async (tx) => {
+        // Atomic conditional update: WHERE status != 'paid' is evaluated with row-level locking
+        // by Postgres, so concurrent requests cannot both succeed — the second caller gets 0 rows.
+        const [updated] = await tx
+          .update(payments)
+          .set({ status: 'paid', paidAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(
+              eq(payments.id, input.paymentId),
+              eq(payments.tenantId, ctx.tenantId),
+              not(eq(payments.status, 'paid')),
+            ),
+          )
+          .returning({ id: payments.id, status: payments.status, paidAt: payments.paidAt });
+
+        if (!updated) {
+          // 0 rows updated — distinguish NOT_FOUND from already-paid
+          const [existing] = await tx
+            .select({ id: payments.id })
+            .from(payments)
+            .where(and(eq(payments.id, input.paymentId), eq(payments.tenantId, ctx.tenantId)));
+
+          if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Payment not found' });
+          throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Payment already paid' });
+        }
+
+        return updated;
+      });
+    }),
+
+  // -------------------------------------------------------------------------
   // salesLeadSummaries — unfiltered active leads for payment form selector
   // -------------------------------------------------------------------------
 
