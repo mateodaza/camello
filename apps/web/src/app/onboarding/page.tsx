@@ -46,9 +46,13 @@ export default function OnboardingPage() {
     enabled: isLoaded && !!organization,
     retry: false,
   });
+  const utils = trpc.useUtils();
   const saveStep = trpc.onboarding.saveStep.useMutation();
   const skipSetup = trpc.onboarding.complete.useMutation({
-    onSuccess: () => router.push('/dashboard'),
+    onSuccess: async () => {
+      await utils.tenant.me.invalidate();
+      router.push('/dashboard');
+    },
   });
 
   // Org consistency guard: if the active Clerk org changes mid-wizard,
