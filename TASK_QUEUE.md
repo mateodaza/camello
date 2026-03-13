@@ -361,7 +361,8 @@ Reduce friction for adding knowledge after onboarding. A single text input at th
 
 ---
 
-#### NC-266 [ ] Knowledge gap → teach prompt: inline answer flow
+#### NC-266 [x] Knowledge gap → teach prompt: inline answer flow
+Added inline teach form per gap card: expandedGapIntent state, gapTeachIngest mutation, handleGapTeach/handleGapSave handlers, answered state with CheckCircle2 badge + opacity-50. 6 i18n keys en+es. 2 tests in knowledge-page.test.tsx. Type-check passes.
 
 Each gap card in the Knowledge page already shows the intent + a sample customer question. Add a "Teach" action so the owner can immediately answer the gap without leaving the page.
 

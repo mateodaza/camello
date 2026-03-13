@@ -53,6 +53,11 @@ export default function KnowledgePage() {
   const [teachText, setTeachText] = useState('');
   const [teachError, setTeachError] = useState<string | null>(null);
 
+  // --- Gap teach inline ---
+  const [expandedGapIntent, setExpandedGapIntent] = useState<string | null>(null);
+  const [gapAnswers, setGapAnswers] = useState<Record<string, string>>({});
+  const [answeredGaps, setAnsweredGaps] = useState<Set<string>>(new Set());
+
   // --- Learning filters ---
   const [filterModuleSlug, setFilterModuleSlug] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -69,6 +74,13 @@ export default function KnowledgePage() {
       setSelectedArtifactId(artifacts.data[0].id);
     }
   }, [artifacts.data, selectedArtifactId]);
+
+  // Reset per-agent gap state when the selected agent changes
+  useEffect(() => {
+    setExpandedGapIntent(null);
+    setGapAnswers({});
+    setAnsweredGaps(new Set());
+  }, [selectedArtifactId]);
 
   const knowledgeGaps = trpc.agent.supportKnowledgeGaps.useQuery(
     { artifactId: selectedArtifactId },
@@ -132,6 +144,20 @@ export default function KnowledgePage() {
       setTeachText('');
       setTeachError(null);
       addToast(t('teachInputSuccess'), 'success');
+    },
+  });
+
+  const gapTeachIngest = trpc.knowledge.ingest.useMutation({
+    onSuccess: (_data, variables) => {
+      utils.knowledge.list.invalidate();
+      utils.knowledge.sufficiencyScore.invalidate();
+      const title = variables.title ?? '';
+      if (title.startsWith('Answer: ')) {
+        const intent = title.slice('Answer: '.length);
+        setAnsweredGaps((prev) => new Set(prev).add(intent));
+      }
+      setExpandedGapIntent(null);
+      addToast(t('gapTeachSuccess'), 'success');
     },
   });
 
@@ -266,6 +292,20 @@ export default function KnowledgePage() {
     teachIngest.mutate({
       content: text,
       title: `Manual entry — ${text.slice(0, 50)} [${Date.now()}]`,
+      sourceType: 'upload',
+    });
+  }
+
+  function handleGapTeach(intent: string) {
+    setExpandedGapIntent((prev) => (prev === intent ? null : intent));
+  }
+
+  function handleGapSave(intent: string) {
+    const text = (gapAnswers[intent] ?? '').trim();
+    if (!text) return;
+    gapTeachIngest.mutate({
+      content: text,
+      title: `Answer: ${intent}`,
       sourceType: 'upload',
     });
   }
@@ -579,16 +619,66 @@ export default function KnowledgePage() {
         ) : (
           <ul data-testid="gaps-list" className="divide-y divide-charcoal/8 rounded-xl border-2 border-charcoal/8 bg-cream">
             {knowledgeGaps.data!.map((gap) => (
-              <li key={gap.intent} className="flex items-start gap-3 px-4 py-3">
-                <span className="inline-block rounded bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal lowercase shrink-0">
-                  {gap.intent}
-                </span>
-                <div className="flex-1 min-w-0">
-                  {gap.sampleQuestion && (
-                    <p className="text-sm text-charcoal line-clamp-2">{gap.sampleQuestion}</p>
+              <li
+                key={gap.intent}
+                className={`px-4 py-3 transition-opacity ${answeredGaps.has(gap.intent) ? 'opacity-50' : ''}`}
+              >
+                {/* Top row: intent badge + question + count + action button/badge */}
+                <div className="flex items-start gap-3">
+                  <span className="inline-block rounded bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal lowercase shrink-0">
+                    {gap.intent}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    {gap.sampleQuestion && (
+                      <p className="text-sm text-charcoal line-clamp-2">{gap.sampleQuestion}</p>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-xs text-dune">{gap.count}×</span>
+                  {answeredGaps.has(gap.intent) ? (
+                    <span className="flex items-center gap-1 rounded-full bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal shrink-0">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {t('gapAnswered')}
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleGapTeach(gap.intent)}
+                    >
+                      {t('gapTeachButton')}
+                    </Button>
                   )}
                 </div>
-                <span className="shrink-0 text-xs text-dune">{gap.count}×</span>
+                {/* Inline teach form — shown only for the expanded gap */}
+                {expandedGapIntent === gap.intent && (
+                  <div className="mt-2 space-y-2" data-testid={`gap-teach-form-${gap.intent}`}>
+                    <textarea
+                      value={gapAnswers[gap.intent] ?? ''}
+                      onChange={(e) =>
+                        setGapAnswers((prev) => ({ ...prev, [gap.intent]: e.target.value }))
+                      }
+                      placeholder={t('gapTeachPlaceholder', { intent: gap.intent })}
+                      rows={3}
+                      className="w-full rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleGapSave(gap.intent)}
+                        disabled={gapTeachIngest.isPending}
+                      >
+                        {t('gapTeachSave')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setExpandedGapIntent(null)}
+                      >
+                        {t('gapTeachCancel')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

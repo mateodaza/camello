@@ -605,7 +605,13 @@
     "teachInputPlaceholder": "Pega cualquier texto — una descripción de producto, respuesta a preguntas frecuentes, tabla de precios, política...",
     "teachInputAdd": "Agregar",
     "teachInputTooShort": "Por favor ingresa al menos 20 caracteres",
-    "teachInputSuccess": "Agregado a la base de conocimiento"
+    "teachInputSuccess": "Agregado a la base de conocimiento",
+    "gapTeachButton": "Enseñar",
+    "gapTeachPlaceholder": "Respuesta sobre {intent}: ",
+    "gapTeachSave": "Guardar",
+    "gapTeachCancel": "Cancelar",
+    "gapTeachSuccess": "Respuesta guardada en la base de conocimiento",
+    "gapAnswered": "Respondido"
   },
   "analytics": {
     "pageTitle": "Analítica",

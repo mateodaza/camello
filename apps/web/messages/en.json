@@ -605,7 +605,13 @@
     "teachInputPlaceholder": "Paste any text — a product description, FAQ answer, pricing table, policy...",
     "teachInputAdd": "Add",
     "teachInputTooShort": "Please enter at least 20 characters",
-    "teachInputSuccess": "Added to knowledge base"
+    "teachInputSuccess": "Added to knowledge base",
+    "gapTeachButton": "Teach",
+    "gapTeachPlaceholder": "Answer about {intent}: ",
+    "gapTeachSave": "Save",
+    "gapTeachCancel": "Cancel",
+    "gapTeachSuccess": "Answer saved to knowledge base",
+    "gapAnswered": "Answered"
   },
   "analytics": {
     "pageTitle": "Analytics",

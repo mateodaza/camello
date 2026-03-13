@@ -215,4 +215,42 @@ describe('KnowledgePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'teachInputAdd' }));
     expect(screen.getByText('teachInputTooShort')).toBeInTheDocument();
   });
+
+  it('Teach button expands inline textarea for the gap', async () => {
+    queryMocks.set('agent.supportKnowledgeGaps', {
+      data: [{ intent: 'pricing', sampleQuestion: 'How much does it cost?', count: 3 }],
+      isLoading: false, isError: false, error: null, refetch: vi.fn(),
+    });
+    const mod = await import('@/app/dashboard/knowledge/page');
+    render(createElement(mod.default));
+
+    const teachBtn = screen.getByRole('button', { name: 'gapTeachButton' });
+    expect(screen.queryByPlaceholderText('gapTeachPlaceholder')).toBeNull();
+    fireEvent.click(teachBtn);
+    expect(screen.getByPlaceholderText('gapTeachPlaceholder')).toBeInTheDocument();
+  });
+
+  it('saving gap answer calls knowledge.ingest with title "Answer: [intent]"', async () => {
+    queryMocks.set('agent.supportKnowledgeGaps', {
+      data: [{ intent: 'pricing', sampleQuestion: 'How much does it cost?', count: 3 }],
+      isLoading: false, isError: false, error: null, refetch: vi.fn(),
+    });
+    const mockMutate = vi.fn();
+    mutationMocks.set('knowledge.ingest', {
+      mutate: mockMutate, mutateAsync: vi.fn(), isPending: false, isError: false, error: null,
+    });
+    const mod = await import('@/app/dashboard/knowledge/page');
+    render(createElement(mod.default));
+
+    fireEvent.click(screen.getByRole('button', { name: 'gapTeachButton' }));
+    const textarea = screen.getByPlaceholderText('gapTeachPlaceholder');
+    fireEvent.change(textarea, { target: { value: 'Our pricing starts at $99/month' } });
+    fireEvent.click(screen.getByRole('button', { name: 'gapTeachSave' }));
+
+    expect(mockMutate).toHaveBeenCalledWith({
+      content: 'Our pricing starts at $99/month',
+      title: 'Answer: pricing',
+      sourceType: 'upload',
+    });
+  });
 });
