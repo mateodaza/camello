@@ -601,7 +601,11 @@
     "knowledgeScore": "Puntuación de Conocimiento",
     "knowledgeScoreNeedsWork": "Necesita mejora",
     "knowledgeScoreGood": "Bien",
-    "knowledgeScoreExcellent": "Excelente"
+    "knowledgeScoreExcellent": "Excelente",
+    "teachInputPlaceholder": "Pega cualquier texto — una descripción de producto, respuesta a preguntas frecuentes, tabla de precios, política...",
+    "teachInputAdd": "Agregar",
+    "teachInputTooShort": "Por favor ingresa al menos 20 caracteres",
+    "teachInputSuccess": "Agregado a la base de conocimiento"
   },
   "analytics": {
     "pageTitle": "Analítica",

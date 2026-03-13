@@ -337,7 +337,8 @@ Max score = 100 (80 base + 20 bonus, no gaps). Returns `{ score: number (0-100),
 
 ---
 
-#### NC-265 [ ] "Teach more" inline input on Knowledge page
+#### NC-265 [x] "Teach more" inline input on Knowledge page
+Inline textarea + "Add" button above Documents section; calls `knowledge.ingest` with auto-title; min-20-char validation; 4 i18n keys en+es; 2 new tests.
 
 Reduce friction for adding knowledge after onboarding. A single text input at the top of the Knowledge page that ingests any text as a knowledge doc.
 

@@ -601,7 +601,11 @@
     "knowledgeScore": "Knowledge Score",
     "knowledgeScoreNeedsWork": "Needs improvement",
     "knowledgeScoreGood": "Good",
-    "knowledgeScoreExcellent": "Excellent"
+    "knowledgeScoreExcellent": "Excellent",
+    "teachInputPlaceholder": "Paste any text — a product description, FAQ answer, pricing table, policy...",
+    "teachInputAdd": "Add",
+    "teachInputTooShort": "Please enter at least 20 characters",
+    "teachInputSuccess": "Added to knowledge base"
   },
   "analytics": {
     "pageTitle": "Analytics",

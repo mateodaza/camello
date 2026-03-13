@@ -49,6 +49,10 @@ export default function KnowledgePage() {
   // --- Delete ---
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // --- Teach input ---
+  const [teachText, setTeachText] = useState('');
+  const [teachError, setTeachError] = useState<string | null>(null);
+
   // --- Learning filters ---
   const [filterModuleSlug, setFilterModuleSlug] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -118,6 +122,16 @@ export default function KnowledgePage() {
         setIngestSuccess(data);
         addToast(t('ingestedToast'), 'success');
       }
+    },
+  });
+
+  const teachIngest = trpc.knowledge.ingest.useMutation({
+    onSuccess: () => {
+      utils.knowledge.list.invalidate();
+      utils.knowledge.sufficiencyScore.invalidate();
+      setTeachText('');
+      setTeachError(null);
+      addToast(t('teachInputSuccess'), 'success');
     },
   });
 
@@ -242,6 +256,20 @@ export default function KnowledgePage() {
     });
   }
 
+  function handleTeachSubmit() {
+    const text = teachText.trim();
+    if (text.length < 20) {
+      setTeachError(t('teachInputTooShort'));
+      return;
+    }
+    setTeachError(null);
+    teachIngest.mutate({
+      content: text,
+      title: `Manual entry — ${text.slice(0, 50)} [${Date.now()}]`,
+      sourceType: 'upload',
+    });
+  }
+
   function handleEdit(docTitle: string) {
     setEditingTitle(docTitle);
     setDeleteConfirm(null);
@@ -293,6 +321,23 @@ export default function KnowledgePage() {
 
       {/* Secondary error banners */}
       {learningList.isError && <QueryError error={learningList.error} onRetry={() => learningList.refetch()} />}
+
+      {/* ===== Teach Input ===== */}
+      <div className="space-y-2">
+        <div className="flex items-start gap-3">
+          <textarea
+            value={teachText}
+            onChange={(e) => { setTeachText(e.target.value); setTeachError(null); }}
+            placeholder={t('teachInputPlaceholder')}
+            rows={3}
+            className="flex-1 rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+          />
+          <Button onClick={handleTeachSubmit} disabled={teachIngest.isPending}>
+            {t('teachInputAdd')}
+          </Button>
+        </div>
+        {teachError && <p className="text-sm text-sunset">{teachError}</p>}
+      </div>
 
       {/* ===== SECTION 1: Knowledge Docs ===== */}
       <div className="space-y-4">

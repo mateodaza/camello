@@ -37,6 +37,7 @@ vi.mock('@/components/dashboard/knowledge-guided-empty-state', () => ({
 
 // tRPC mock helpers
 const queryMocks = new Map<string, unknown>();
+const mutationMocks = new Map<string, unknown>();
 
 function buildNestedProxy(target: Record<string, unknown>, path: string[] = []): unknown {
   return new Proxy(target, {
@@ -48,7 +49,9 @@ function buildNestedProxy(target: Record<string, unknown>, path: string[] = []):
           result ?? { data: undefined, isLoading: false, isError: false, error: null, refetch: vi.fn() };
       }
       if (prop === 'useMutation') {
-        return () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null });
+        const key = path.join('.');
+        const result = mutationMocks.get(key);
+        return () => result ?? { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null };
       }
       if (prop === 'useUtils') {
         return () =>
@@ -89,6 +92,7 @@ const learningData = [
 describe('KnowledgePage', () => {
   beforeEach(() => {
     queryMocks.clear();
+    mutationMocks.clear();
     queryMocks.set('knowledge.list', {
       data: knowledgeData,
       isLoading: false,
@@ -185,5 +189,30 @@ describe('KnowledgePage', () => {
     expect(table.querySelector('.bg-teal')).toBeInTheDocument();
     // Raw decimal 0.90 should not appear as text
     expect(screen.queryByText('0.90')).toBeNull();
+  });
+
+  it('teach input submit calls knowledge.ingest with correct payload', async () => {
+    const mockMutate = vi.fn();
+    mutationMocks.set('knowledge.ingest', {
+      mutate: mockMutate, mutateAsync: vi.fn(), isPending: false, isError: false, error: null,
+    });
+    const mod = await import('@/app/dashboard/knowledge/page');
+    render(createElement(mod.default));
+    const text = 'This is a test knowledge entry that is long enough';
+    fireEvent.change(screen.getByPlaceholderText('teachInputPlaceholder'), { target: { value: text } });
+    fireEvent.click(screen.getByRole('button', { name: 'teachInputAdd' }));
+    expect(mockMutate).toHaveBeenCalledWith({
+      content: text,
+      title: expect.stringMatching(new RegExp(`^Manual entry — ${text.slice(0, 50)} \\[\\d+\\]$`)),
+      sourceType: 'upload',
+    });
+  });
+
+  it('teach input shows inline error when text is shorter than 20 chars', async () => {
+    const mod = await import('@/app/dashboard/knowledge/page');
+    render(createElement(mod.default));
+    fireEvent.change(screen.getByPlaceholderText('teachInputPlaceholder'), { target: { value: 'too short' } });
+    fireEvent.click(screen.getByRole('button', { name: 'teachInputAdd' }));
+    expect(screen.getByText('teachInputTooShort')).toBeInTheDocument();
   });
 });
