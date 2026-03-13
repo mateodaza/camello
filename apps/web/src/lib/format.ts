@@ -20,6 +20,11 @@ export function nDaysAgoStr(n: number): string {
   return localDateStr(d);
 }
 
+/** 7 days ago in local time as YYYY-MM-DD. */
+export function sevenDaysAgoStr(): string {
+  return nDaysAgoStr(7);
+}
+
 /** Format a numeric USD value as $X.XXXX (4 decimal places). */
 export function fmtCost(value: string | number, locale?: string): string {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(Number(value));

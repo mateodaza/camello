@@ -16,6 +16,7 @@ import {
 import { TestChatPanel } from '@/components/test-chat-panel';
 import { useToast } from '@/hooks/use-toast';
 import type { LucideIcon } from 'lucide-react';
+import { sevenDaysAgoStr, localDateStr } from '@/lib/format';
 
 interface Archetype {
   type: 'sales' | 'support' | 'marketing' | 'custom';
@@ -285,6 +286,144 @@ function PersonalityDrawer({
 }
 
 // ---------------------------------------------------------------------------
+// DisabledCard — compact, no interactive controls
+// ---------------------------------------------------------------------------
+
+function DisabledCard({ arch }: { arch: Archetype }) {
+  const t = useTranslations('artifacts');
+  const Icon = arch.icon;
+  return (
+    <Card className="relative opacity-50 cursor-not-allowed">
+      {arch.comingSoonKey && (
+        <span className="absolute right-3 top-3 rounded-full bg-charcoal/10 px-2 py-0.5 text-xs font-medium text-charcoal/60">
+          {t(arch.comingSoonKey as Parameters<typeof t>[0])}
+        </span>
+      )}
+      <CardHeader className="pb-1">
+        <div className="flex items-center gap-2.5">
+          <Icon className="h-5 w-5 text-teal" />
+          <CardTitle className="text-base">
+            {t(arch.nameKey as Parameters<typeof t>[0])}
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="p-3 pt-0">
+        <p className="text-sm text-dune">{t(arch.descKey as Parameters<typeof t>[0])}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SalesHeroSection — full-width hero card for the sales archetype
+// ---------------------------------------------------------------------------
+
+function SalesHeroSection({
+  arch,
+  artifact,
+  isActive,
+  onToggle,
+  onOpenPersonality,
+  isPending,
+}: {
+  arch: Archetype;
+  artifact: { id: string; name: string } | undefined;
+  isActive: boolean;
+  onToggle: () => void;
+  onOpenPersonality: () => void;
+  isPending: boolean;
+}) {
+  const t = useTranslations('artifacts');
+  const Icon = arch.icon;
+
+  const sevenDaysAgo = sevenDaysAgoStr();
+  const today = localDateStr();
+  const statsQuery = trpc.analytics.overview.useQuery(
+    { from: sevenDaysAgo, to: today, artifactId: artifact?.id },
+    { enabled: !!artifact },
+  );
+  const conversationTotal = (statsQuery.data?.conversations.active ?? 0)
+    + (statsQuery.data?.conversations.resolved ?? 0)
+    + (statsQuery.data?.conversations.escalated ?? 0);
+
+  return (
+    <div data-testid="sales-hero">
+      <Card className="ring-2 ring-teal">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Icon className="h-5 w-5 text-teal" />
+              <div>
+                <CardTitle className="text-base">
+                  {t(arch.nameKey as Parameters<typeof t>[0])}
+                </CardTitle>
+                {artifact?.name && (
+                  <p className="text-sm font-medium text-charcoal/70">{artifact.name}</p>
+                )}
+                <p className="text-xs text-dune">{t(arch.descKey as Parameters<typeof t>[0])}</p>
+              </div>
+            </div>
+            {/* Toggle — no Badge; active state appears in stat strip only */}
+            <button
+              onClick={onToggle}
+              disabled={isPending}
+              className={`relative h-6 w-11 rounded-full transition-colors ${isActive ? 'bg-teal' : 'bg-charcoal/20'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-cream shadow transition-transform ${isActive ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-3 pt-0">
+          {artifact && !statsQuery.isLoading && !statsQuery.isError && (
+            <div
+              data-testid="stat-strip"
+              className="flex gap-4 text-sm text-dune py-2 border-t border-charcoal/8"
+            >
+              <span>
+                <span>{t('salesCardConversationsThisWeek')}</span>
+                {': '}
+                <span className="font-medium text-charcoal">{conversationTotal}</span>
+              </span>
+              <span>
+                <span>{t('salesCardActive')}</span>
+                {': '}
+                <span className="font-medium text-charcoal">
+                  {isActive ? t('salesCardActiveYes') : t('salesCardActiveNo')}
+                </span>
+              </span>
+            </div>
+          )}
+          {artifact && statsQuery.isLoading && (
+            <div className="flex gap-4 py-2 border-t border-charcoal/8">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          )}
+          {artifact && (
+            <div className="flex flex-col gap-2 border-t border-charcoal/8 pt-2">
+              <Button variant="ghost" size="sm" onClick={onOpenPersonality}>
+                <Settings className="mr-1 h-3.5 w-3.5" />
+                {t('personalitySection')}
+              </Button>
+              {isActive && (
+                <Link
+                  href={`/dashboard/agents/${artifact.id}`}
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-teal px-4 py-2 text-sm font-medium text-white hover:bg-teal/90"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  {t('openWorkspace')}
+                </Link>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -376,6 +515,11 @@ export default function ArtifactsPage() {
     });
   }
 
+  const salesArch = ARCHETYPES.find((a) => a.type === 'sales')!;
+  const salesArtifact = byType.get('sales');
+  const salesIsActive = salesArtifact?.isActive ?? false;
+  const disabledArchetypes = ARCHETYPES.filter((a) => a.disabled);
+
   return (
     <div className="space-y-4">
       <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
@@ -391,117 +535,21 @@ export default function ArtifactsPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {ARCHETYPES.map((arch) => {
-          const artifact = byType.get(arch.type);
-          const isActive = artifact?.isActive ?? false;
-          const isDisabled = arch.disabled ?? false;
-          // [EXPLICIT RULE] Sales card always highlighted as default option.
-          // Other non-disabled cards highlighted only when their artifact isActive.
-          const shouldHighlight = !isDisabled && (arch.type === 'sales' || isActive);
-          const Icon = arch.icon;
+      {/* Sales hero — full width, outside and above the disabled grid */}
+      <SalesHeroSection
+        arch={salesArch}
+        artifact={salesArtifact}
+        isActive={salesIsActive}
+        onToggle={() => handleToggle(salesArch)}
+        onOpenPersonality={() => openPersonality(salesArch)}
+        isPending={createArtifact.isPending || updateArtifact.isPending}
+      />
 
-          return (
-            <Card
-              key={arch.type}
-              className={`relative ${
-                isDisabled
-                  ? 'opacity-50 cursor-not-allowed'
-                  : shouldHighlight
-                  ? 'ring-2 ring-teal'
-                  : ''
-              }`}
-            >
-              {arch.comingSoonKey && (
-                <span className="absolute right-3 top-3 rounded-full bg-charcoal/10 px-2 py-0.5 text-xs font-medium text-charcoal/60">
-                  {t(arch.comingSoonKey as Parameters<typeof t>[0])}
-                </span>
-              )}
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="h-5 w-5 text-teal" />
-                    <div>
-                      <CardTitle className="text-base">
-                        {t(arch.nameKey as Parameters<typeof t>[0])}
-                      </CardTitle>
-                      {artifact?.name && (
-                        <p className="text-sm font-medium text-charcoal/70">{artifact.name}</p>
-                      )}
-                      <p className="text-xs text-dune">{t(arch.descKey as Parameters<typeof t>[0])}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {artifact && <Badge variant={isActive ? 'active' : 'default'}>{isActive ? t('on') : t('off')}</Badge>}
-                    <button
-                      onClick={() => handleToggle(arch)}
-                      disabled={isDisabled || createArtifact.isPending || updateArtifact.isPending}
-                      className={`relative h-6 w-11 rounded-full transition-colors ${isActive ? 'bg-teal' : 'bg-charcoal/20'}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-cream shadow transition-transform ${isActive ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </button>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-3 pt-0">
-                {arch.type === 'custom' && !artifact && showCustomInput && (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={customName}
-                      onChange={(e) => setCustomName(e.target.value)}
-                      placeholder={t('customNamePlaceholder')}
-                      maxLength={100}
-                      className="flex-1 rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (!customName.trim()) return;
-                        createArtifact.mutate({ name: customName.trim(), type: 'custom' });
-                        setCustomName('');
-                        setShowCustomInput(false);
-                      }}
-                      disabled={createArtifact.isPending || !customName.trim()}
-                    >
-                      {t('create')}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Action buttons — suppressed entirely for disabled cards regardless of artifact state */}
-                {artifact && !isDisabled && (
-                  <div className="flex flex-wrap items-center gap-2 border-t border-charcoal/8 pt-2">
-                    <Button variant="outline" size="sm" onClick={() => openPersonality(arch)}>
-                      <Settings className="mr-1 h-3.5 w-3.5" />
-                      {t('personalitySection')}
-                    </Button>
-                    {isActive && (
-                      <Link
-                        href={`/dashboard/agents/${artifact.id}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-charcoal/15 bg-cream px-3 py-1.5 text-sm font-medium text-charcoal hover:bg-sand"
-                      >
-                        <BarChart3 className="h-3.5 w-3.5" />
-                        {t('openWorkspace')}
-                      </Link>
-                    )}
-                    {isActive && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTestingArtifact({ id: artifact.id, name: artifact.name, type: artifact.type })}
-                      >
-                        <MessageSquare className="mr-1 h-3.5 w-3.5" />
-                        {t('test')}
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* 3 disabled cards — compact 3-col row */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="disabled-grid">
+        {disabledArchetypes.map((arch) => (
+          <DisabledCard key={arch.type} arch={arch} />
+        ))}
       </div>
 
       {/* Personality Drawer */}

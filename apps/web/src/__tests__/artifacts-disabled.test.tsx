@@ -29,6 +29,11 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: vi.fn(() => ({ data: [], isLoading: false })),
       },
     },
+    analytics: {
+      overview: {
+        useQuery: vi.fn(() => ({ data: undefined, isLoading: false, isError: false })),
+      },
+    },
     useUtils: vi.fn(() => ({
       artifact: { list: { invalidate: vi.fn() } },
     })),
@@ -98,25 +103,24 @@ describe('NC-247 — artifacts page: sales-only mode', () => {
     expect(es['artifacts']['comingSoon']).toBe('Próximamente');
   });
 
-  // Test 3: DOM rendering — clicking disabled toggles does NOT open the custom create flow.
-  it('clicking disabled toggles does not open the custom create input or call createArtifact', () => {
+  // Test 3: DOM rendering — disabled cards have no interactive controls at all.
+  // DisabledCard renders no buttons, links, or toggles — purely informational.
+  // This structurally prevents any accidental createArtifact calls from disabled archetypes.
+  it('disabled cards render no interactive controls and cannot trigger createArtifact', () => {
     render(React.createElement(ArtifactsPage));
 
-    const allButtons = screen.getAllByRole('button');
-    const disabledButtons = allButtons.filter((btn) => btn.hasAttribute('disabled'));
+    const disabledGrid = document.querySelector('[data-testid="disabled-grid"]')!;
+    expect(disabledGrid).toBeTruthy();
 
-    // Exactly 3 disabled toggle buttons: support, marketing, custom.
-    expect(disabledButtons).toHaveLength(3);
+    // No buttons inside the disabled grid — DisabledCard is purely informational.
+    const buttonsInGrid = disabledGrid.querySelectorAll('button');
+    expect(buttonsInGrid).toHaveLength(0);
 
-    // Click all 3 disabled toggles.
-    disabledButtons.forEach((btn) => fireEvent.click(btn));
+    // No links inside the disabled grid — no workspace or other navigation.
+    const linksInGrid = disabledGrid.querySelectorAll('a');
+    expect(linksInGrid).toHaveLength(0);
 
-    // The custom create UI renders when: arch.type === 'custom' && !artifact && showCustomInput.
-    // Identity mock: t('customNamePlaceholder') → 'customNamePlaceholder'.
-    // If setShowCustomInput(true) ran, this input would appear — assertion catches that regression.
-    expect(screen.queryByPlaceholderText('customNamePlaceholder')).toBeNull();
-
-    // Additionally: createArtifact.mutate was never called.
+    // createArtifact was never called — the disabled grid cannot trigger mutations.
     expect(createMutateSpy).not.toHaveBeenCalled();
   });
 

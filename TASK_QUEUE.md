@@ -832,7 +832,8 @@ Knowledge gaps are more actionable than learnings — a gap is something the age
 
 ### P1 — Artifacts: sales card hero
 
-#### NC-255 [ ] Artifacts page: sales card as hero
+#### NC-255 [x] Artifacts page: sales card as hero
+**DONE.** `SalesHeroSection` (full-width hero, no Badge, stat strip with isolated `<span>` labels, ghost Personality button, teal Link CTA) + `DisabledCard` (compact, no buttons) as local components in `artifacts/page.tsx`. `sevenDaysAgoStr` added to `format.ts`. 4 i18n keys (en+es). 2 new tests in `artifacts-hero.test.tsx` + `artifacts-disabled.test.tsx` updated (analytics mock + Test 3 revised). Type-check passes.
 
 With 3 dimmed cards around it, the sales card needs to visually communicate "this is your product."
 

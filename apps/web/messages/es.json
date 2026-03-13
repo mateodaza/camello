@@ -182,7 +182,11 @@
     "testHintMarketing": "Prueba: \"¿Qué hay de nuevo?\" o \"Cuéntame sobre su última promoción\"",
     "testHintCustom": "Prueba a chatear con tu agente personalizado",
     "openWorkspace": "Ver Workspace",
-    "comingSoon": "Próximamente"
+    "comingSoon": "Próximamente",
+    "salesCardConversationsThisWeek": "Conversaciones esta semana",
+    "salesCardActive": "Activo",
+    "salesCardActiveYes": "sí",
+    "salesCardActiveNo": "no"
   },
   "agentWorkspace": {
     "backToAgents": "Volver a agentes",
