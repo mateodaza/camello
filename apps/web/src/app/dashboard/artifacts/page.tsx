@@ -293,22 +293,20 @@ function DisabledCard({ arch }: { arch: Archetype }) {
   const t = useTranslations('artifacts');
   const Icon = arch.icon;
   return (
-    <Card className="relative opacity-50 cursor-not-allowed">
-      {arch.comingSoonKey && (
-        <span className="absolute right-3 top-3 rounded-full bg-charcoal/10 px-2 py-0.5 text-xs font-medium text-charcoal/60">
-          {t(arch.comingSoonKey as Parameters<typeof t>[0])}
-        </span>
-      )}
-      <CardHeader className="pb-1">
-        <div className="flex items-center gap-2.5">
-          <Icon className="h-5 w-5 text-teal" />
-          <CardTitle className="text-base">
+    <Card className="select-none bg-charcoal/[0.02]">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 opacity-40">
+          <Icon className="h-4 w-4 text-charcoal" />
+          <span className="text-sm font-semibold text-charcoal">
             {t(arch.nameKey as Parameters<typeof t>[0])}
-          </CardTitle>
+          </span>
         </div>
-      </CardHeader>
-      <CardContent className="p-3 pt-0">
-        <p className="text-sm text-dune">{t(arch.descKey as Parameters<typeof t>[0])}</p>
+        <p className="mt-1.5 text-xs text-dune/60">{t(arch.descKey as Parameters<typeof t>[0])}</p>
+        {arch.comingSoonKey && (
+          <span className="mt-3 inline-block rounded-full bg-charcoal/8 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-charcoal/40">
+            {t(arch.comingSoonKey as Parameters<typeof t>[0])}
+          </span>
+        )}
       </CardContent>
     </Card>
   );
@@ -324,6 +322,7 @@ function SalesHeroSection({
   isActive,
   onToggle,
   onOpenPersonality,
+  onTest,
   isPending,
 }: {
   arch: Archetype;
@@ -331,6 +330,7 @@ function SalesHeroSection({
   isActive: boolean;
   onToggle: () => void;
   onOpenPersonality: () => void;
+  onTest: () => void;
   isPending: boolean;
 }) {
   const t = useTranslations('artifacts');
@@ -374,46 +374,46 @@ function SalesHeroSection({
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-3 pt-0">
-          {artifact && !statsQuery.isLoading && !statsQuery.isError && (
-            <div
-              data-testid="stat-strip"
-              className="flex gap-4 text-sm text-dune py-2 border-t border-charcoal/8"
-            >
-              <span>
-                <span>{t('salesCardConversationsThisWeek')}</span>
-                {': '}
-                <span className="font-medium text-charcoal">{conversationTotal}</span>
-              </span>
-              <span>
-                <span>{t('salesCardActive')}</span>
-                {': '}
-                <span className="font-medium text-charcoal">
-                  {isActive ? t('salesCardActiveYes') : t('salesCardActiveNo')}
-                </span>
-              </span>
-            </div>
-          )}
-          {artifact && statsQuery.isLoading && (
-            <div className="flex gap-4 py-2 border-t border-charcoal/8">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-24" />
-            </div>
-          )}
+        <CardContent className="px-5 pb-5 pt-0">
           {artifact && (
-            <div className="flex flex-col gap-2 border-t border-charcoal/8 pt-2">
-              <Button variant="ghost" size="sm" onClick={onOpenPersonality}>
-                <Settings className="mr-1 h-3.5 w-3.5" />
-                {t('personalitySection')}
-              </Button>
-              {isActive && (
-                <Link
-                  href={`/dashboard/agents/${artifact.id}`}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-teal px-4 py-2 text-sm font-medium text-white hover:bg-teal/90"
+            <div className="space-y-3 border-t border-charcoal/8 pt-4">
+              {/* Stat + personality row */}
+              <div className="flex items-center justify-between">
+                {statsQuery.isLoading ? (
+                  <Skeleton className="h-4 w-40" />
+                ) : (
+                  <span className="text-sm text-dune" data-testid="stat-strip">
+                    {t('salesCardConversationsThisWeek')}
+                    {': '}
+                    <span className="font-semibold text-charcoal">{conversationTotal}</span>
+                  </span>
+                )}
+                <button
+                  onClick={onOpenPersonality}
+                  className="flex items-center gap-1 text-xs text-dune hover:text-charcoal"
                 >
-                  <BarChart3 className="h-4 w-4" />
-                  {t('openWorkspace')}
-                </Link>
+                  <Settings className="h-3 w-3" />
+                  {t('personalitySection')}
+                </button>
+              </div>
+              {/* CTAs */}
+              {isActive && (
+                <div className="flex gap-2">
+                  <Link
+                    href={`/dashboard/agents/${artifact.id}`}
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white hover:bg-teal/90"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    {t('openWorkspace')}
+                  </Link>
+                  <button
+                    onClick={onTest}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-charcoal/15 bg-white px-3 py-2.5 text-sm font-medium text-charcoal hover:bg-sand"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {t('test')}
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -535,21 +535,26 @@ export default function ArtifactsPage() {
         </Card>
       )}
 
-      {/* Sales hero — full width, outside and above the disabled grid */}
-      <SalesHeroSection
-        arch={salesArch}
-        artifact={salesArtifact}
-        isActive={salesIsActive}
-        onToggle={() => handleToggle(salesArch)}
-        onOpenPersonality={() => openPersonality(salesArch)}
-        isPending={createArtifact.isPending || updateArtifact.isPending}
-      />
+      {/* Agent cards — hero left (2/3), disabled stack right (1/3) */}
+      <div className="grid grid-cols-3 gap-3 items-start">
+        <div className="col-span-2">
+          <SalesHeroSection
+            arch={salesArch}
+            artifact={salesArtifact}
+            isActive={salesIsActive}
+            onToggle={() => handleToggle(salesArch)}
+            onOpenPersonality={() => openPersonality(salesArch)}
+            onTest={() => salesArtifact && setTestingArtifact({ id: salesArtifact.id, name: salesArtifact.name, type: salesArtifact.type })}
+            isPending={createArtifact.isPending || updateArtifact.isPending}
+          />
+        </div>
 
-      {/* 3 disabled cards — compact 3-col row */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="disabled-grid">
-        {disabledArchetypes.map((arch) => (
-          <DisabledCard key={arch.type} arch={arch} />
-        ))}
+        {/* 3 disabled cards stacked in right column */}
+        <div className="flex flex-col gap-3" data-testid="disabled-grid">
+          {disabledArchetypes.map((arch) => (
+            <DisabledCard key={arch.type} arch={arch} />
+          ))}
+        </div>
       </div>
 
       {/* Personality Drawer */}

@@ -74,7 +74,7 @@ export default function DashboardOverview() {
       </div>
 
       {/* ===== Your Agents ===== */}
-      <YourAgentsSection agents={artifacts.data} t={t} />
+      <YourAgentsSection agents={artifacts.data?.filter((a) => a.isActive && a.type === 'sales')} t={t} />
 
       {/* ===== Activity Feed ===== */}
       <ActivityFeedSection events={activityFeed.data?.events} locale={locale} t={t} />

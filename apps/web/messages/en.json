@@ -826,6 +826,7 @@
       "legal": "Legal",
       "privacy": "Privacy",
       "terms": "Terms",
+      "refund": "Refund",
       "copyright": "Camello. All rights reserved."
     }
   },
@@ -1008,5 +1009,10 @@
     "close": "Close notifications",
     "titleKnowledgeGap": "Knowledge gap: {intentType}",
     "bodyKnowledgeGap": "Customer asked: \"{question}\""
+  },
+  "legal": {
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "refund": "Refund"
   }
 }
