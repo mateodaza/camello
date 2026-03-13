@@ -14,6 +14,7 @@ const {
   mockDashboardOverview,
   mockActivityFeed,
   mockUpdateName,
+  mockGetStatus,
 } = vi.hoisted(() => ({
   mockSufficiencyScore: vi.fn(),
   mockArtifactList: vi.fn(),
@@ -21,6 +22,7 @@ const {
   mockDashboardOverview: vi.fn(),
   mockActivityFeed: vi.fn(),
   mockUpdateName: vi.fn(),
+  mockGetStatus: vi.fn(),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -38,6 +40,9 @@ vi.mock('@/lib/trpc', () => ({
     agent: {
       dashboardOverview: { useQuery: mockDashboardOverview },
       dashboardActivityFeed: { useQuery: mockActivityFeed },
+    },
+    onboarding: {
+      getStatus: { useQuery: mockGetStatus },
     },
   },
 }));
@@ -94,6 +99,11 @@ beforeEach(() => {
     data: null, isLoading: false, isError: false, refetch: vi.fn(),
   });
   mockUpdateName.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  // Default: onboarding complete → banner hidden
+  mockGetStatus.mockReturnValue({
+    data: { settings: { onboardingComplete: true }, previewCustomerId: null, tenantName: 'Test Co' },
+    isLoading: false,
+  });
   // Default: one active agent
   mockArtifactList.mockReturnValue({
     data: [{ id: 'a1', name: 'Aria', isActive: true, type: 'sales' }],
@@ -196,5 +206,23 @@ describe('DashboardOverview knowledge banner gate', () => {
     });
     render(React.createElement(DashboardOverview));
     expect(screen.queryByTestId('knowledge-banner')).not.toBeInTheDocument();
+  });
+
+  it('6 — onboarding resume banner shown when onboarding is incomplete', () => {
+    mockGetStatus.mockReturnValue({
+      data: { settings: { onboardingComplete: false, onboardingStep: 2 }, previewCustomerId: null, tenantName: 'Test Co' },
+      isLoading: false,
+    });
+    render(React.createElement(DashboardOverview));
+    expect(screen.getByTestId('onboarding-resume-banner')).toBeInTheDocument();
+  });
+
+  it('7 — onboarding resume banner hidden when onboarding is complete', () => {
+    mockGetStatus.mockReturnValue({
+      data: { settings: { onboardingComplete: true }, previewCustomerId: null, tenantName: 'Test Co' },
+      isLoading: false,
+    });
+    render(React.createElement(DashboardOverview));
+    expect(screen.queryByTestId('onboarding-resume-banner')).not.toBeInTheDocument();
   });
 });

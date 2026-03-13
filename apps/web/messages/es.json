@@ -60,7 +60,9 @@
     "knowledgeBannerText": "Tu agente {name} no tiene base de conocimiento — todavía no puede responder preguntas sobre productos.",
     "knowledgeBannerAction": "Agregar Conocimiento",
     "knowledgeScoreBanner": "Puntuación de conocimiento de {name}: {score}/100. {signal}",
-    "knowledgeScoreAddCta": "Agregar Conocimiento"
+    "knowledgeScoreAddCta": "Agregar Conocimiento",
+    "resumeSetupBanner": "Tu configuración aún no está completa. Retoma donde lo dejaste.",
+    "resumeSetupCta": "Retomar Configuración"
   },
   "artifacts": {
     "pageTitle": "Agentes",
@@ -1092,6 +1094,7 @@
     "whatsAppPhonePlaceholder": "123456789012345",
     "whatsAppPhoneNumberIdRequired": "El ID de número de teléfono es obligatorio",
     "whatsAppAccessTokenRequired": "El token de acceso es obligatorio",
-    "finishing": "Finalizando…"
+    "finishing": "Finalizando…",
+    "finishLater": "Terminaré esto más tarde"
   }
 }

@@ -60,7 +60,9 @@
     "knowledgeBannerText": "Your agent {name} has no knowledge base — it can't answer product questions yet.",
     "knowledgeBannerAction": "Add Knowledge",
     "knowledgeScoreBanner": "{name}'s knowledge score: {score}/100. {signal}",
-    "knowledgeScoreAddCta": "Add Knowledge"
+    "knowledgeScoreAddCta": "Add Knowledge",
+    "resumeSetupBanner": "Your setup isn't complete yet. Resume where you left off.",
+    "resumeSetupCta": "Resume Setup"
   },
   "artifacts": {
     "pageTitle": "Agents",
@@ -1092,6 +1094,7 @@
     "whatsAppPhonePlaceholder": "123456789012345",
     "whatsAppPhoneNumberIdRequired": "Phone Number ID is required",
     "whatsAppAccessTokenRequired": "Access token is required",
-    "finishing": "Finishing…"
+    "finishing": "Finishing…",
+    "finishLater": "I'll finish this later"
   }
 }

@@ -11,8 +11,13 @@ vi.mock('next-intl', () => ({
   useLocale: () => 'en',
 }));
 
+const { mockPush, mockReplace } = vi.hoisted(() => ({
+  mockPush: vi.fn(),
+  mockReplace: vi.fn(),
+}));
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }));
 
 const { mockOrgRef } = vi.hoisted(() => ({
@@ -100,6 +105,8 @@ describe('ChatOnboarding', () => {
     errorMutations.clear();
     queryDataMap.clear();
     mockOrgRef.current = { id: 'org_123', name: 'Test Co' };
+    mockPush.mockClear();
+    mockReplace.mockClear();
   });
 
   // Test 1: creating_org calls provision when org loads
@@ -180,6 +187,17 @@ describe('ChatOnboarding', () => {
     expect(screen.getByText('done')).toBeInTheDocument();
     expect(screen.getByText('openDashboard')).toBeInTheDocument();
     expect(screen.queryByText('webchatChoice')).not.toBeInTheDocument();
+  });
+
+  // Test 7: clicking finishLater at ask_description saves step 1 and redirects to /dashboard
+  it('clicking finishLater at ask_description calls saveStep with step 1 and pushes /dashboard', () => {
+    renderChat({ _testStage: 'ask_description' });
+
+    fireEvent.click(screen.getByText('finishLater'));
+
+    const saveStepSpy = mutateSpies.get('onboarding.saveStep');
+    expect(saveStepSpy).toHaveBeenCalledWith({ step: 1 });
+    expect(mockPush).toHaveBeenCalledWith('/dashboard');
   });
 
   // Test 6: WhatsApp section renders webhook URL + verify token from channel.webhookConfig query

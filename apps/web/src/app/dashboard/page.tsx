@@ -22,6 +22,9 @@ export default function DashboardOverview() {
   const dashboardOverview = trpc.agent.dashboardOverview.useQuery();
   const activityFeed = trpc.agent.dashboardActivityFeed.useQuery(undefined, { refetchInterval: 30_000 });
   const sufficiencyScore = trpc.knowledge.sufficiencyScore.useQuery();
+  const onboardingStatus = trpc.onboarding.getStatus.useQuery(undefined, {
+    enabled: !!organization,
+  });
 
   // Auto-sync tenant name when Clerk org name changes
   const updateName = trpc.tenant.updateName.useMutation({
@@ -39,6 +42,9 @@ export default function DashboardOverview() {
   }, [organization?.name, tenant.data?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = dashboardOverview.data;
+  const onboardingSettings = onboardingStatus.data?.settings as Record<string, unknown> | null | undefined;
+  const showResumeBanner = !onboardingStatus.isLoading && onboardingSettings?.onboardingComplete !== true;
+
   const showKnowledgeBanner =
     !sufficiencyScore.isLoading &&
     sufficiencyScore.data !== undefined &&
@@ -56,6 +62,10 @@ export default function DashboardOverview() {
 
       {/* ===== Public Chat Link ===== */}
       {tenant.data?.slug && <ShareLinkCard slug={tenant.data.slug} t={t} />}
+
+      {showResumeBanner && (
+        <OnboardingResumeBanner t={t} />
+      )}
 
       {showKnowledgeBanner && (
         <KnowledgeBanner
@@ -82,6 +92,25 @@ export default function DashboardOverview() {
 
       {/* ===== Activity Feed ===== */}
       <ActivityFeedSection events={activityFeed.data?.events} locale={locale} t={t} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding resume banner
+// ---------------------------------------------------------------------------
+
+function OnboardingResumeBanner({
+  t,
+}: {
+  t: ReturnType<typeof useTranslations<'dashboard'>>;
+}) {
+  return (
+    <div data-testid="onboarding-resume-banner" className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 flex items-center justify-between gap-4">
+      <p className="text-sm text-charcoal">{t('resumeSetupBanner')}</p>
+      <Link href="/onboarding" className="shrink-0 rounded-md bg-teal px-3 py-1.5 text-xs font-heading font-medium text-cream hover:bg-teal/90 transition-colors">
+        {t('resumeSetupCta')}
+      </Link>
     </div>
   );
 }

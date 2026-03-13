@@ -384,7 +384,7 @@ Each gap card in the Knowledge page already shows the intent + a sample customer
 
 ---
 
-#### NC-267 [ ] Onboarding polish: skip/resume + mobile + i18n
+#### NC-267 [x] Onboarding polish: skip/resume + mobile + i18n
 
 Final polish on the chat onboarding.
 

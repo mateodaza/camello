@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@keyframes fade-in {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+
 @theme {
   --font-heading: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
@@ -13,6 +18,8 @@
   --color-cream: #FAF5ED;
   --color-charcoal: #2D2D34;
   --color-dune: #6B6359;
+
+  --animate-fade-in: fade-in 300ms ease-in both;
 }
 
 html {

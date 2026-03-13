@@ -41,6 +41,14 @@ function stepToStage(step: number): Stage {
   return 'ask_channel';
 }
 
+function stageToStep(s: Stage): number {
+  if (s === 'ask_description') return 1;
+  if (s === 'confirm_agent') return 3;
+  if (s === 'collecting_knowledge') return 4;
+  if (s === 'ask_channel') return 5;
+  return 6;
+}
+
 interface Props {
   /** Only used in tests to pre-seed initial stage without full flow. */
   _testStage?: Stage;
@@ -237,6 +245,11 @@ export function ChatOnboarding({ _testStage }: Props) {
     setStage('done');
   };
 
+  const handleFinishLater = () => {
+    saveStep.mutate({ step: stageToStep(stage) });
+    router.push('/dashboard');
+  };
+
   if (!isLoaded && !_testStage) {
     return <p className="text-center text-sm text-dune">{t('loading')}</p>;
   }
@@ -277,7 +290,7 @@ export function ChatOnboarding({ _testStage }: Props) {
       {stage === 'ask_description' && (
         <>
           <ChatBubble>{t('askDescription', { companyName: organization?.name ?? '' })}</ChatBubble>
-          <div className="space-y-2">
+          <div className="sticky bottom-0 bg-sand py-2 space-y-2">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -293,6 +306,13 @@ export function ChatOnboarding({ _testStage }: Props) {
             >
               {t('submit')}
             </Button>
+            <button
+              type="button"
+              onClick={handleFinishLater}
+              className="block w-full text-center text-xs text-dune hover:text-charcoal"
+            >
+              {t('finishLater')}
+            </button>
           </div>
         </>
       )}
@@ -317,7 +337,7 @@ export function ChatOnboarding({ _testStage }: Props) {
           <ChatBubble>
             {t('confirmAgent', { agentName, greeting: suggestion.personality.greeting })}
           </ChatBubble>
-          <div className="space-y-2">
+          <div className="sticky bottom-0 bg-sand py-2 space-y-2">
             {editingName && (
               <input
                 value={nameInput}
@@ -339,6 +359,13 @@ export function ChatOnboarding({ _testStage }: Props) {
             {setupArtifact.isError && (
               <p className="text-sm text-sunset">{setupArtifact.error.message}</p>
             )}
+            <button
+              type="button"
+              onClick={handleFinishLater}
+              className="block w-full text-center text-xs text-dune hover:text-charcoal"
+            >
+              {t('finishLater')}
+            </button>
           </div>
         </>
       )}
@@ -358,7 +385,7 @@ export function ChatOnboarding({ _testStage }: Props) {
             />
           </div>
           <ChatBubble>{t('askWebsite', { agentName })}</ChatBubble>
-          <div className="space-y-2">
+          <div className="sticky bottom-0 bg-sand py-2 space-y-2">
             <input
               type="url"
               value={websiteUrl}
@@ -380,6 +407,13 @@ export function ChatOnboarding({ _testStage }: Props) {
                 {t('skipForNow')}
               </Button>
             </div>
+            <button
+              type="button"
+              onClick={handleFinishLater}
+              className="block w-full text-center text-xs text-dune hover:text-charcoal"
+            >
+              {t('finishLater')}
+            </button>
           </div>
         </>
       )}
@@ -388,26 +422,35 @@ export function ChatOnboarding({ _testStage }: Props) {
       {stage === 'ask_channel' && !channelChoice && (
         <>
           <ChatBubble>{t('askChannel', { agentName })}</ChatBubble>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              onClick={() => setChannelChoice('webchat')}
-              className="rounded-lg border border-charcoal/10 p-4 text-left transition hover:border-charcoal/25 hover:shadow-sm"
+          <div className="sticky bottom-0 bg-sand py-2 space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => setChannelChoice('webchat')}
+                className="rounded-lg border border-charcoal/10 p-4 text-left transition hover:border-charcoal/25 hover:shadow-sm"
+              >
+                <p className="font-medium">{t('webchatChoice')}</p>
+              </button>
+              <button
+                onClick={() => setChannelChoice('whatsapp')}
+                className="rounded-lg border border-charcoal/10 p-4 text-left transition hover:border-charcoal/25 hover:shadow-sm"
+              >
+                <p className="font-medium">{t('whatsappChoice')}</p>
+              </button>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => { saveStep.mutate({ step: 6 }); setStage('done'); }}
             >
-              <p className="font-medium">{t('webchatChoice')}</p>
-            </button>
+              {t('skipForNow')}
+            </Button>
             <button
-              onClick={() => setChannelChoice('whatsapp')}
-              className="rounded-lg border border-charcoal/10 p-4 text-left transition hover:border-charcoal/25 hover:shadow-sm"
+              type="button"
+              onClick={handleFinishLater}
+              className="block w-full text-center text-xs text-dune hover:text-charcoal"
             >
-              <p className="font-medium">{t('whatsappChoice')}</p>
+              {t('finishLater')}
             </button>
           </div>
-          <Button
-            variant="ghost"
-            onClick={() => { saveStep.mutate({ step: 6 }); setStage('done'); }}
-          >
-            {t('skipForNow')}
-          </Button>
         </>
       )}
 
@@ -418,11 +461,20 @@ export function ChatOnboarding({ _testStage }: Props) {
           <div className="rounded bg-midnight p-3">
             <code className="text-xs text-green-400">{widgetSnippet}</code>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCopy}>
-              {copied ? t('copied') : t('copySnippet')}
-            </Button>
-            <Button onClick={handleWebchatDone}>{t('continue')}</Button>
+          <div className="sticky bottom-0 bg-sand py-2 space-y-2">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleCopy}>
+                {copied ? t('copied') : t('copySnippet')}
+              </Button>
+              <Button onClick={handleWebchatDone}>{t('continue')}</Button>
+            </div>
+            <button
+              type="button"
+              onClick={handleFinishLater}
+              className="block w-full text-center text-xs text-dune hover:text-charcoal"
+            >
+              {t('finishLater')}
+            </button>
           </div>
         </>
       )}
@@ -515,21 +567,29 @@ export function ChatOnboarding({ _testStage }: Props) {
 
           <p className="text-xs text-dune">{tc('channelWebhookInstructions')}</p>
 
-          <div className="flex gap-2">
-            <Button disabled={channelUpsert.isPending} onClick={handleWhatsApp}>
-              {channelUpsert.isPending ? t('saving') : t('saveAndContinue')}
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => { saveStep.mutate({ step: 6 }); setStage('done'); }}
+          <div className="sticky bottom-0 bg-sand py-2 space-y-2">
+            <div className="flex gap-2">
+              <Button disabled={channelUpsert.isPending} onClick={handleWhatsApp}>
+                {channelUpsert.isPending ? t('saving') : t('saveAndContinue')}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => { saveStep.mutate({ step: 6 }); setStage('done'); }}
+              >
+                {t('whatsAppSkip')}
+              </Button>
+            </div>
+            {channelUpsert.isError && (
+              <p className="text-sm text-error">{channelUpsert.error.message}</p>
+            )}
+            <button
+              type="button"
+              onClick={handleFinishLater}
+              className="block w-full text-center text-xs text-dune hover:text-charcoal"
             >
-              {t('whatsAppSkip')}
-            </Button>
+              {t('finishLater')}
+            </button>
           </div>
-
-          {channelUpsert.isError && (
-            <p className="text-sm text-error">{channelUpsert.error.message}</p>
-          )}
         </div>
       )}
 
