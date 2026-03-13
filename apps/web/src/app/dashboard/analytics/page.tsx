@@ -1,103 +1,17 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
-import { localDateStr, thirtyDaysAgoStr, fmtCost, fmtMicroCost, fmtInt, fmtDateTime, fmtMoney } from '@/lib/format';
+import { localDateStr, nDaysAgoStr, fmtCost, fmtInt, fmtMoney } from '@/lib/format';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { StatCard, Metric } from '@/components/stat-card';
+import { Metric } from '@/components/stat-card';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChartCss } from '@/components/agent-workspace/primitives/bar-chart-css';
 import { AgentPerformance } from '@/components/agent-workspace/performance-panel';
-import { stageKey } from '@/components/agent-workspace/sales/constants';
-
-// ---------------------------------------------------------------------------
-// DeltaBadge — period-over-period comparison badge (inlined from registry/sales)
-// ---------------------------------------------------------------------------
-
-interface DeltaBadgeProps {
-  current: number;
-  pct: number | null;
-  format?: 'count' | 'currency';
-  locale?: string;
-}
-
-function DeltaBadge({ current, pct, format = 'count', locale }: DeltaBadgeProps) {
-  const t = useTranslations('agentWorkspace');
-
-  if (pct === null && current === 0) {
-    return <span className="text-xs text-dune">—</span>;
-  }
-  if (pct === null && current > 0) {
-    const text = format === 'currency'
-      ? t('salesComparisonBadgeCurrencyNew', { amount: fmtMoney(current, locale ?? 'en') })
-      : t('salesComparisonBadgeCountNew', { count: current });
-    return <span className="text-xs font-medium text-teal">{text}</span>;
-  }
-  if (pct === null || pct === 0) {
-    return <span className="text-xs text-dune">—</span>;
-  }
-  if (pct > 0) {
-    return <span className="text-xs font-medium text-teal">↑{pct}%</span>;
-  }
-  return <span className="text-xs font-medium" style={{ color: 'var(--color-sunset)' }}>↓{Math.abs(pct)}%</span>;
-}
-
-// ---------------------------------------------------------------------------
-// ForecastCard — 30-day revenue forecast (inlined from registry/sales)
-// ---------------------------------------------------------------------------
-
-interface ForecastData {
-  totalForecast: number;
-  stages: Array<{
-    stage: string;
-    leadCount: number;
-    pipelineValue: number;
-    conversionRate: number;
-    isFallback: boolean;
-    forecastValue: number;
-  }>;
-}
-
-function ForecastCard({ artifactId: _artifactId, salesForecast }: { artifactId: string; salesForecast: ForecastData | undefined }) {
-  const t = useTranslations('agentWorkspace');
-  const locale = useLocale();
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">{t('salesForecast30d')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="font-heading text-2xl font-bold tabular-nums text-charcoal">
-          {fmtMoney(salesForecast?.totalForecast ?? 0, locale)}
-        </p>
-        {salesForecast && salesForecast.stages.length > 0 ? (
-          <div className="mt-3 space-y-2">
-            {salesForecast.stages.map((s) => (
-              <div key={s.stage} className="flex items-center justify-between text-sm">
-                <span className="text-dune">
-                  {t(`salesStage${stageKey(s.stage)}` as Parameters<typeof t>[0])}
-                </span>
-                <span className="text-dune">
-                  {Math.round(s.conversionRate * 100)}%
-                  {s.isFallback && (
-                    <span className="ml-1 text-xs text-dune/70">({t('salesForecastEstimated')})</span>
-                  )}
-                </span>
-                <span className="tabular-nums text-charcoal">{fmtMoney(s.forecastValue, locale)}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-dune">{t('salesForecastEmpty')}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+import { DeltaBadge } from '@/components/agent-workspace/sales/delta-badge';
+import { ForecastCard } from '@/components/agent-workspace/sales/forecast-card';
 
 // ---------------------------------------------------------------------------
 // SalesComparisonSection — week-over-week deltas for a sales agent
@@ -183,12 +97,12 @@ function ForecastSection({ artifactId }: { artifactId: string }) {
 
 export default function AnalyticsPage() {
   const t = useTranslations('analytics');
-  const tc = useTranslations('common');
   const locale = useLocale();
 
   // --- Date range (local time) ---
-  const [from, setFrom] = useState(thirtyDaysAgoStr);
-  const [to, setTo] = useState(localDateStr);
+  const [from, setFrom] = useState(() => nDaysAgoStr(30));
+  const [to, setTo] = useState(() => localDateStr());
+  const [activePreset, setActivePreset] = useState<'7d' | '30d' | '90d' | null>('30d');
 
   // Ensure from <= to; swap if inverted
   const validFrom = from <= to ? from : to;
@@ -197,10 +111,18 @@ export default function AnalyticsPage() {
 
   // --- Unified agent selector ---
   const [selectedArtifactId, setSelectedArtifactId] = useState('');
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   // --- Queries ---
   const overview = trpc.analytics.overview.useQuery({ from: validFrom, to: validTo });
   const artifacts = trpc.artifact.list.useQuery({ activeOnly: false });
+
+  // --- Auto-select when exactly one agent exists ---
+  useEffect(() => {
+    if (selectedArtifactId === '' && artifacts.data?.length === 1) {
+      setSelectedArtifactId(artifacts.data[0].id);
+    }
+  }, [artifacts.data, selectedArtifactId]);
 
   const artifactMetrics = trpc.analytics.artifactMetrics.useQuery(
     { artifactId: selectedArtifactId, from: validFrom, to: validTo },
@@ -211,8 +133,6 @@ export default function AnalyticsPage() {
     artifactId: selectedArtifactId || undefined,
     limit: 50,
   });
-
-  const usageRecords = trpc.analytics.usage.useQuery({ limit: 6 });
 
   // --- Derived ---
   const selectedArtifact = artifacts.data?.find((a) => a.id === selectedArtifactId);
@@ -229,6 +149,14 @@ export default function AnalyticsPage() {
       .slice(0, 8)
       .map(([label, value]) => ({ label, value }));
   }, [recentLogs.data, selectedArtifactId]);
+
+  // --- Preset helper ---
+  function applyPreset(preset: '7d' | '30d' | '90d') {
+    const days = preset === '7d' ? 7 : preset === '30d' ? 30 : 90;
+    setFrom(nDaysAgoStr(days));
+    setTo(localDateStr());
+    setActivePreset(preset);
+  }
 
   // --- Primary query gate ---
   if (overview.isLoading) return (
@@ -248,9 +176,9 @@ export default function AnalyticsPage() {
   );
   if (overview.isError) return <QueryError error={overview.error} onRetry={() => overview.refetch()} />;
 
-  const convStats = overview.data?.conversations ?? {};
+  const convStats = overview.data?.conversations ?? { active: 0, resolved: 0, escalated: 0 };
   const cost = overview.data?.cost;
-  const total = Object.values(convStats).reduce((s, n) => s + n, 0);
+  const total = (convStats.resolved ?? 0) + (convStats.active ?? 0) + (convStats.escalated ?? 0);
 
   return (
     <div className="space-y-8">
@@ -260,28 +188,46 @@ export default function AnalyticsPage() {
       {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}
 
       {/* Date range controls */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelFrom')}</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-          />
+      <div className="space-y-3">
+        {/* Preset pills — primary control */}
+        <div className="flex flex-wrap gap-2">
+          {(['7d', '30d', '90d'] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => applyPreset(p)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors
+                ${activePreset === p
+                  ? 'bg-teal text-white'
+                  : 'border border-charcoal/15 bg-cream text-charcoal hover:bg-sand'
+                }`}
+            >
+              {t(p === '7d' ? 'preset7d' : p === '30d' ? 'preset30d' : 'preset90d')}
+            </button>
+          ))}
         </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelTo')}</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-          />
+
+        {/* Custom range — demoted but always rendered */}
+        <div className="flex flex-wrap items-end gap-3">
+          <span className="text-xs font-medium text-dune self-center">{t('customRange')}</span>
+          <div>
+            <label className="mb-1 block text-xs text-charcoal/60">{t('labelFrom')}</label>
+            <input
+              type="date" value={from}
+              onChange={(e) => { setFrom(e.target.value); setActivePreset(null); }}
+              className="rounded-md border border-charcoal/15 bg-cream px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-charcoal/60">{t('labelTo')}</label>
+            <input
+              type="date" value={to}
+              onChange={(e) => { setTo(e.target.value); setActivePreset(null); }}
+              className="rounded-md border border-charcoal/15 bg-cream px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+            />
+          </div>
+          {dateSwapped && <span className="text-xs text-gold">{t('datesSwapped')}</span>}
         </div>
-        {dateSwapped && (
-          <span className="text-xs text-gold">{t('datesSwapped')}</span>
-        )}
       </div>
 
       {/* Unified agent selector */}
@@ -300,18 +246,46 @@ export default function AnalyticsPage() {
             ))}
           </select>
         )}
-        {!selectedArtifactId && (
+        {!selectedArtifactId && (artifacts.data?.length ?? 0) > 1 && (
           <span className="text-sm text-dune">{t('agentSpecificPrompt')}</span>
         )}
       </div>
 
-      {/* ===== SECTION A: Overview Stats ===== */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title={t('totalConversations')} value={total} />
-        <StatCard title={t('active')} value={convStats['active'] ?? 0} />
-        <StatCard title={t('resolved')} value={convStats['resolved'] ?? 0} />
-        <StatCard title={t('escalated')} value={convStats['escalated'] ?? 0} />
-      </div>
+      {/* ===== SECTION A: Conversation Health Card ===== */}
+      <Card>
+        <CardContent className="pt-5">
+          <p className="font-heading text-4xl font-bold text-charcoal tabular-nums">{total}</p>
+          <p className="text-sm text-dune">{t('convHealthTotal')}</p>
+
+          {total === 0 ? (
+            <div className="my-3 h-3 rounded-full bg-charcoal/10" />
+          ) : (
+            <div className="my-3 flex h-3 overflow-hidden rounded-full">
+              <div
+                data-testid="health-bar-resolved"
+                className="bg-teal"
+                style={{ width: `${((convStats.resolved ?? 0) / total) * 100}%` }}
+              />
+              <div
+                data-testid="health-bar-active"
+                className="bg-charcoal/20"
+                style={{ width: `${((convStats.active ?? 0) / total) * 100}%` }}
+              />
+              <div
+                data-testid="health-bar-escalated"
+                className="bg-sunset"
+                style={{ width: `${((convStats.escalated ?? 0) / total) * 100}%` }}
+              />
+            </div>
+          )}
+
+          <p className="text-sm text-dune">
+            {convStats.resolved ?? 0} {t('convHealthResolved')}
+            {' · '}{convStats.active ?? 0} {t('convHealthActive')}
+            {' · '}{convStats.escalated ?? 0} {t('convHealthEscalated')}
+          </p>
+        </CardContent>
+      </Card>
 
       {cost && (
         <Card>
@@ -338,18 +312,6 @@ export default function AnalyticsPage() {
             <AgentPerformance artifactId={selectedArtifactId} />
           </div>
 
-          {/* Top Intents */}
-          {intentBars.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionIntents')}</h2>
-              <Card>
-                <CardContent className="pt-5">
-                  <BarChartCss bars={intentBars} ariaLabel={t('sectionIntents')} />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
           {/* Sales Comparison (sales agents only) */}
           {isSalesAgent && (
             <div className="space-y-3">
@@ -368,9 +330,37 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* ===== SECTION B: Per-Artifact Metrics ===== */}
+      {/* ===== Top Intents (standalone, before daily performance) ===== */}
+      {selectedArtifactId && (
+        <div className="space-y-3">
+          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionIntents')}</h2>
+          {recentLogs.isLoading ? (
+            <Skeleton className="h-24 rounded-xl" />
+          ) : recentLogs.isError ? (
+            <QueryError error={recentLogs.error} onRetry={() => recentLogs.refetch()} />
+          ) : intentBars.length > 0 ? (
+            <>
+              <Card>
+                <CardContent className="pt-5">
+                  <BarChartCss bars={intentBars} ariaLabel={t('sectionIntents')} />
+                </CardContent>
+              </Card>
+              <p className="text-sm text-dune">
+                {t.rich('intentsContextHint', {
+                  topic: intentBars[0].label,
+                  b: (chunks) => <strong>{chunks}</strong>,
+                })}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-dune">{t('intentsEmptyHint')}</p>
+          )}
+        </div>
+      )}
+
+      {/* ===== SECTION B: Daily Performance ===== */}
       <div className="space-y-3">
-        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('artifactMetrics')}</h2>
+        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('dailyPerformance')}</h2>
 
         {artifactMetrics.isError && <QueryError error={artifactMetrics.error} onRetry={() => artifactMetrics.refetch()} />}
 
@@ -381,6 +371,7 @@ export default function AnalyticsPage() {
         ) : (artifactMetrics.data?.length ?? 0) === 0 ? (
           <p className="text-dune">{t('noMetrics')}</p>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
             <table className="min-w-[650px] w-full text-sm">
               <thead>
@@ -389,8 +380,8 @@ export default function AnalyticsPage() {
                   <th className="px-4 py-3 font-medium">{t('columnHandoffsIn')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnHandoffsOut')}</th>
                   <th className="px-4 py-3 font-medium">{t('columnResolutions')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnAvgLatency')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnLLMCost')}</th>
+                  {showTechnicalDetails && <th className="px-4 py-3 font-medium">{t('columnAvgLatency')}</th>}
+                  {showTechnicalDetails && <th className="px-4 py-3 font-medium">{t('columnLLMCost')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -400,107 +391,25 @@ export default function AnalyticsPage() {
                     <td className="px-4 py-3">{row.handoffsIn}</td>
                     <td className="px-4 py-3">{row.handoffsOut}</td>
                     <td className="px-4 py-3">{row.resolutionsCount}</td>
-                    <td className="px-4 py-3">{Number(row.avgLatencyMs).toFixed(0)} {t('ms')}</td>
-                    <td className="px-4 py-3">{fmtCost(row.llmCostUsd, locale)}</td>
+                    {showTechnicalDetails && (
+                      <td className="px-4 py-3">{Number(row.avgLatencyMs).toFixed(0)} {t('ms')}</td>
+                    )}
+                    {showTechnicalDetails && (
+                      <td className="px-4 py-3">{fmtCost(row.llmCostUsd, locale)}</td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
-
-      {/* ===== SECTION C: Recent Interaction Logs ===== */}
-      <div className="space-y-3">
-        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('recentInteractions')}</h2>
-
-        {recentLogs.isError && <QueryError error={recentLogs.error} onRetry={() => recentLogs.refetch()} />}
-
-        {recentLogs.isLoading ? (
-          <div className="text-dune">{tc('loading')}</div>
-        ) : (recentLogs.data?.length ?? 0) === 0 ? (
-          <p className="text-dune">{t('noInteractions')}</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="min-w-[800px] w-full text-sm">
-              <thead>
-                <tr className="border-b border-charcoal/8 text-left text-dune">
-                  <th className="px-4 py-3 font-medium">{t('columnIntent')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnModel')}</th>
-                  <th className="px-4 py-3 font-medium">{t('tokensIn')}</th>
-                  <th className="px-4 py-3 font-medium">{t('tokensOut')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnCost')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnLatency')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnResolution')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnWhen')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentLogs.data?.map((log) => (
-                  <tr key={log.id} className="border-b border-charcoal/8 last:border-0">
-                    <td className="px-4 py-3">{log.intent}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-dune">{log.modelUsed}</td>
-                    <td className="px-4 py-3">{fmtInt(log.tokensIn, locale)}</td>
-                    <td className="px-4 py-3">{fmtInt(log.tokensOut, locale)}</td>
-                    <td className="px-4 py-3">{fmtMicroCost(log.costUsd, locale)}</td>
-                    <td className="px-4 py-3">{log.latencyMs} {t('ms')}</td>
-                    <td className="px-4 py-3">
-                      {log.resolutionType ? (
-                        <Badge>{log.resolutionType}</Badge>
-                      ) : (
-                        <span className="text-dune">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-dune">{fmtDateTime(log.createdAt, locale)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ===== SECTION D: Billing Periods ===== */}
-      <div className="space-y-3">
-        <h2 className="font-heading text-lg font-semibold text-charcoal">{t('billingPeriods')}</h2>
-
-        {usageRecords.isError && <QueryError error={usageRecords.error} onRetry={() => usageRecords.refetch()} />}
-
-        {usageRecords.isLoading ? (
-          <div className="text-dune">{t('loadingUsage')}</div>
-        ) : (usageRecords.data?.length ?? 0) === 0 ? (
-          <p className="text-dune">{t('noUsageRecords')}</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border-2 border-charcoal/8 bg-cream">
-            <table className="min-w-[550px] w-full text-sm">
-              <thead>
-                <tr className="border-b border-charcoal/8 text-left text-dune">
-                  <th className="px-4 py-3 font-medium">{t('columnPeriodStart')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnPeriodEnd')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnResolutions')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnLLMCost')}</th>
-                  <th className="px-4 py-3 font-medium">{t('columnOverage')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usageRecords.data?.map((rec) => (
-                  <tr key={rec.id} className="border-b border-charcoal/8 last:border-0">
-                    <td className="px-4 py-3">{rec.periodStart}</td>
-                    <td className="px-4 py-3">{rec.periodEnd}</td>
-                    <td className="px-4 py-3">{rec.resolutionsCount}</td>
-                    <td className="px-4 py-3">{fmtCost(rec.llmCostUsd, locale)}</td>
-                    <td className="px-4 py-3">
-                      {Number(rec.overageCostUsd) > 0 ? (
-                        <span className="text-error">{fmtCost(rec.overageCostUsd, locale)}</span>
-                      ) : (
-                        <span className="text-dune">$0.0000</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowTechnicalDetails((v) => !v)}
+            className="mt-3 text-sm text-dune underline-offset-2 hover:underline"
+          >
+            {t(showTechnicalDetails ? 'hideTechnicalDetails' : 'showTechnicalDetails')}
+          </button>
+          </>
         )}
       </div>
     </div>

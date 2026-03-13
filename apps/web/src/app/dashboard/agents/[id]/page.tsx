@@ -21,7 +21,6 @@ import { AgentPerformance } from '@/components/agent-workspace/performance-panel
 import { AgentActivity } from '@/components/agent-workspace/agent-activity';
 import { ApprovalsSection } from '@/components/agent-workspace/sales/approvals-section';
 import { TrustGraduationCard } from '@/components/agent-workspace/sales/trust-graduation-card';
-import { KnowledgeGapsSection } from '@/components/agent-workspace/knowledge-gaps-section';
 import { WidgetAppearanceSection } from '@/components/agent-workspace/widget-appearance-section';
 
 const TONE_PRESETS = [
@@ -54,7 +53,7 @@ export default function AgentConfigPage() {
   );
   const knowledgeList = trpc.knowledge.list.useQuery({});
 
-  const [activeTab, setActiveTab] = useState<'setup' | 'dashboard'>('setup');
+  const [activeTab, setActiveTab] = useState<'setup' | 'dashboard'>('dashboard');
 
   // --- Identity form state ---
   const [name, setName] = useState('');
@@ -144,7 +143,12 @@ export default function AgentConfigPage() {
     <WorkspaceShell>
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-semibold text-charcoal">{artifact.name}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="font-heading text-xl font-semibold text-charcoal">{artifact.name}</h1>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${artifact.isActive ? 'bg-teal/10 text-teal' : 'bg-charcoal/10 text-dune'}`}>
+            {artifact.isActive ? t('activeLabel') : t('inactiveLabel')}
+          </span>
+        </div>
         <Link
           href={`/dashboard/conversations?artifactId=${id}`}
           className="flex items-center gap-1.5 rounded-md bg-teal/10 px-3 py-1.5 text-sm font-medium text-teal hover:bg-teal/20"
@@ -158,18 +162,6 @@ export default function AgentConfigPage() {
       <div className="flex gap-1 rounded-lg bg-charcoal/5 p-1">
         <button
           type="button"
-          onClick={() => setActiveTab('setup')}
-          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'setup'
-              ? 'bg-white text-charcoal shadow-sm'
-              : 'text-dune hover:text-charcoal'
-          }`}
-        >
-          <Settings className="h-4 w-4" />
-          {t('tabSetup')}
-        </button>
-        <button
-          type="button"
           onClick={() => setActiveTab('dashboard')}
           className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === 'dashboard'
@@ -179,6 +171,18 @@ export default function AgentConfigPage() {
         >
           <LayoutDashboard className="h-4 w-4" />
           {t('tabDashboard')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('setup')}
+          className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'setup'
+              ? 'bg-white text-charcoal shadow-sm'
+              : 'text-dune hover:text-charcoal'
+          }`}
+        >
+          <Settings className="h-4 w-4" />
+          {t('tabSetup')}
         </button>
       </div>
 
@@ -365,11 +369,6 @@ export default function AgentConfigPage() {
         )}
       </div>
 
-      {/* 4b. Knowledge Gaps */}
-      <WorkspaceSectionErrorBoundary key="knowledge-gaps">
-        <KnowledgeGapsSection artifactId={id} />
-      </WorkspaceSectionErrorBoundary>
-
       {/* 5. Settings */}
       <WorkspaceSectionErrorBoundary key="settings-panel">
         <AgentSettingsPanel artifactId={id} />
@@ -390,14 +389,30 @@ export default function AgentConfigPage() {
             }))}
             onGoToModules={() => setActiveTab('setup')}
           />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setActiveTab('setup')}
+              className="text-sm text-teal hover:underline"
+              data-testid="configure-agent-link"
+            >
+              {t('dashboardConfigureLink')} →
+            </button>
+          </div>
           <ApprovalsSection artifactId={id} />
-          <div className="border-t border-charcoal/8" />
           <AgentPerformance artifactId={id} />
           <QuotesSection artifactId={id} />
           <MeetingsSection artifactId={id} />
           <PaymentsSection artifactId={id} />
           <FollowupsSection artifactId={id} />
-          <AgentActivity artifactId={id} />
+          <details data-testid="activity-log-disclosure">
+            <summary className="cursor-pointer select-none text-sm font-medium text-dune hover:text-charcoal">
+              {t('activityLogLabel')}
+            </summary>
+            <div className="mt-3">
+              <AgentActivity artifactId={id} />
+            </div>
+          </details>
         </div>
       )}
     </WorkspaceShell>

@@ -36,17 +36,18 @@ export const analyticsRouter = router({
       });
     }),
 
-  /** Tenant-wide overview stats. */
+  /** Tenant-wide (or artifact-scoped) overview stats. */
   overview: tenantProcedure
     .input(
       z.object({
+        artifactId: z.string().uuid().optional(),
         from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       }),
     )
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
-        // Conversation counts by status
+        // Conversation counts by status — scoped to artifact when artifactId is provided
         const conversationStats = await db
           .select({
             status: conversations.status,
@@ -58,11 +59,12 @@ export const analyticsRouter = router({
               eq(conversations.tenantId, ctx.tenantId),
               gte(conversations.createdAt, sql`${input.from}::timestamptz`),
               lte(conversations.createdAt, sql`${input.to}::timestamptz + interval '1 day'`),
+              input.artifactId ? eq(conversations.artifactId, input.artifactId) : undefined,
             ),
           )
           .groupBy(conversations.status);
 
-        // Total LLM cost for the period
+        // Total LLM cost for the period — scoped to artifact when artifactId is provided
         const costRows = await db
           .select({
             totalCost: sql<string>`coalesce(sum(cost_usd), 0)`,
@@ -76,6 +78,7 @@ export const analyticsRouter = router({
               eq(interactionLogs.tenantId, ctx.tenantId),
               gte(interactionLogs.createdAt, sql`${input.from}::timestamptz`),
               lte(interactionLogs.createdAt, sql`${input.to}::timestamptz + interval '1 day'`),
+              input.artifactId ? eq(interactionLogs.artifactId, input.artifactId) : undefined,
             ),
           );
 

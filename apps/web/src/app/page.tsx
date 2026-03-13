@@ -305,10 +305,28 @@ export default async function LandingPage() {
               </h4>
               <ul className="space-y-2 text-sm font-body">
                 <li>
-                  <span className="text-cream/40">{t('footer.privacy')}</span>
+                  <Link
+                    href="/privacy"
+                    className="text-cream/70 hover:text-cream transition-colors"
+                  >
+                    {t('footer.privacy')}
+                  </Link>
                 </li>
                 <li>
-                  <span className="text-cream/40">{t('footer.terms')}</span>
+                  <Link
+                    href="/terms"
+                    className="text-cream/70 hover:text-cream transition-colors"
+                  >
+                    {t('footer.terms')}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/refund"
+                    className="text-cream/70 hover:text-cream transition-colors"
+                  >
+                    {t('footer.refund')}
+                  </Link>
                 </li>
               </ul>
             </div>

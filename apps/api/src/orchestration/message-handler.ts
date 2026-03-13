@@ -466,7 +466,6 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
 
   // ── 3. Classify intent (first potentially paid step — LLM fallback) ──
   const intent = await trace.span('classify-intent', () => classifyIntent(messageText));
-  console.log('[orchestration] intent:', JSON.stringify({ type: intent.type, confidence: intent.confidence }));
 
   // 4. Resolve artifact via normal resolver (only when no override)
   if (!resolved) {
@@ -915,13 +914,6 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
         ? enrichedModules.filter((m) => intentProfile.allowedModuleSlugs!.includes(m.moduleSlug))
         : enrichedModules)
     : [];
-  console.log('[orchestration] tools available:', {
-    intentType: intent.type,
-    includeModules: intentProfile.includeModules,
-    allowedSlugs: intentProfile.allowedModuleSlugs ?? 'all',
-    boundModuleSlugs: enrichedModules.map((m) => m.moduleSlug),
-    filteredSlugs: filteredModules.map((m) => `${m.moduleSlug}(${m.autonomyLevel})`),
-  });
   const tools = filteredModules.length > 0
     ? buildToolsFromBindings(filteredModules, {
         tenantId,
@@ -1013,12 +1005,6 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       }
     }
   }
-  console.log('[orchestration] LLM done:', {
-    model: modelId,
-    steps: steps?.length ?? 0,
-    toolCallsMade: executedModules.map((m) => m.moduleSlug),
-    responsePreview: rawResponseText.slice(0, 120),
-  });
 
   // 12b. Post-generation grounding check
   // Fail-closed for high-risk intents OR when response contains specific claims.
