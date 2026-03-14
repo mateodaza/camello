@@ -20,6 +20,7 @@ interface MatchKnowledgeParams {
   docTypes: string[] | null;
   similarityThreshold: number;
   matchCount: number;
+  artifactId?: string | null;
 }
 
 /**
@@ -37,6 +38,7 @@ export interface RagSearchInput {
   embed: EmbedFn;
   matchKnowledge: MatchKnowledgeFn;
   archetypeType?: ArtifactType;
+  artifactId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +55,7 @@ export interface RagSearchInput {
  * 6. Context assembly — fit within token budget
  */
 export async function searchKnowledge(input: RagSearchInput): Promise<RagResult> {
-  const { queryText, intent, tenantId, embed, matchKnowledge } = input;
+  const { queryText, intent, tenantId, embed, matchKnowledge, artifactId } = input;
 
   // 1. Gate: skip for intents that don't need knowledge
   if (shouldSkipSearch(intent)) {
@@ -72,6 +74,7 @@ export async function searchKnowledge(input: RagSearchInput): Promise<RagResult>
     docTypes,
     similarityThreshold: RAG_CONFIG.primary.similarity_threshold,
     matchCount: RAG_CONFIG.primary.match_count,
+    artifactId,
   });
 
   // 4. Proactive search: lower threshold, all doc types, fewer results
@@ -82,6 +85,7 @@ export async function searchKnowledge(input: RagSearchInput): Promise<RagResult>
     docTypes: null, // broader scope
     similarityThreshold: RAG_CONFIG.proactive.similarity_threshold,
     matchCount: RAG_CONFIG.proactive.match_count,
+    artifactId,
   });
 
   // Deduplicate: remove proactive results already in primary

@@ -15,6 +15,7 @@ import { onboardingRouter } from './onboarding.js';
 import { billingRouter } from './billing.js';
 import { customerRouter } from './customer.js';
 import { agentRouter } from './agent.js';
+import { advisorRouter } from './advisor.js';
 import { uploadAvatar } from '../lib/supabase-storage.js';
 
 export const tenantRouter = router({
@@ -154,6 +155,7 @@ export const appRouter = router({
   billing: billingRouter,
   customer: customerRouter,
   agent: agentRouter,
+  advisor: advisorRouter,
 });
 
 export type AppRouter = typeof appRouter;

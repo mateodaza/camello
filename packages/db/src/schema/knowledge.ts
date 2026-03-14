@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, jsonb, integer, timestamp, index, uniqueIndex, check, customType } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from './tenants.js';
+import { artifacts } from './artifacts.js';
 
 // Custom pgvector type
 const vector = customType<{ data: number[]; driverName: 'vector' }>({
@@ -28,6 +29,8 @@ const tsvector = customType<{ data: string; driverName: 'tsvector' }>({
 export const knowledgeDocs = pgTable('knowledge_docs', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  // NULL = global (visible to all agents); non-null = private to that specific artifact's RAG context.
+  artifactId: uuid('artifact_id').references(() => artifacts.id, { onDelete: 'cascade' }),
   title: text('title'),
   content: text('content').notNull(),
   sourceType: text('source_type').notNull().default('upload'),

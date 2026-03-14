@@ -144,7 +144,7 @@
     "metricAutomationScore": "Nivel de Automatización",
     "viewAllConversations": "Ver todas las conversaciones",
     "loadMore": "Cargar más",
-    "stageUpdated": "Etapa del lead actualizada",
+    "stageUpdated": "Etapa actualizada",
     "ticketUpdated": "Estado del ticket actualizado",
     "escalationAcknowledged": "Escalación reconocida",
     "salesOverviewTitle": "Resumen",
@@ -252,7 +252,6 @@
     "optional": "opcional",
     "saving": "Guardando...",
     "save": "Guardar",
-    "stageUpdated": "Etapa actualizada",
     "supportOverview": "Resumen de Soporte",
     "supportOpenTickets": "Tickets Abiertos",
     "supportResolutionRate": "Tasa de Resolución",
@@ -323,7 +322,6 @@
     "columnIntent": "Intención",
     "columnOccurrences": "Ocurrencias",
     "columnLastSeen": "Última vez",
-    "filterAll": "Todos",
     "filterAllStages": "Todas las etapas",
     "filterAllScores": "Todas las puntuaciones",
     "statusExecuted": "Ejecutado",
@@ -615,7 +613,14 @@
     "gapTeachSave": "Guardar",
     "gapTeachCancel": "Cancelar",
     "gapTeachSuccess": "Respuesta guardada en la base de conocimiento",
-    "gapAnswered": "Respondido"
+    "gapAnswered": "Respondido",
+    "scopeAll": "Todo",
+    "scopeGlobal": "Global",
+    "scopeAgent": "Por agente",
+    "columnScope": "Visible para",
+    "scopeGlobalBadge": "Global",
+    "labelAssignTo": "Asignar a agente",
+    "assignToAllAgents": "Todos los agentes (global)"
   },
   "analytics": {
     "pageTitle": "Analítica",
@@ -1101,5 +1106,15 @@
     "finishLater": "Terminaré esto más tarde",
     "webhookConfigError": "No se pudo cargar la configuración del webhook. Por favor, recarga la página.",
     "websiteQueueError": "No se pudo guardar tu URL — puedes agregarla desde la página de Conocimiento en el panel."
+  },
+  "advisor": {
+    "advisorPanelHeader": "Asesor de Negocio",
+    "advisorPanelCta": "Chatea con tu asesor",
+    "advisorConversations": "conversaciones",
+    "advisorPaymentsPending": "pagos pendientes",
+    "advisorLeads": "prospectos",
+    "advisorOpeningMessage": "Así está tu negocio al {date}: {signals}. ¿Qué quieres explorar?",
+    "advisorSnapError": "No se pudo cargar el resumen — reintentar",
+    "advisorSessionSaved": "Aprendizajes de la sesión guardados en la base de conocimiento"
   }
 }

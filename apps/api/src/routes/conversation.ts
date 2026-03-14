@@ -4,6 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { conversations, messages, customers, tenants, moduleExecutions, leads, leadStageChanges, modules, tenantMembers, channelConfigs } from '@camello/db';
 import { whatsappAdapter } from '../adapters/whatsapp.js';
+import { broadcastNewMessage } from '../lib/supabase-broadcast.js';
 import {
   extractFactsRegex,
   mergeMemoryFacts,
@@ -439,6 +440,16 @@ export const conversationRouter = router({
           })
           .returning();
         return rows[0];
+      });
+
+      // Broadcast real-time inbox update (fire-and-forget, fail-open)
+      void broadcastNewMessage(ctx.tenantId, {
+        event: 'new_message',
+        tenantId: ctx.tenantId,
+        conversationId: input.conversationId,
+        channel: conv.channel === 'whatsapp' ? 'whatsapp' : 'webchat',
+        preview: input.message.slice(0, 100),
+        at: new Date().toISOString(),
       });
 
       // Step 6 — WhatsApp fire-and-forget delivery (webchat polls, no push needed)

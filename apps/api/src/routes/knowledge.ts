@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { eq, and, asc, desc, sql } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
 import { knowledgeDocs, knowledgeSyncs, tenants, ownerNotifications } from '@camello/db';
@@ -10,7 +10,9 @@ export const knowledgeRouter = router({
   list: tenantProcedure
     .input(
       z.object({
-        sourceType: z.string().optional(),
+        // 'all' = no scope filter, 'global' = artifact_id IS NULL, 'agent' = specific artifact
+        scope: z.enum(['all', 'global', 'agent']).default('all'),
+        artifactId: z.string().uuid().optional(),
         limit: z.number().int().min(1).max(100).default(50),
         offset: z.number().int().min(0).default(0),
       }).default({}),
@@ -18,12 +20,14 @@ export const knowledgeRouter = router({
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
         const conditions = [eq(knowledgeDocs.tenantId, ctx.tenantId)];
-        if (input.sourceType) conditions.push(eq(knowledgeDocs.sourceType, input.sourceType));
+        if (input.scope === 'global') conditions.push(isNull(knowledgeDocs.artifactId));
+        else if (input.scope === 'agent' && input.artifactId) conditions.push(eq(knowledgeDocs.artifactId, input.artifactId));
 
         const rows = await db
           .select({
             id: knowledgeDocs.id,
             title: knowledgeDocs.title,
+            artifactId: knowledgeDocs.artifactId,
             sourceType: knowledgeDocs.sourceType,
             chunkIndex: knowledgeDocs.chunkIndex,
             createdAt: knowledgeDocs.createdAt,
@@ -47,6 +51,8 @@ export const knowledgeRouter = router({
         sourceType: z.enum(['upload', 'url', 'api']).default('upload'),
         sourceUrl: z.string().url().optional(),
         metadata: z.record(z.unknown()).default({}),
+        // NULL / omitted = global knowledge (all agents); set to scope to a specific agent.
+        artifactId: z.string().uuid().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -87,6 +93,7 @@ export const knowledgeRouter = router({
             .values(
               chunks.map((c) => ({
                 tenantId: ctx.tenantId,
+                artifactId: input.artifactId ?? null,
                 title: c.title ?? input.title ?? null,
                 content: c.content,
                 sourceType: c.sourceType,

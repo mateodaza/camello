@@ -12,6 +12,10 @@ vi.mock('../../orchestration/message-handler.js', () => ({
   handleMessage: (...args: unknown[]) => mockHandleMessage(...args),
 }));
 
+vi.mock('../../lib/supabase-broadcast.js', () => ({
+  broadcastNewMessage: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------

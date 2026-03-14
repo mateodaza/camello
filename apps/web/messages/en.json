@@ -144,7 +144,7 @@
     "metricAutomationScore": "Automation Score",
     "viewAllConversations": "View all conversations",
     "loadMore": "Load more",
-    "stageUpdated": "Lead stage updated",
+    "stageUpdated": "Stage updated",
     "ticketUpdated": "Ticket status updated",
     "escalationAcknowledged": "Escalation acknowledged",
     "salesOverviewTitle": "Overview",
@@ -252,7 +252,6 @@
     "optional": "optional",
     "saving": "Saving...",
     "save": "Save",
-    "stageUpdated": "Stage updated",
     "supportOverview": "Support Overview",
     "supportOpenTickets": "Open Tickets",
     "supportResolutionRate": "Resolution Rate",
@@ -323,7 +322,6 @@
     "columnIntent": "Intent",
     "columnOccurrences": "Occurrences",
     "columnLastSeen": "Last Seen",
-    "filterAll": "All",
     "filterAllStages": "All stages",
     "filterAllScores": "All scores",
     "statusExecuted": "Executed",
@@ -615,7 +613,14 @@
     "gapTeachSave": "Save",
     "gapTeachCancel": "Cancel",
     "gapTeachSuccess": "Answer saved to knowledge base",
-    "gapAnswered": "Answered"
+    "gapAnswered": "Answered",
+    "scopeAll": "All",
+    "scopeGlobal": "Global",
+    "scopeAgent": "By agent",
+    "columnScope": "Visible to",
+    "scopeGlobalBadge": "Global",
+    "labelAssignTo": "Assign to agent",
+    "assignToAllAgents": "All agents (global)"
   },
   "analytics": {
     "pageTitle": "Analytics",
@@ -1101,5 +1106,15 @@
     "finishLater": "I'll finish this later",
     "webhookConfigError": "Could not load webhook configuration. Please refresh the page.",
     "websiteQueueError": "Your website URL could not be saved — you can add it from the Knowledge page in your dashboard."
+  },
+  "advisor": {
+    "advisorPanelHeader": "Business Advisor",
+    "advisorPanelCta": "Chat with your advisor",
+    "advisorConversations": "conversations",
+    "advisorPaymentsPending": "payments pending",
+    "advisorLeads": "leads",
+    "advisorOpeningMessage": "Here's your business as of {date}: {signals}. What do you want to dig into?",
+    "advisorSnapError": "Could not load snapshot — retry",
+    "advisorSessionSaved": "Session insights saved to knowledge base"
   }
 }

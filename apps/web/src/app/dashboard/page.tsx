@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { fmtDateTime } from '@/lib/format';
 import { KnowledgeBanner } from '@/components/dashboard/knowledge-banner';
+import { AdvisorPanel } from '@/components/dashboard/advisor-panel';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/stat-card';
@@ -45,11 +46,13 @@ export default function DashboardOverview() {
   const onboardingSettings = onboardingStatus.data?.settings as Record<string, unknown> | null | undefined;
   const showResumeBanner = !onboardingStatus.isLoading && onboardingSettings?.onboardingComplete !== true;
 
+  const salesArtifact = artifacts.data?.find((a) => a.isActive && a.type === 'sales');
+
   const showKnowledgeBanner =
     !sufficiencyScore.isLoading &&
     sufficiencyScore.data !== undefined &&
     sufficiencyScore.data.score < 60 &&
-    (artifacts.data?.length ?? 0) > 0;
+    !!salesArtifact;
 
   return (
     <div className="space-y-6 md:space-y-8 lg:space-y-10">
@@ -69,12 +72,15 @@ export default function DashboardOverview() {
 
       {showKnowledgeBanner && (
         <KnowledgeBanner
-          agentName={artifacts.data![0]!.name}
+          agentName={salesArtifact!.name}
           score={sufficiencyScore.data!.score}
           topSignal={sufficiencyScore.data!.signals[0] ?? ''}
           t={t}
         />
       )}
+
+      {/* ===== Advisor Panel ===== */}
+      <AdvisorPanel />
 
       {dashboardOverview.isError && <QueryError error={dashboardOverview.error} onRetry={() => dashboardOverview.refetch()} />}
       {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}

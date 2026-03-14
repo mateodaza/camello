@@ -36,6 +36,10 @@ vi.mock('../../orchestration/message-handler.js', () => ({
   handleMessage: mockHandleMessage,
 }));
 
+vi.mock('../../lib/supabase-broadcast.js', () => ({
+  broadcastNewMessage: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../lib/client-ip.js', () => ({
   extractClientIp: vi.fn(() => '1.2.3.4'),
 }));

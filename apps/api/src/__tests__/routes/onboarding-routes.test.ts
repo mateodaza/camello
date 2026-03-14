@@ -981,6 +981,7 @@ describe('onboarding router', () => {
   describe('complete', () => {
     it('sets onboardingComplete in JSONB settings', async () => {
       const setCalls: Any[] = [];
+      let selectCount = 0;
       const db = mockTenantDb(async (fn: Any) => {
         return fn({
           update: () => ({
@@ -989,6 +990,18 @@ describe('onboarding router', () => {
               return { where: () => {} };
             },
           }),
+          // complete() does 2 selects: tenant name + existing advisor check
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                limit: () => {
+                  selectCount++;
+                  return selectCount === 1 ? [{ name: 'TestCo' }] : [];
+                },
+              }),
+            }),
+          }),
+          insert: () => ({ values: () => {} }),
         });
       });
 

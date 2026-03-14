@@ -47,6 +47,7 @@ import { COST_BUDGET_DEFAULTS, LEARNING_CONFIDENCE } from '@camello/shared/const
 import { t as tmsg } from '@camello/shared/messages';
 import { createClient } from '@supabase/supabase-js';
 import { buildTelemetry, createTrace } from '../lib/langfuse.js';
+import { fetchAdvisorSnapshot } from '../lib/advisor-snapshot.js';
 import { getUtcMonthWindow } from '../lib/date-utils.js';
 import { sendEmail, renderBaseEmail, renderQuoteEmail, quoteEmailSubject } from '../lib/email.js';
 import { insertPaymentForQuote } from '../lib/insert-payment-for-quote.js';
@@ -787,7 +788,8 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           ${params.tenantId}::uuid,
           ${docTypesLiteral}::text[],
           ${params.similarityThreshold},
-          ${params.matchCount}
+          ${params.matchCount},
+          ${params.artifactId ?? null}::uuid
         )
       `);
       return rows.rows as any[];
@@ -801,6 +803,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       embed,
       matchKnowledge,
       archetypeType: artifact.type as import('@camello/shared/types').ArtifactType,
+      artifactId: resolved.artifactId,
     }),
   );
 
@@ -841,6 +844,37 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       .limit(10);
   });
 
+  // 8b. Advisor business snapshot injection (only for advisor artifacts)
+  // artifact.type is confirmed after step 6; this is the earliest point
+  // before systemPrompt is constructed (step 9).
+  let advisorSnapshotBlock = '';
+  if (artifact.type === 'advisor') {
+    try {
+      const snap = await fetchAdvisorSnapshot(tenantDb, tenantId);
+      const trend = snap.conversationTrend;
+      const trendStr = `${trend > 0 ? '+' : ''}${trend}%`;
+      const formattedDate = new Date().toLocaleDateString();
+      const leadEntries = Object.entries(snap.leadsByStage)
+        .map(([s, n]) => `${s}: ${n}`)
+        .join(' · ');
+      advisorSnapshotBlock = [
+        `=== Business Snapshot (${formattedDate}) ===`,
+        `Conversations (7d): ${snap.activeConversations} (${trendStr} vs prior week)`,
+        `Payments pending: ${snap.pendingPayments.count}${snap.pendingPayments.byCurrency.length > 0 ? ` totalling ${snap.pendingPayments.byCurrency.map((c) => `${c.currency} ${c.totalAmount.toFixed(2)}`).join(', ')}` : ''}`,
+        `Leads: ${leadEntries || 'none'}`,
+        `Top unanswered questions: ${snap.topKnowledgeGaps.join(', ') || 'none yet'}`,
+        `Pending approvals: ${snap.pendingApprovals}`,
+        `==============================================`,
+      ].join('\n');
+    } catch (err) {
+      // Non-blocking: advisor continues without snapshot if fetch fails
+      console.error('[handleMessage] Advisor snapshot fetch failed:', {
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   // 9. Build system prompt (intent-aware context curation)
   // Artifact-level language takes priority; fall back to tenant's dashboard locale
   // so existing artifacts without personality.language still get the right templates.
@@ -876,6 +910,11 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     })),
     intent,
   });
+
+  // Apply advisor snapshot prefix when applicable
+  const finalSystemPrompt = advisorSnapshotBlock
+    ? `${advisorSnapshotBlock}\n\n${systemPrompt}`
+    : systemPrompt;
 
   // 10. Select model
   const { model: modelId } = selectModel(intent);
@@ -976,7 +1015,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
 
   const { text: rawResponseText, usage, steps } = await generateText({
     model: client(modelId),
-    system: systemPrompt,
+    system: finalSystemPrompt,
     messages: chatMessages,
     tools,
     maxSteps: tools ? intentProfile.maxSteps : 1,

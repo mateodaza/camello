@@ -817,10 +817,15 @@ function lastNDays(n: number): string[] {
 
 describe('agent.performanceMetrics', () => {
   it('prefers rollup resolutionsCount over raw convMap.resolved for resolution rate', async () => {
-    const rollupRows    = [{ date: '2026-03-07', resolutionsCount: 8 }];
+    // Use dates always within the 7-day window so avgResponseTime7d is stable over time.
+    const window7 = lastNDays(14).slice(-7);
+    const d1 = window7[0]; // e.g. 7 days ago
+    const d2 = window7[1]; // e.g. 6 days ago
+
+    const rollupRows    = [{ date: d1, resolutionsCount: 8 }];
     const convRows      = [
-      { date: '2026-03-07', total: 10, resolved: 5, avgResponseMs: 3500 },
-      { date: '2026-03-08', total:  8, resolved: 4, avgResponseMs: 4000 },
+      { date: d1, total: 10, resolved: 5, avgResponseMs: 3500 },
+      { date: d2, total:  8, resolved: 4, avgResponseMs: 4000 },
     ];
     const moduleCountRows = [
       { moduleSlug: 'qualify_lead', count: 15 },
@@ -848,23 +853,24 @@ describe('agent.performanceMetrics', () => {
     const caller = createCaller(makeCtx(db));
     const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
 
-    const rate07 = result.dailyResolutionRate.find(d => d.date === '2026-03-07');
-    const rate08 = result.dailyResolutionRate.find(d => d.date === '2026-03-08');
-    expect(rate07?.rate).toBe(80); // 8/10 × 100 from rollup, NOT 50 from convMap
-    expect(rate08?.rate).toBe(50); // fallback: 4/8 × 100 — no rollup row for this date
+    const rated1 = result.dailyResolutionRate.find(d => d.date === d1);
+    const rated2 = result.dailyResolutionRate.find(d => d.date === d2);
+    expect(rated1?.rate).toBe(80); // 8/10 × 100 from rollup, NOT 50 from convMap
+    expect(rated2?.rate).toBe(50); // fallback: 4/8 × 100 — no rollup row for this date
 
     // Weighted: (3500×5 + 4000×4) / 9 = 33500/9 ≈ 3722
     expect(result.avgResponseTime7d).toBe(3722);
 
-    const vol07 = result.dailyConversationVolume.find(d => d.date === '2026-03-07');
-    expect(vol07?.count).toBe(10); // always from convMap.total
+    const vold1 = result.dailyConversationVolume.find(d => d.date === d1);
+    expect(vold1?.count).toBe(10); // always from convMap.total
 
     expect(result.moduleExecutionCounts[0].slug).toBe('qualify_lead');
   });
 
   it('falls back to convMap.resolved when no rollup row exists for a date', async () => {
+    const d1 = lastNDays(14).slice(-7)[2]; // always within 7-day window
     const rollupRows      = [] as Any[];
-    const convRows        = [{ date: '2026-03-08', total: 20, resolved: 15, avgResponseMs: 2000 }];
+    const convRows        = [{ date: d1, total: 20, resolved: 15, avgResponseMs: 2000 }];
     const moduleCountRows = [] as Any[];
 
     let callIndex = 0;
@@ -888,23 +894,27 @@ describe('agent.performanceMetrics', () => {
     const caller = createCaller(makeCtx(db));
     const result = await caller.performanceMetrics({ artifactId: ARTIFACT_ID });
 
-    const rate08 = result.dailyResolutionRate.find(d => d.date === '2026-03-08');
-    expect(rate08?.rate).toBe(75); // fallback: 15/20 × 100
+    const rated1 = result.dailyResolutionRate.find(d => d.date === d1);
+    expect(rated1?.rate).toBe(75); // fallback: 15/20 × 100
 
     expect(result.avgResponseTime7d).toBeGreaterThan(0);
 
-    const vol08 = result.dailyConversationVolume.find(d => d.date === '2026-03-08');
-    expect(vol08?.count).toBe(20);
+    const vold1 = result.dailyConversationVolume.find(d => d.date === d1);
+    expect(vold1?.count).toBe(20);
   });
 
   it('computes weighted response time from conversations (rollup avgLatencyMs not used)', async () => {
+    const window7 = lastNDays(14).slice(-7);
+    const d1 = window7[0];
+    const d2 = window7[1];
+
     const rollupRows = [
-      { date: '2026-03-07', resolutionsCount: 5 },
-      { date: '2026-03-08', resolutionsCount: 4 },
+      { date: d1, resolutionsCount: 5 },
+      { date: d2, resolutionsCount: 4 },
     ];
     const convRows = [
-      { date: '2026-03-07', total: 10, resolved: 5, avgResponseMs: 3500 },
-      { date: '2026-03-08', total:  8, resolved: 4, avgResponseMs: 4000 },
+      { date: d1, total: 10, resolved: 5, avgResponseMs: 3500 },
+      { date: d2, total:  8, resolved: 4, avgResponseMs: 4000 },
     ];
     const moduleCountRows = [] as Any[];
 

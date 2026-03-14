@@ -143,11 +143,11 @@ export function humanize(str: string): string {
  * Returns one entry per unique title with aggregated chunk count.
  */
 export function groupChunksByTitle(
-  chunks: Array<{ id: string; title: string | null; sourceType: string; chunkIndex: number; createdAt: Date | string | null }>,
-): Array<{ key: string; title: string | null; sourceType: string; chunkCount: number; createdAt: Date | string | null }> {
+  chunks: Array<{ id: string; title: string | null; artifactId?: string | null; sourceType: string; chunkIndex: number; createdAt: Date | string | null }>,
+): Array<{ key: string; title: string | null; artifactId?: string | null; sourceType: string; chunkCount: number; createdAt: Date | string | null }> {
   const map = new Map<
     string,
-    { key: string; title: string | null; sourceType: string; chunkCount: number; createdAt: Date | string | null }
+    { key: string; title: string | null; artifactId?: string | null; sourceType: string; chunkCount: number; createdAt: Date | string | null }
   >();
 
   for (const row of chunks) {
@@ -159,6 +159,7 @@ export function groupChunksByTitle(
       map.set(key, {
         key,
         title: row.title,
+        artifactId: row.artifactId,
         sourceType: row.sourceType,
         chunkCount: 1,
         createdAt: row.createdAt,

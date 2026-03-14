@@ -13,6 +13,7 @@ import {
   getWhatsappTenantIds,
 } from '../adapters/whatsapp.js';
 import { handleMessage } from '../orchestration/message-handler.js';
+import { broadcastNewMessage } from '../lib/supabase-broadcast.js';
 
 // ---------------------------------------------------------------------------
 // WhatsApp webhook routes
@@ -161,14 +162,25 @@ whatsappRoutes.post('/webhook', async (c) => {
         messageText: _canonical.content.text ?? '[non-text message]',
       });
 
-      // d. Send response back via WhatsApp
+      // d. Broadcast real-time inbox update (fire-and-forget, fail-open).
+      //    Must not block sendText or markWebhookProcessed — realtime is a side effect.
+      void broadcastNewMessage(tenantId, {
+        event: 'new_message',
+        tenantId,
+        conversationId: result.conversationId,
+        channel: 'whatsapp',
+        preview: (_canonical.content.text ?? '').slice(0, 100),
+        at: new Date().toISOString(),
+      });
+
+      // e. Send response back via WhatsApp
       await whatsappAdapter.sendText(
         contact.waId,
         result.responseText,
         { credentials, phoneNumber: phoneNumberId },
       );
 
-      // e. Mark webhook as processed
+      // f. Mark webhook as processed
       await markWebhookProcessed(tenantId, externalId);
     } catch (err) {
       console.error('[whatsapp] Async processing error:', err);

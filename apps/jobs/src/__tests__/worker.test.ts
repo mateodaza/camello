@@ -10,6 +10,7 @@ const {
   mockRunMetricsRollup,
   mockRunLearningDecay,
   mockRunProcessFollowups,
+  mockRunWhatsappRetry,
   mockCreateServer,
   capturedHandler,
 } = vi.hoisted(() => {
@@ -24,6 +25,7 @@ const {
     mockRunMetricsRollup: vi.fn().mockResolvedValue({ tenantsProcessed: 0, metricDate: '2026-02-20' }),
     mockRunLearningDecay: vi.fn().mockResolvedValue({ tenantsProcessed: 0, totalDecayed: 0, totalArchived: 0 }),
     mockRunProcessFollowups: vi.fn().mockResolvedValue({ processed: 0, succeeded: 0, failed: 0 }),
+    mockRunWhatsappRetry: vi.fn().mockResolvedValue({ claimed: 0, succeeded: 0, failed: 0 }),
     mockCreateServer: vi.fn((fn: (...args: unknown[]) => void) => {
       handler.current = fn;
       return { listen: vi.fn((_port: number, cb?: () => void) => cb?.()), close: vi.fn() };
@@ -53,6 +55,7 @@ vi.mock('../jobs/url-ingestion.js', () => ({ runUrlIngestion: mockRunUrlIngestio
 vi.mock('../jobs/metrics-rollup.js', () => ({ runMetricsRollup: mockRunMetricsRollup }));
 vi.mock('../jobs/learning-decay.js', () => ({ runLearningDecay: mockRunLearningDecay }));
 vi.mock('../jobs/process-followups.js', () => ({ runProcessFollowups: mockRunProcessFollowups }));
+vi.mock('../jobs/whatsapp-retry.js', () => ({ runWhatsappRetry: mockRunWhatsappRetry }));
 
 vi.mock('node:http', () => ({
   default: { createServer: mockCreateServer },
@@ -66,6 +69,8 @@ describe('worker', () => {
     // Set required env vars for start()
     process.env.DATABASE_URL_SERVICE_ROLE = 'postgres://test:test@localhost/test';
     process.env.OPENAI_API_KEY = 'sk-test-key';
+    process.env.API_URL = 'http://localhost:4000';
+    process.env.INTERNAL_RETRY_SECRET = 'test-secret';
   });
 
   afterEach(async () => {
@@ -80,11 +85,11 @@ describe('worker', () => {
     expect(mockSchedule).not.toHaveBeenCalled();
   });
 
-  it('start() registers 4 cron schedules with correct expressions', () => {
+  it('start() registers 5 cron schedules with correct expressions', () => {
     const worker = createWorker();
     worker.start();
 
-    expect(mockSchedule).toHaveBeenCalledTimes(4);
+    expect(mockSchedule).toHaveBeenCalledTimes(5);
 
     expect(mockSchedule).toHaveBeenCalledWith(
       '*/5 * * * *',
