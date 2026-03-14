@@ -512,7 +512,7 @@ _Done: (1) **`pool.query()` fix** — `resolveTenantByPhoneNumberId()` and `getW
 
 ---
 
-#### NC-270 [ ] WhatsApp dead-letter retry cron
+#### NC-270 [x] WhatsApp dead-letter retry cron
 
 The `webhook_events` table is a dead-letter queue — rows with `processed_at = NULL` are unprocessed messages that failed silently. Currently nothing retries them. Add a 5-minute sweep job.
 
@@ -628,6 +628,7 @@ for (const row of rows.rows) {
 - `pnpm type-check` passes
 
 **Depends on:** —
+_Done: Migration 0027 adds retry_count. `servicePool` exported from `@camello/db`. Internal route `POST /api/internal/webhook-retry` with channel_type + processed_at guards. `whatsapp-retry` cron job (5-min sweep, claims up to 20 rows atomically). Worker REQUIRED_ENV + 5th schedule added. 11 tests across 3 files. `pnpm type-check` passes._
 
 ---
 

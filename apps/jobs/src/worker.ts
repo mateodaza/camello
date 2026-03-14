@@ -4,11 +4,12 @@ import { runLearningDecay } from './jobs/learning-decay.js';
 import { runMetricsRollup } from './jobs/metrics-rollup.js';
 import { runUrlIngestion } from './jobs/url-ingestion.js';
 import { runProcessFollowups } from './jobs/process-followups.js';
+import { runWhatsappRetry } from './jobs/whatsapp-retry.js';
 import { claimJobRun, completeJobRun, getLastCompletedPeriod, releaseJobRun } from './lib/job-lock.js';
 import { servicePool } from './lib/service-db.js';
 import { log } from './lib/logger.js';
 
-const REQUIRED_ENV = ['DATABASE_URL_SERVICE_ROLE', 'OPENAI_API_KEY'] as const;
+const REQUIRED_ENV = ['DATABASE_URL_SERVICE_ROLE', 'OPENAI_API_KEY', 'API_URL', 'INTERNAL_RETRY_SECRET'] as const;
 const CATCHUP_DAYS = parseInt(process.env.METRICS_CATCHUP_DAYS ?? '7', 10);
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const SHUTDOWN_TIMEOUT_MS = 60_000;
@@ -234,7 +235,14 @@ export function createWorker() {
         }, { timezone: 'UTC' })
       );
 
-      log.info('Worker started — 4 cron schedules registered');
+      // WhatsApp dead-letter retry — every 5 minutes
+      tasks.push(
+        cron.schedule('*/5 * * * *', () => {
+          void safeRun('whatsapp-retry', runWhatsappRetry);
+        }, { timezone: 'UTC' })
+      );
+
+      log.info('Worker started — 5 cron schedules registered');
 
       // Graceful shutdown
       const shutdown = () => {

@@ -8,6 +8,7 @@ import { widgetRoutes } from './webhooks/widget.js';
 import { whatsappRoutes } from './webhooks/whatsapp.js';
 import { clerkWebhookRoutes } from './webhooks/clerk.js';
 import { paddleWebhookRoutes } from './webhooks/paddle.js';
+import { internalRoutes } from './routes/internal.js';
 
 export const app = new Hono();
 
@@ -43,6 +44,9 @@ app.route('/api/webhooks', clerkWebhookRoutes);
 
 // --- Paddle webhook routes (billing lifecycle) ---
 app.route('/api/webhooks', paddleWebhookRoutes);
+
+// --- Internal service-to-service routes (jobs → api) ---
+app.route('/api/internal', internalRoutes);
 
 // tRPC handler (Clerk auth)
 // @hono/trpc-server expects Record<string, unknown> from createContext, but our
