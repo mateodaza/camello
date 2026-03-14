@@ -13,7 +13,7 @@ export const artifactRouter = router({
   list: tenantProcedure
     .input(
       z.object({
-        type: z.enum(['sales', 'support', 'marketing', 'custom']).optional(),
+        type: z.enum(['sales', 'support', 'marketing', 'custom', 'advisor']).optional(),
         activeOnly: z.boolean().default(true),
       }).default({}),
     )

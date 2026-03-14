@@ -19,13 +19,17 @@ interface Props {
 export function Step5TestIt({ previewCustomerId }: Props) {
   const t = useTranslations('onboarding');
   const router = useRouter();
+  const utils = trpc.useUtils();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const ensureCustomer = trpc.onboarding.ensurePreviewCustomer.useMutation();
   const complete = trpc.onboarding.complete.useMutation({
-    onSuccess: () => router.push('/dashboard'),
+    onSuccess: async () => {
+      await utils.tenant.me.invalidate();
+      router.push('/dashboard');
+    },
   });
   const sendMessage = trpc.chat.send.useMutation({
     onSuccess: (data) => {

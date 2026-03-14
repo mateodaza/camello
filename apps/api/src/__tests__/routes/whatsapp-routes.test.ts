@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createHmac } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Mocks — vi.hoisted ensures variables are available inside vi.mock factories
@@ -15,6 +16,7 @@ const {
   mockNormalizeMetaMessage,
   mockSendText,
   mockHandleMessage,
+  mockGetWhatsappTenantIds,
 } = vi.hoisted(() => ({
   mockVerifySignature: vi.fn(),
   mockResolveTenant: vi.fn(),
@@ -25,6 +27,7 @@ const {
   mockNormalizeMetaMessage: vi.fn(),
   mockSendText: vi.fn(),
   mockHandleMessage: vi.fn(),
+  mockGetWhatsappTenantIds: vi.fn(),
 }));
 
 vi.mock('../../adapters/whatsapp.js', () => ({
@@ -36,6 +39,7 @@ vi.mock('../../adapters/whatsapp.js', () => ({
   extractMetaMessage: mockExtractMetaMessage,
   normalizeMetaMessage: mockNormalizeMetaMessage,
   whatsappAdapter: { sendText: mockSendText, channel: 'whatsapp' },
+  getWhatsappTenantIds: mockGetWhatsappTenantIds,
 }));
 
 vi.mock('../../orchestration/message-handler.js', () => ({
@@ -87,41 +91,68 @@ function postWebhook(body: unknown, headers?: Record<string, string>) {
 // Tests
 // ---------------------------------------------------------------------------
 
+const TEST_TENANT_ID = '00000000-0000-0000-0000-000000000099';
+const TEST_SECRET = 'test-verify-secret';
+
 describe('WhatsApp webhook routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('WA_VERIFY_TOKEN', 'test-verify-token');
+    vi.stubEnv('WA_VERIFY_TOKEN_SECRET', TEST_SECRET);
     vi.stubEnv('WA_APP_SECRET', 'test-app-secret');
+    mockGetWhatsappTenantIds.mockResolvedValue([TEST_TENANT_ID]);
   });
 
   // -------------------------------------------------------------------------
   // GET /webhook — Meta verification challenge
   // -------------------------------------------------------------------------
   describe('GET /webhook — challenge', () => {
-    it('echoes challenge for correct verify_token', async () => {
+    it('echoes challenge for valid per-tenant verify token', async () => {
+      const token = createHmac('sha256', TEST_SECRET)
+        .update(TEST_TENANT_ID).digest('hex').slice(0, 32);
       const res = await whatsappRoutes.request(
-        '/webhook?hub.mode=subscribe&hub.verify_token=test-verify-token&hub.challenge=challenge_abc',
+        `/webhook?hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=challenge_abc`,
       );
       expect(res.status).toBe(200);
       expect(await res.text()).toBe('challenge_abc');
     });
 
-    it('returns 403 for wrong verify_token', async () => {
+    it('returns 403 for unknown verify_token', async () => {
       const res = await whatsappRoutes.request(
-        '/webhook?hub.mode=subscribe&hub.verify_token=wrong-token&hub.challenge=challenge_abc',
+        '/webhook?hub.mode=subscribe&hub.verify_token=not-a-real-token&hub.challenge=challenge_abc',
       );
       expect(res.status).toBe(403);
     });
 
     it('returns 403 for wrong mode', async () => {
+      const token = createHmac('sha256', TEST_SECRET)
+        .update(TEST_TENANT_ID).digest('hex').slice(0, 32);
       const res = await whatsappRoutes.request(
-        '/webhook?hub.mode=unsubscribe&hub.verify_token=test-verify-token&hub.challenge=challenge_abc',
+        `/webhook?hub.mode=unsubscribe&hub.verify_token=${token}&hub.challenge=challenge_abc`,
       );
       expect(res.status).toBe(403);
     });
 
-    it('returns 500 when WA_VERIFY_TOKEN not configured', async () => {
-      vi.stubEnv('WA_VERIFY_TOKEN', '');
+    it('returns 500 when WA_VERIFY_TOKEN_SECRET not configured', async () => {
+      vi.stubEnv('WA_VERIFY_TOKEN_SECRET', '');
+      const res = await whatsappRoutes.request(
+        '/webhook?hub.mode=subscribe&hub.verify_token=anything&hub.challenge=test',
+      );
+      expect(res.status).toBe(500);
+    });
+
+    it('returns 403 when no tenants are registered (empty platform)', async () => {
+      // If getWhatsappTenantIds returns [] — no tenants yet — no token can match.
+      mockGetWhatsappTenantIds.mockResolvedValue([]);
+      const token = createHmac('sha256', TEST_SECRET)
+        .update(TEST_TENANT_ID).digest('hex').slice(0, 32);
+      const res = await whatsappRoutes.request(
+        `/webhook?hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=challenge_abc`,
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 500 when getWhatsappTenantIds DB query fails', async () => {
+      mockGetWhatsappTenantIds.mockRejectedValue(new Error('DB connection lost'));
       const res = await whatsappRoutes.request(
         '/webhook?hub.mode=subscribe&hub.verify_token=anything&hub.challenge=test',
       );
@@ -133,6 +164,16 @@ describe('WhatsApp webhook routes', () => {
   // POST /webhook — inbound messages
   // -------------------------------------------------------------------------
   describe('POST /webhook — inbound messages', () => {
+    it('returns 400 for malformed JSON body', async () => {
+      mockVerifySignature.mockReturnValue(true); // pass sig check to reach JSON parsing
+      const res = await whatsappRoutes.request('/webhook', {
+        method: 'POST',
+        body: 'not valid json{{{',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      expect(res.status).toBe(400);
+    });
+
     it('returns 401 for invalid signature', async () => {
       mockVerifySignature.mockReturnValue(false);
 
@@ -250,8 +291,8 @@ describe('WhatsApp webhook routes', () => {
 
       await postWebhook(sampleMetaPayload);
 
-      // Wait for setImmediate to fire
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Wait for setImmediate to fire and async processing to complete
+      await vi.waitFor(() => expect(mockFindOrCreateCustomer).toHaveBeenCalled());
 
       expect(mockFindOrCreateCustomer).toHaveBeenCalledWith(
         expect.anything(), TENANT_ID, '555', 'Jane',
@@ -291,8 +332,8 @@ describe('WhatsApp webhook routes', () => {
       const res = await postWebhook(sampleMetaPayload);
       expect(res.status).toBe(200); // Response already sent
 
-      // Wait for setImmediate to fire
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Wait for setImmediate to fire and error to be logged
+      await vi.waitFor(() => expect(consoleSpy).toHaveBeenCalled());
 
       // Error logged, not thrown
       expect(consoleSpy).toHaveBeenCalledWith(

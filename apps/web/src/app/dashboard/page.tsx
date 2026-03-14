@@ -21,7 +21,10 @@ export default function DashboardOverview() {
   const artifacts = trpc.artifact.list.useQuery({});
   const dashboardOverview = trpc.agent.dashboardOverview.useQuery();
   const activityFeed = trpc.agent.dashboardActivityFeed.useQuery(undefined, { refetchInterval: 30_000 });
-  const docCountQuery = trpc.knowledge.docCount.useQuery();
+  const sufficiencyScore = trpc.knowledge.sufficiencyScore.useQuery();
+  const onboardingStatus = trpc.onboarding.getStatus.useQuery(undefined, {
+    enabled: !!organization,
+  });
 
   // Auto-sync tenant name when Clerk org name changes
   const updateName = trpc.tenant.updateName.useMutation({
@@ -39,12 +42,14 @@ export default function DashboardOverview() {
   }, [organization?.name, tenant.data?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = dashboardOverview.data;
-  const activeAgents = artifacts.data?.filter((a) => a.isActive) ?? [];
+  const onboardingSettings = onboardingStatus.data?.settings as Record<string, unknown> | null | undefined;
+  const showResumeBanner = !onboardingStatus.isLoading && onboardingSettings?.onboardingComplete !== true;
+
   const showKnowledgeBanner =
-    !docCountQuery.isLoading &&
-    docCountQuery.data !== undefined &&
-    docCountQuery.data === 0 &&
-    activeAgents.length > 0;
+    !sufficiencyScore.isLoading &&
+    sufficiencyScore.data !== undefined &&
+    sufficiencyScore.data.score < 60 &&
+    (artifacts.data?.length ?? 0) > 0;
 
   return (
     <div className="space-y-6 md:space-y-8 lg:space-y-10">
@@ -58,8 +63,17 @@ export default function DashboardOverview() {
       {/* ===== Public Chat Link ===== */}
       {tenant.data?.slug && <ShareLinkCard slug={tenant.data.slug} t={t} />}
 
+      {showResumeBanner && (
+        <OnboardingResumeBanner t={t} />
+      )}
+
       {showKnowledgeBanner && (
-        <KnowledgeBanner agentName={activeAgents[0]!.name} t={t} />
+        <KnowledgeBanner
+          agentName={artifacts.data![0]!.name}
+          score={sufficiencyScore.data!.score}
+          topSignal={sufficiencyScore.data!.signals[0] ?? ''}
+          t={t}
+        />
       )}
 
       {dashboardOverview.isError && <QueryError error={dashboardOverview.error} onRetry={() => dashboardOverview.refetch()} />}
@@ -78,6 +92,25 @@ export default function DashboardOverview() {
 
       {/* ===== Activity Feed ===== */}
       <ActivityFeedSection events={activityFeed.data?.events} locale={locale} t={t} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding resume banner
+// ---------------------------------------------------------------------------
+
+function OnboardingResumeBanner({
+  t,
+}: {
+  t: ReturnType<typeof useTranslations<'dashboard'>>;
+}) {
+  return (
+    <div data-testid="onboarding-resume-banner" className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 flex items-center justify-between gap-4">
+      <p className="text-sm text-charcoal">{t('resumeSetupBanner')}</p>
+      <Link href="/onboarding" className="shrink-0 rounded-md bg-teal px-3 py-1.5 text-xs font-heading font-medium text-cream hover:bg-teal/90 transition-colors">
+        {t('resumeSetupCta')}
+      </Link>
     </div>
   );
 }

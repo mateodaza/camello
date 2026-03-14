@@ -54,11 +54,11 @@ Generate formatted invoices from quotes (new module + table + shareable public l
 
 ## Manual / Blocked — Not for NC
 
-#### CAM-200 [manual] Clerk production keys (Mateo)
-Swap dev keys for prod in env vars + Clerk dashboard config.
+#### CAM-200 [x] Clerk production keys (Mateo)
+Done: Clerk production instance created (cloned from dev). Google OAuth configured with production credentials. 5 DNS CNAMEs verified on Cloudflare (gray cloud). Webhook registered with Svix signing secret. Env vars swapped on Railway (API) + Vercel (Web). Onboarding cache invalidation bug fixed (stale `tenant.me` after `onboarding.complete` → bounce loop).
 
-#### CAM-201 [manual] Paddle business verification (Mateo)
-Submit business docs for Paddle verification.
+#### CAM-201 [waiting] Paddle business verification (Mateo)
+Submitted: legal pages created (/terms, /privacy, /refund), business info filled. Provisional approval received — 3 feedback items addressed (removed refund qualifiers, added 14-day window, fixed legal name to "Camello"). Production API key + client-side token generated and ready to set on Railway/Vercel. Products/prices to be created once plan structure finalized. Waiting for Paddle final verification approval.
 
 #### CAM-202 [manual] Apply migration 0023 to Supabase cloud (Mateo)
 `context_curation` JSONB column on `interaction_logs`. Review SQL in `packages/db/migrations/0023_context_curation_telemetry.sql` and apply via Supabase dashboard.
@@ -88,7 +88,7 @@ Submit Camello's Meta App for Advanced Access (`whatsapp_business_messaging` + `
 
 ## P0 — WhatsApp Channel
 
-#### NC-257 [ ] WhatsApp settings UI — credential entry + webhook instructions
+#### NC-257 [x] WhatsApp settings UI — credential entry + webhook instructions
 
 The WhatsApp adapter + webhook handler are fully built. The only missing piece is a UI for the tenant to input their Meta access token + phone number ID, and instructions for registering the webhook in Meta Business Manager.
 
@@ -118,7 +118,7 @@ The WhatsApp adapter + webhook handler are fully built. The only missing piece i
 
 ---
 
-#### NC-258 [ ] WhatsApp onboarding: add token + phone number ID fields to Step 5
+#### NC-258 [x] WhatsApp onboarding: add token + phone number ID fields to Step 5
 
 The current onboarding Step 5 (Connect Channel) already has a WhatsApp path that collects the phone number. It needs the access token field added, and the phone number input relabeled as "Phone Number ID".
 
@@ -139,10 +139,11 @@ The current onboarding Step 5 (Connect Channel) already has a WhatsApp path that
 - `pnpm type-check` passes
 
 **Depends on:** NC-257
+_Done: Relabeled phone→Phone Number ID, added access token field, webhook URL + verify token read-only from `channel.webhookConfig`, inline validation, `copy` i18n key added (en+es), 3 tests in `step4-connect-channel.test.tsx`._
 
 ---
 
-#### NC-260 [ ] Two-way WhatsApp conversation sync — validation + integration test
+#### NC-260 [x] Two-way WhatsApp conversation sync — validation + integration test
 
 The WhatsApp adapter already handles inbound messages and `conversation.replyAsOwner` sends outbound. Verify the full round-trip: customer sends → agent replies → customer sends again → lands in the SAME conversation (not a new one).
 
@@ -163,6 +164,7 @@ The WhatsApp adapter already handles inbound messages and `conversation.replyAsO
 - `pnpm type-check` passes
 
 **Depends on:** NC-257
+_Done: Fixed `findActiveConversation` bug — replaced `eq(conversations.status, 'active')` with `inArray(conversations.status, ['active', 'escalated'])` so customer messages after owner escalation continue in the same conversation. Exported `findActiveConversation` for direct testing. Created `apps/api/src/__tests__/whatsapp-roundtrip.test.ts` with 5 tests: (1) first message creates conversation with `channel: 'whatsapp'`; (2) second message reuses same conversation; (3) `replyAsOwner` inserts `role: 'human'` + WhatsApp delivery; (4) third message after owner reply continues same conversation (AC4 behavioral); (5) pg-proxy SQL regression test confirms `inArray` generates params containing `'escalated'`. All 427 tests pass._
 
 ---
 
@@ -176,7 +178,8 @@ The WhatsApp adapter already handles inbound messages and `conversation.replyAsO
 
 ---
 
-#### NC-262 [ ] "Mark as Paid" action in Payments section
+#### NC-262 [x] "Mark as Paid" action in Payments section
+Added `markPaymentPaid` tenantProcedure (preflight PRECONDITION_FAILED guard), Button in payments-section.tsx with stopPropagation + invalidate + toast, 3 i18n keys en+es, 2 tests. Type-check passes.
 
 When the agent sends a payment link, it creates a `payments` row with `status: 'pending'`. The owner needs to manually confirm when they receive the money. Add a "Mark as Paid" button in the Dashboard tab → Payments section.
 
@@ -205,7 +208,7 @@ When the agent sends a payment link, it creates a `payments` row with `status: '
 
 ## P2 — Chat-Style Onboarding
 
-#### NC-263 [ ] Chat onboarding shell: replace stepper with conversational UI
+#### NC-263 [x] Chat onboarding shell: replace stepper with conversational UI
 
 Replace the 6-step stepper (`apps/web/src/app/onboarding/page.tsx` + `components/Step*.tsx`) with a single-page chat-style flow. Keep ALL existing tRPC procedures — only the UI changes.
 
@@ -291,7 +294,8 @@ collecting_knowledge → ask_channel → done
 
 ---
 
-#### NC-264 [ ] Knowledge sufficiency score + dashboard nudge
+#### NC-264 [x] Knowledge sufficiency score + dashboard nudge
+> Added `sufficiencyScore` tenantProcedure (doc count, synced URL, gap count → formula). Gold banner on dashboard when score<60. Score widget (N/100 + label + bucket) on Knowledge page header. 6 i18n keys en+es. 5 API tests + 5 web tests updated. Gap query fixed (iter 3): uses `ownerNotifications` type='knowledge_gap' instead of `isNull(interactionLogs.resolutionType)` — `resolutionType` is never populated so the old query inflated gapCount.
 
 Track whether the tenant has enough knowledge to make their agent useful. Surface as a proactive nudge on the home dashboard.
 
@@ -333,7 +337,8 @@ Max score = 100 (80 base + 20 bonus, no gaps). Returns `{ score: number (0-100),
 
 ---
 
-#### NC-265 [ ] "Teach more" inline input on Knowledge page
+#### NC-265 [x] "Teach more" inline input on Knowledge page
+Inline textarea + "Add" button above Documents section; calls `knowledge.ingest` with auto-title; min-20-char validation; 4 i18n keys en+es; 2 new tests.
 
 Reduce friction for adding knowledge after onboarding. A single text input at the top of the Knowledge page that ingests any text as a knowledge doc.
 
@@ -356,7 +361,8 @@ Reduce friction for adding knowledge after onboarding. A single text input at th
 
 ---
 
-#### NC-266 [ ] Knowledge gap → teach prompt: inline answer flow
+#### NC-266 [x] Knowledge gap → teach prompt: inline answer flow
+Added inline teach form per gap card: expandedGapIntent state, gapTeachIngest mutation, handleGapTeach/handleGapSave handlers, answered state with CheckCircle2 badge + opacity-50. 6 i18n keys en+es. 2 tests in knowledge-page.test.tsx. Type-check passes.
 
 Each gap card in the Knowledge page already shows the intent + a sample customer question. Add a "Teach" action so the owner can immediately answer the gap without leaving the page.
 
@@ -378,7 +384,7 @@ Each gap card in the Knowledge page already shows the intent + a sample customer
 
 ---
 
-#### NC-267 [ ] Onboarding polish: skip/resume + mobile + i18n
+#### NC-267 [x] Onboarding polish: skip/resume + mobile + i18n
 
 Final polish on the chat onboarding.
 
@@ -402,7 +408,7 @@ Final polish on the chat onboarding.
 
 ## P3 — Advisor Agent
 
-#### NC-268 [ ] Advisor archetype + auto-create in onboarding
+#### NC-268 [x] Advisor archetype + auto-create in onboarding
 
 Every Camello tenant gets an internal advisor agent — not customer-facing, but available in the dashboard as an AI co-pilot that knows their business, conversations, and knowledge base. Auto-created when onboarding completes.
 
@@ -486,6 +492,15 @@ await tenantDb.query(async (db) => {
 - `pnpm type-check` passes
 
 **Depends on:** NC-263 (onboarding complete() extension should run after chat onboarding is wired up)
+_Done: Migration 0026_advisor_artifact_type.sql adds 'advisor' to CHECK constraint. `advisor.ts` archetype self-registers with en/es prompts, ragBias, gold color, BrainCircuit icon. `onboarding.complete()` idempotently creates advisor artifact post-completion. Artifacts page shows gold-accented AdvisorCard with "Chat with Advisor" CTA. 2 i18n keys (en+es). 2 API tests (create + idempotent) + 1 web test (card renders). Type-check passes._
+
+---
+
+#### NC-269 [x] PR audit + hardening pass (NC-257–268 branch)
+
+4-agent automated PR review (code-reviewer, silent-failure-hunter, pr-test-analyzer, comment-analyzer) run against the full sprint branch. All critical and high-priority findings resolved.
+
+_Done: (1) **`pool.query()` fix** — `resolveTenantByPhoneNumberId()` and `getWhatsappTenantIds()` both used `db.execute(sql\`...\`)` which produces malformed SQL when bundled with tsup `noExternal`. Replaced both with `pool.query<T>()` raw pg driver calls. (2) **`verifyWhatsapp` silent success fixed** — 0-row DB update (channel not upserted first) now throws `NOT_FOUND` instead of silently succeeding. (3) **`queueUrl` silent failure surfaced** — catch block in `ChatOnboarding.tsx` now calls `setKnowledgeError(t('websiteQueueError'))` instead of discarding the error. (4) **Stale Trigger.dev comments** replaced with accurate dead-letter queue description. (5) **`onboarding-advisor.test.ts` rewritten** — previous test used 4× `mockImplementationOnce` for a single-transaction function; rewrote with `makeTxMock()` helper + single `transactionFn.mockImplementation`. (6) **5 new tests**: malformed JSON → 400, empty tenant list → 403, DB fail → 500 (whatsapp-routes); `verifyWhatsapp` NOT_FOUND (channel-routes); `markPaymentPaid` NOT_FOUND (mark-payment-paid). (7) **Design-system fix**: `text-error` → `text-sunset` in Step4ConnectChannel. (8) **`webhookConfigError`/`websiteQueueError` i18n keys** added (en+es). Type-check passes._
 
 ---
 

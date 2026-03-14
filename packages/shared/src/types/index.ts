@@ -36,7 +36,7 @@ export type Channel = 'whatsapp' | 'webchat' | 'instagram' | 'email' | 'voice';
 
 export type AutonomyLevel = 'suggest_only' | 'draft_and_approve' | 'fully_autonomous';
 
-export type ArtifactType = 'sales' | 'support' | 'marketing' | 'custom';
+export type ArtifactType = 'sales' | 'support' | 'marketing' | 'custom' | 'advisor';
 
 export type ModuleCategory = 'sales' | 'support' | 'marketing' | 'operations' | 'custom';
 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc';
 
 interface Props {
@@ -12,12 +13,16 @@ interface Props {
 
 export function Step4ConnectChannel({ onComplete }: Props) {
   const t = useTranslations('onboarding');
+  const tc = useTranslations('channels');
   const [choice, setChoice] = useState<'webchat' | 'whatsapp' | null>(null);
-  const [phone, setPhone] = useState('');
+  const [phoneNumberId, setPhoneNumberId] = useState('');
+  const [token, setToken] = useState('');
+  const [errors, setErrors] = useState<{ phoneNumberId?: string; token?: string }>({});
   const [copied, setCopied] = useState(false);
   const channelUpsert = trpc.channel.upsert.useMutation({
     onSuccess: () => onComplete(),
   });
+  const webhookCfg = trpc.channel.webhookConfig.useQuery();
 
   const widgetSnippet = `<script src="${process.env.NEXT_PUBLIC_WIDGET_URL ?? 'http://localhost:5173'}/widget.js" async></script>`;
 
@@ -27,14 +32,21 @@ export function Step4ConnectChannel({ onComplete }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  async function handleCopyValue(value: string) {
+    await navigator.clipboard.writeText(value);
+  }
+
   const handleWhatsApp = () => {
-    if (phone.length >= 10) {
-      channelUpsert.mutate({
-        channelType: 'whatsapp',
-        phoneNumber: phone,
-        isActive: true,
-      });
-    }
+    const errs: { phoneNumberId?: string; token?: string } = {};
+    if (!phoneNumberId.trim()) errs.phoneNumberId = t('whatsAppPhoneNumberIdRequired');
+    if (!token.trim()) errs.token = t('whatsAppAccessTokenRequired');
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    channelUpsert.mutate({
+      channelType: 'whatsapp',
+      phoneNumber: phoneNumberId,
+      credentials: { access_token: token },
+    });
   };
 
   if (!choice) {
@@ -106,24 +118,101 @@ export function Step4ConnectChannel({ onComplete }: Props) {
         <p className="text-sm text-charcoal">
           {t('whatsAppPhoneDesc')}
         </p>
-        <input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder={t('whatsAppPhonePlaceholder')}
-          className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
-        />
-        <p className="text-xs text-dune">
-          {t('webhookUrl')} <code>{process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/channels/whatsapp/webhook</code>
-        </p>
+
+        <div className="space-y-1">
+          <label htmlFor="wa-phone-number-id" className="text-sm font-medium">
+            {tc('channelWhatsappPhoneNumberId')}
+          </label>
+          <input
+            type="text"
+            id="wa-phone-number-id"
+            value={phoneNumberId}
+            onChange={(e) => setPhoneNumberId(e.target.value)}
+            placeholder={t('whatsAppPhonePlaceholder')}
+            className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
+          />
+          <p className="text-xs text-dune">{tc('channelWhatsappPhoneNumberIdHint')}</p>
+          {errors.phoneNumberId && (
+            <p className="text-sm text-sunset">{errors.phoneNumberId}</p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="wa-access-token" className="text-sm font-medium">
+            {tc('channelWhatsappAccessToken')}
+          </label>
+          <input
+            type="password"
+            id="wa-access-token"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
+          />
+          <p className="text-xs text-dune">{tc('channelWhatsappAccessTokenHint')}</p>
+          {errors.token && (
+            <p className="text-sm text-sunset">{errors.token}</p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">
+            {tc('channelWebhookUrl')}
+          </label>
+          {webhookCfg.isLoading ? (
+            <Skeleton className="h-9 w-full" />
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={webhookCfg.data?.webhookUrl ?? ''}
+                className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm bg-charcoal/5"
+              />
+              <Button
+                variant="outline"
+                onClick={() => handleCopyValue(webhookCfg.data?.webhookUrl ?? '')}
+              >
+                {t('copy')}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">
+            {tc('channelWebhookVerifyToken')}
+          </label>
+          {webhookCfg.isLoading ? (
+            <Skeleton className="h-9 w-full" />
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm bg-charcoal/5 font-mono"
+                value={webhookCfg.data?.verifyToken ?? ''}
+              />
+              <Button
+                variant="outline"
+                onClick={() => handleCopyValue(webhookCfg.data?.verifyToken ?? '')}
+              >
+                {t('copy')}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <p className="text-xs text-dune">{tc('channelWebhookInstructions')}</p>
+
         <div className="flex gap-2">
-          <Button onClick={handleWhatsApp} disabled={phone.length < 10 || channelUpsert.isPending}>
+          <Button disabled={channelUpsert.isPending} onClick={handleWhatsApp}>
             {channelUpsert.isPending ? t('saving') : t('saveAndContinue')}
           </Button>
           <Button variant="ghost" onClick={onComplete}>{t('whatsAppSkip')}</Button>
         </div>
+
         {channelUpsert.isError && (
-          <p className="text-sm text-error">{channelUpsert.error.message}</p>
+          <p className="text-sm text-sunset">{channelUpsert.error.message}</p>
         )}
       </CardContent>
     </Card>

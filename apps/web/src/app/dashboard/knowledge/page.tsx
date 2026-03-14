@@ -49,6 +49,15 @@ export default function KnowledgePage() {
   // --- Delete ---
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // --- Teach input ---
+  const [teachText, setTeachText] = useState('');
+  const [teachError, setTeachError] = useState<string | null>(null);
+
+  // --- Gap teach inline ---
+  const [expandedGapIntent, setExpandedGapIntent] = useState<string | null>(null);
+  const [gapAnswers, setGapAnswers] = useState<Record<string, string>>({});
+  const [answeredGaps, setAnsweredGaps] = useState<Set<string>>(new Set());
+
   // --- Learning filters ---
   const [filterModuleSlug, setFilterModuleSlug] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -57,6 +66,7 @@ export default function KnowledgePage() {
   const [selectedArtifactId, setSelectedArtifactId] = useState('');
 
   const artifacts = trpc.artifact.list.useQuery({ activeOnly: false });
+  const sufficiencyScore = trpc.knowledge.sufficiencyScore.useQuery();
 
   // Auto-select when exactly one agent exists (same pattern as analytics page)
   useEffect(() => {
@@ -64,6 +74,13 @@ export default function KnowledgePage() {
       setSelectedArtifactId(artifacts.data[0].id);
     }
   }, [artifacts.data, selectedArtifactId]);
+
+  // Reset per-agent gap state when the selected agent changes
+  useEffect(() => {
+    setExpandedGapIntent(null);
+    setGapAnswers({});
+    setAnsweredGaps(new Set());
+  }, [selectedArtifactId]);
 
   const knowledgeGaps = trpc.agent.supportKnowledgeGaps.useQuery(
     { artifactId: selectedArtifactId },
@@ -104,6 +121,7 @@ export default function KnowledgePage() {
   const ingest = trpc.knowledge.ingest.useMutation({
     onSuccess: (data) => {
       utils.knowledge.list.invalidate();
+      utils.knowledge.sufficiencyScore.invalidate();
       setContent('');
       setTitle('');
       setSourceUrl('');
@@ -116,6 +134,30 @@ export default function KnowledgePage() {
         setIngestSuccess(data);
         addToast(t('ingestedToast'), 'success');
       }
+    },
+  });
+
+  const teachIngest = trpc.knowledge.ingest.useMutation({
+    onSuccess: () => {
+      utils.knowledge.list.invalidate();
+      utils.knowledge.sufficiencyScore.invalidate();
+      setTeachText('');
+      setTeachError(null);
+      addToast(t('teachInputSuccess'), 'success');
+    },
+  });
+
+  const gapTeachIngest = trpc.knowledge.ingest.useMutation({
+    onSuccess: (_data, variables) => {
+      utils.knowledge.list.invalidate();
+      utils.knowledge.sufficiencyScore.invalidate();
+      const title = variables.title ?? '';
+      if (title.startsWith('Answer: ')) {
+        const intent = title.slice('Answer: '.length);
+        setAnsweredGaps((prev) => new Set(prev).add(intent));
+      }
+      setExpandedGapIntent(null);
+      addToast(t('gapTeachSuccess'), 'success');
     },
   });
 
@@ -138,6 +180,7 @@ export default function KnowledgePage() {
   const deleteByTitle = trpc.knowledge.deleteByTitle.useMutation({
     onSuccess: () => {
       utils.knowledge.list.invalidate();
+      utils.knowledge.sufficiencyScore.invalidate();
       setDeleteConfirm(null);
       addToast(t('deletedToast'), 'success');
     },
@@ -239,6 +282,34 @@ export default function KnowledgePage() {
     });
   }
 
+  function handleTeachSubmit() {
+    const text = teachText.trim();
+    if (text.length < 20) {
+      setTeachError(t('teachInputTooShort'));
+      return;
+    }
+    setTeachError(null);
+    teachIngest.mutate({
+      content: text,
+      title: `Manual entry — ${text.slice(0, 50)} [${Date.now()}]`,
+      sourceType: 'upload',
+    });
+  }
+
+  function handleGapTeach(intent: string) {
+    setExpandedGapIntent((prev) => (prev === intent ? null : intent));
+  }
+
+  function handleGapSave(intent: string) {
+    const text = (gapAnswers[intent] ?? '').trim();
+    if (!text) return;
+    gapTeachIngest.mutate({
+      content: text,
+      title: `Answer: ${intent}`,
+      sourceType: 'upload',
+    });
+  }
+
   function handleEdit(docTitle: string) {
     setEditingTitle(docTitle);
     setDeleteConfirm(null);
@@ -265,10 +336,48 @@ export default function KnowledgePage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
+        {sufficiencyScore.data && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-dune">{t('knowledgeScore')}</span>
+            <span className="font-heading text-xl font-bold text-charcoal">
+              {sufficiencyScore.data.score}/100
+            </span>
+            <span className={`text-sm font-medium ${
+              sufficiencyScore.data.score >= 80 ? 'text-teal' :
+              sufficiencyScore.data.score >= 60 ? 'text-gold' :
+              'text-sunset'
+            }`}>
+              {sufficiencyScore.data.score >= 80
+                ? t('knowledgeScoreExcellent')
+                : sufficiencyScore.data.score >= 60
+                ? t('knowledgeScoreGood')
+                : t('knowledgeScoreNeedsWork')}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Secondary error banners */}
       {learningList.isError && <QueryError error={learningList.error} onRetry={() => learningList.refetch()} />}
+
+      {/* ===== Teach Input ===== */}
+      <div className="space-y-2">
+        <div className="flex items-start gap-3">
+          <textarea
+            value={teachText}
+            onChange={(e) => { setTeachText(e.target.value); setTeachError(null); }}
+            placeholder={t('teachInputPlaceholder')}
+            rows={3}
+            className="flex-1 rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+          />
+          <Button onClick={handleTeachSubmit} disabled={teachIngest.isPending}>
+            {t('teachInputAdd')}
+          </Button>
+        </div>
+        {teachError && <p className="text-sm text-sunset">{teachError}</p>}
+      </div>
 
       {/* ===== SECTION 1: Knowledge Docs ===== */}
       <div className="space-y-4">
@@ -510,16 +619,66 @@ export default function KnowledgePage() {
         ) : (
           <ul data-testid="gaps-list" className="divide-y divide-charcoal/8 rounded-xl border-2 border-charcoal/8 bg-cream">
             {knowledgeGaps.data!.map((gap) => (
-              <li key={gap.intent} className="flex items-start gap-3 px-4 py-3">
-                <span className="inline-block rounded bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal lowercase shrink-0">
-                  {gap.intent}
-                </span>
-                <div className="flex-1 min-w-0">
-                  {gap.sampleQuestion && (
-                    <p className="text-sm text-charcoal line-clamp-2">{gap.sampleQuestion}</p>
+              <li
+                key={gap.intent}
+                className={`px-4 py-3 transition-opacity ${answeredGaps.has(gap.intent) ? 'opacity-50' : ''}`}
+              >
+                {/* Top row: intent badge + question + count + action button/badge */}
+                <div className="flex items-start gap-3">
+                  <span className="inline-block rounded bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal lowercase shrink-0">
+                    {gap.intent}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    {gap.sampleQuestion && (
+                      <p className="text-sm text-charcoal line-clamp-2">{gap.sampleQuestion}</p>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-xs text-dune">{gap.count}×</span>
+                  {answeredGaps.has(gap.intent) ? (
+                    <span className="flex items-center gap-1 rounded-full bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal shrink-0">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {t('gapAnswered')}
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleGapTeach(gap.intent)}
+                    >
+                      {t('gapTeachButton')}
+                    </Button>
                   )}
                 </div>
-                <span className="shrink-0 text-xs text-dune">{gap.count}×</span>
+                {/* Inline teach form — shown only for the expanded gap */}
+                {expandedGapIntent === gap.intent && (
+                  <div className="mt-2 space-y-2" data-testid={`gap-teach-form-${gap.intent}`}>
+                    <textarea
+                      value={gapAnswers[gap.intent] ?? ''}
+                      onChange={(e) =>
+                        setGapAnswers((prev) => ({ ...prev, [gap.intent]: e.target.value }))
+                      }
+                      placeholder={t('gapTeachPlaceholder', { intent: gap.intent })}
+                      rows={3}
+                      className="w-full rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleGapSave(gap.intent)}
+                        disabled={gapTeachIngest.isPending}
+                      >
+                        {t('gapTeachSave')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setExpandedGapIntent(null)}
+                      >
+                        {t('gapTeachCancel')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

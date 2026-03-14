@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createTenantDb } from '@camello/db';
 import {
   verifyWhatsAppSignature,
@@ -9,6 +10,7 @@ import {
   extractMetaMessage,
   normalizeMetaMessage,
   whatsappAdapter,
+  getWhatsappTenantIds,
 } from '../adapters/whatsapp.js';
 import { handleMessage } from '../orchestration/message-handler.js';
 
@@ -25,23 +27,46 @@ export const whatsappRoutes = new Hono();
  * GET /webhook — Meta verification challenge.
  *
  * Meta sends this when you register a webhook URL.
- * Responds with the challenge token if verify_token matches.
+ * Responds with the challenge token if the verify_token matches any tenant's
+ * per-tenant HMAC token (HMAC-SHA256 of tenantId with WA_VERIFY_TOKEN_SECRET).
+ * All tenants are checked — not just those with existing channel_configs rows —
+ * so first-time setup works before any channel row is saved.
  */
-whatsappRoutes.get('/webhook', (c) => {
+whatsappRoutes.get('/webhook', async (c) => {
   const mode = c.req.query('hub.mode');
   const token = c.req.query('hub.verify_token');
   const challenge = c.req.query('hub.challenge');
 
-  const verifyToken = process.env.WA_VERIFY_TOKEN;
-  if (!verifyToken) {
-    console.error('[whatsapp] WA_VERIFY_TOKEN not configured');
+  const secret = process.env.WA_VERIFY_TOKEN_SECRET;
+  if (!secret) {
+    console.error('[whatsapp] WA_VERIFY_TOKEN_SECRET not configured');
     return c.text('Server misconfigured', 500);
   }
 
-  if (mode === 'subscribe' && token === verifyToken) {
-    return c.text(challenge ?? '', 200);
+  if (mode !== 'subscribe' || !token) {
+    return c.text('Forbidden', 403);
   }
 
+  let tenantIds: string[];
+  try {
+    tenantIds = await getWhatsappTenantIds();
+  } catch (err) {
+    console.error('[whatsapp] Failed to fetch tenant IDs for webhook verification:', err);
+    return c.text('Server error', 500);
+  }
+
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const matched = tenantIds.some((tenantId) => {
+    const expected = Buffer.from(
+      createHmac('sha256', secret).update(tenantId).digest('hex').slice(0, 32),
+      'utf8',
+    );
+    return expected.length === tokenBuf.length && timingSafeEqual(expected, tokenBuf);
+  });
+
+  if (matched) {
+    return c.text(challenge ?? '', 200);
+  }
   return c.text('Forbidden', 403);
 });
 
@@ -73,8 +98,15 @@ whatsappRoutes.post('/webhook', async (c) => {
   }
 
   // 3. Parse payload
-  const payload = JSON.parse(new TextDecoder().decode(rawBody));
-  const extracted = extractMetaMessage(payload);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    console.warn('[whatsapp] Received malformed JSON body');
+    return c.text('Bad Request', 400);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const extracted = extractMetaMessage(payload as any);
 
   // Status updates (delivered/read) — acknowledge, don't process
   if (!extracted) {
@@ -99,8 +131,9 @@ whatsappRoutes.post('/webhook', async (c) => {
 
   // 6. Return 200 immediately, then process async
   //    Using setImmediate to defer processing after the response is sent.
-  //    The webhookEvents row (processed_at = NULL) is durable: if the process
-  //    crashes, a future Trigger.dev worker (#35) can retry unprocessed events.
+  //    The webhookEvents row (processed_at = NULL) acts as a dead-letter queue.
+  //    No automatic retry job exists today — add a node-cron job in apps/jobs/
+  //    to sweep rows older than N minutes if retry durability is required.
   const tenantId = resolved.tenantId;
   const credentials = resolved.credentials;
   const externalId = message.id;
@@ -139,8 +172,7 @@ whatsappRoutes.post('/webhook', async (c) => {
       await markWebhookProcessed(tenantId, externalId);
     } catch (err) {
       console.error('[whatsapp] Async processing error:', err);
-      // The webhookEvents row stays with processed_at = NULL.
-      // A future Trigger.dev worker can pick it up for retry.
+      // The webhookEvents row remains with processed_at = NULL (no automatic retry today).
     }
   });
 
