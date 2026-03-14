@@ -32,6 +32,7 @@
     "openMenu": "Abrir menú",
     "home": "Inicio",
     "inbox": "Bandeja",
+    "agent": "Agente",
     "settings": "Configuración"
   },
   "dashboard": {
@@ -1021,7 +1022,12 @@
     "sandboxBadge": "Prueba",
     "sandboxBanner": "Esta es una conversación de prueba del sandbox del panel.",
     "filterHideSandbox": "Ocultar prueba",
-    "filterShowSandbox": "Mostrar prueba"
+    "filterShowSandbox": "Mostrar prueba",
+    "resumeSetupBanner": "Tu configuración aún no está completa. Retoma donde lo dejaste.",
+    "resumeSetupCta": "Continuar",
+    "statConversationsToday": "{count} conversaciones hoy",
+    "statPendingApprovals": "{count} aprobaciones pendientes",
+    "statActiveLeads": "{count} leads activos"
   },
   "notifications": {
     "panelTitle": "Notificaciones del Agente",

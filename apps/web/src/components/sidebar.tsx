@@ -6,8 +6,8 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import {
-  LayoutDashboard, MessageSquare, Bot, BookOpen,
-  BarChart3, ChevronsLeft, ChevronsRight, Settings,
+  MessageSquare, Bot, BookOpen,
+  ChevronsLeft, ChevronsRight, Settings,
 } from 'lucide-react';
 import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
@@ -16,10 +16,8 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { trpc } from '@/lib/trpc';
 
 const navItems = [
-  { href: '/dashboard',                  labelKey: 'home'      as const, icon: LayoutDashboard, badge: false },
   { href: '/dashboard/conversations',    labelKey: 'inbox'     as const, icon: MessageSquare,   badge: true  },
-  { href: '/dashboard/artifacts',        labelKey: 'agents'    as const, icon: Bot,              badge: false },
-  { href: '/dashboard/analytics',        labelKey: 'analytics' as const, icon: BarChart3,        badge: false },
+  { href: '/dashboard/artifacts',        labelKey: 'agent'     as const, icon: Bot,              badge: false },
   { href: '/dashboard/knowledge',        labelKey: 'knowledge' as const, icon: BookOpen,         badge: false },
   { href: '/dashboard/settings/billing', labelKey: 'settings'  as const, icon: Settings,         badge: false },
 ];
@@ -108,9 +106,7 @@ function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       <nav className={cn('flex-1 space-y-1', collapsed ? 'p-2' : 'p-3')}>
         {navItems.map(({ href, labelKey, icon: Icon, badge }) => {
           const isActive =
-            href === '/dashboard'
-              ? pathname === '/dashboard'
-              : href === '/dashboard/settings/billing'
+            href === '/dashboard/settings/billing'
               ? pathname.startsWith('/dashboard/settings')
               : pathname.startsWith(href) ||
                 (href === '/dashboard/artifacts' && pathname.startsWith('/dashboard/agents'));

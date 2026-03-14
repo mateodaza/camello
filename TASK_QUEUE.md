@@ -842,7 +842,7 @@ Docs (/dashboard/docs)               ──→        [deleted — low traffic, 
 
 ## P0 — Navigation + Inbox Home
 
-#### NC-275 [ ] Inbox as home — redirect `/dashboard` to conversations + stat strip
+#### NC-275 [x] Inbox as home — redirect `/dashboard` to conversations + stat strip
 
 Narrow scope: make the inbox the home page and add a stat strip. Do NOT touch `/dashboard/agent`, `/dashboard/artifacts`, `/dashboard/analytics`, or settings. Those pages continue to work at their current URLs until later tasks replace them.
 
@@ -896,6 +896,7 @@ Move the banner from the old Home page to the top of the Inbox (above the stat s
 - `pnpm type-check` passes
 
 **Depends on:** —
+_Done: `/dashboard/page.tsx` → client redirect to `/dashboard/conversations`. Sidebar: 6→4 items (Inbox, Agent→`/dashboard/artifacts`, Knowledge, Settings→`/dashboard/settings/billing`). Conversations page: stat strip (today convos, pending approvals, active leads via `dashboardOverview`) + onboarding resume banner. Added `sidebar.agent` i18n key (en+es), 5 inbox stat/banner keys (en+es). Type-check passes._
 
 ---
 
