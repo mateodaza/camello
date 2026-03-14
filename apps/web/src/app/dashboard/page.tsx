@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 import { fmtDateTime } from '@/lib/format';
 import { KnowledgeBanner } from '@/components/dashboard/knowledge-banner';
+import { AdvisorPanel } from '@/components/dashboard/advisor-panel';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/stat-card';
@@ -75,6 +76,9 @@ export default function DashboardOverview() {
           t={t}
         />
       )}
+
+      {/* ===== Advisor Panel ===== */}
+      <AdvisorPanel />
 
       {dashboardOverview.isError && <QueryError error={dashboardOverview.error} onRetry={() => dashboardOverview.refetch()} />}
       {artifacts.isError && <QueryError error={artifacts.error} onRetry={() => artifacts.refetch()} />}

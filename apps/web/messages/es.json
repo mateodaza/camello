@@ -1101,5 +1101,14 @@
     "finishLater": "Terminaré esto más tarde",
     "webhookConfigError": "No se pudo cargar la configuración del webhook. Por favor, recarga la página.",
     "websiteQueueError": "No se pudo guardar tu URL — puedes agregarla desde la página de Conocimiento en el panel."
+  },
+  "advisor": {
+    "advisorPanelHeader": "Asesor de Negocio",
+    "advisorPanelCta": "Chatea con tu asesor",
+    "advisorConversations": "conversaciones",
+    "advisorPaymentsPending": "pagos pendientes",
+    "advisorLeads": "prospectos",
+    "advisorOpeningMessage": "Así está tu negocio al {date}: {signals}. ¿Qué quieres explorar?",
+    "advisorSessionSaved": "Aprendizajes de la sesión guardados en la base de conocimiento"
   }
 }

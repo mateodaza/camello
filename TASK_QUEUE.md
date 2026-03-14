@@ -706,7 +706,8 @@ _Done: `supabase-broadcast.ts` (lazy admin client, noop without env vars). `broa
 
 ---
 
-#### NC-272 [ ] Advisor — business snapshot + dashboard panel + session learning
+#### NC-272 [x] Advisor — business snapshot + dashboard panel + session learning
+Migration 0028 adds `'advisor'` to `knowledge_docs.source_type`. `advisor-snapshot.ts` lib + `advisorRouter` (snapshot + summarizeSession with advisor-verification pre-flight). Snapshot block injected into advisor system prompt in `message-handler.ts`. `AdvisorPanel` dashboard component with two-phase open, `TestChatPanel` extended with `initialMessages`/`onMessagesChange` optional props. 5 test suites (15 tests). `pnpm type-check` passes.
 
 Make the advisor the owner's real business co-pilot: inject live business data into every conversation so it can answer "how am I doing?", surface it prominently on the dashboard, and store learnings from each session so the advisor accumulates knowledge of the business over time.
 

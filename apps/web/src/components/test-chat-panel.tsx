@@ -18,11 +18,18 @@ interface Props {
   artifactType: string;
   open: boolean;
   onClose: () => void;
+  /** Pre-populate the message list (e.g. advisor opening message). */
+  initialMessages?: ChatMessage[];
+  /** Called whenever messages array or conversationId changes, so parent can track both. */
+  onMessagesChange?: (messages: ChatMessage[], conversationId: string | null) => void;
 }
 
-export function TestChatPanel({ artifactId, artifactName, artifactType, open, onClose }: Props) {
+export function TestChatPanel({
+  artifactId, artifactName, artifactType, open, onClose,
+  initialMessages, onMessagesChange,
+}: Props) {
   const t = useTranslations('artifacts');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -50,15 +57,23 @@ export function TestChatPanel({ artifactId, artifactName, artifactType, open, on
   // Reset chat state when panel closes
   useEffect(() => {
     if (!open) {
-      setMessages([]);
+      setMessages(initialMessages ?? []);
       setInput('');
       setConversationId(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Notify parent whenever message list or conversationId changes
+  const onMessagesChangeRef = useRef(onMessagesChange);
+  onMessagesChangeRef.current = onMessagesChange;
+  useEffect(() => {
+    onMessagesChangeRef.current?.(messages, conversationId);
+  }, [messages, conversationId]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
