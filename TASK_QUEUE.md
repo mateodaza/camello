@@ -842,50 +842,57 @@ Docs (/dashboard/docs)               ──→        [deleted — low traffic, 
 
 ## P0 — Navigation + Inbox Home
 
-#### NC-275 [ ] Inbox as home — redirect `/dashboard` to conversations
+#### NC-275 [ ] Inbox as home — redirect `/dashboard` to conversations + stat strip
 
-Make the conversation inbox the default landing page. The current Home page (overview with stat cards, share link, onboarding banner, advisor panel, activity feed) gets dismantled — its useful pieces move elsewhere.
+Narrow scope: make the inbox the home page and add a stat strip. Do NOT touch `/dashboard/agent`, `/dashboard/artifacts`, `/dashboard/analytics`, or settings. Those pages continue to work at their current URLs until later tasks replace them.
 
-**Background:** The current `/dashboard/page.tsx` (278 lines) renders: page title, share link card, onboarding resume banner, knowledge sufficiency banner, advisor panel, 4 stat cards, agents section, activity feed. Research (Chatwoot, Crisp, Intercom) shows inbox-first home is the pattern — conversations are the highest-frequency action.
+**Background:** The current `/dashboard/page.tsx` (278 lines) renders: page title, share link card, onboarding resume banner, knowledge sufficiency banner, advisor panel, 4 stat cards, agents section, activity feed. This task replaces it with a redirect to the inbox. The Home page sections that need to survive are moved to the inbox or deferred to later tasks.
 
 **Files to modify:**
 - `apps/web/src/app/dashboard/page.tsx` — rewrite to redirect to `/dashboard/conversations`
-- `apps/web/src/components/sidebar.tsx` — update nav items (4 items, new paths)
+- `apps/web/src/components/sidebar.tsx` — update nav items (4 items)
+- `apps/web/src/app/dashboard/conversations/page.tsx` — add stat strip + onboarding resume banner
 - i18n: `apps/web/messages/en.json` + `es.json` — update `sidebar` namespace
 
-**What happens to each Home section:**
-- **Share link card** → moves to Settings (NC-280)
-- **Onboarding resume banner** → moves to top of Inbox page (if `onboardingComplete !== true`)
-- **Knowledge sufficiency banner** → moves to Knowledge page header (already partially there via NC-264)
-- **Advisor panel** → moves to Agent page (NC-277)
-- **4 stat cards** (today's convos, week's convos, pending approvals, active leads) → become a compact strip at top of Inbox
-- **Agents section** → removed (Agent page is one click away in sidebar)
-- **Activity feed** → removed (inbox IS the activity feed)
+**What this task does:**
+1. `/dashboard/page.tsx` becomes a redirect to `/dashboard/conversations`
+2. Sidebar updates to 4 nav items (see below)
+3. Inbox gets a stat strip + onboarding resume banner moved from Home
+4. Everything else from the old Home page is simply dropped for now (advisor panel, share link, agents section, activity feed, knowledge banner — later tasks will place them)
+
+**What this task does NOT do:**
+- Does NOT create `/dashboard/agent` — that page doesn't exist yet (NC-276 creates it)
+- Does NOT add redirects for `/dashboard/artifacts` or `/dashboard/analytics` — those pages keep working as-is at their current URLs until NC-276 and NC-280 replace them
+- Does NOT touch settings pages — they keep working at their current URLs until NC-278
 
 **New sidebar nav items (4 total):**
 ```ts
 const navItems = [
   { href: '/dashboard/conversations', label: t('inbox'), icon: MessageSquare, badge: true },
-  { href: '/dashboard/agent', label: t('agent'), icon: Bot },
+  { href: '/dashboard/artifacts', label: t('agent'), icon: Bot },       // points to EXISTING page (NC-276 will change this href later)
   { href: '/dashboard/knowledge', label: t('knowledge'), icon: BookOpen },
-  { href: '/dashboard/settings', label: t('settings'), icon: Settings },
+  { href: '/dashboard/settings/billing', label: t('settings'), icon: Settings },  // points to EXISTING page (NC-278 will change this href later)
 ];
 ```
+**Critical:** The "Agent" and "Settings" sidebar links point to **existing pages** (`/dashboard/artifacts` and `/dashboard/settings/billing`). Do NOT point them to `/dashboard/agent` or `/dashboard/settings` — those routes don't exist yet. Later tasks (NC-276, NC-278) will update the `href` values when the new pages are ready.
 
 **Stat strip at top of Inbox:**
-A compact horizontal strip (not cards — just text) above the conversation list showing: `{N} conversations today · {N} pending approvals · {N} active leads`. Uses same tRPC queries as the old Home page. Clicking "pending approvals" links to `/dashboard/agent#approvals` (the Approvals section on the Agent page). Clicking "active leads" links to `/dashboard/agent`.
+A compact horizontal strip (not cards — just text) above the conversation list showing: `{N} conversations today · {N} pending approvals · {N} active leads`. Uses same tRPC queries as the old Home page (`conversation.todayCount`, `agent.pendingApprovals`, `agent.activeLeads` or equivalent). Each stat is plain text with a count — no click targets needed yet (NC-276 will add the approvals link once the agent page exists).
+
+**Onboarding resume banner:**
+Move the banner from the old Home page to the top of the Inbox (above the stat strip). Condition: show when `onboardingComplete !== true`. Link: `/onboarding`. Same component, just a different render location.
 
 **Acceptance Criteria:**
-- `/dashboard` renders a client-side redirect to `/dashboard/conversations` (or rewrite `page.tsx` to render the inbox directly — either approach is fine, prefer whichever avoids a flash)
+- `/dashboard` redirects to `/dashboard/conversations` (client-side redirect or `page.tsx` renders inbox directly — either approach is fine, prefer whichever avoids a flash)
 - Sidebar shows exactly 4 nav items: Inbox, Agent, Knowledge, Settings
-- Inbox page has a compact stat strip above the conversation list
+- Sidebar "Agent" link points to `/dashboard/artifacts` (existing page)
+- Sidebar "Settings" link points to `/dashboard/settings/billing` (existing page)
+- Inbox page has a compact stat strip above the conversation list with 3 metrics
 - Onboarding resume banner renders at top of inbox when `onboardingComplete !== true`
-- No functionality lost — every useful piece from Home moved to its new location
-- Old `/dashboard/artifacts` route redirects to `/dashboard/agent` (backward compat)
-- Old `/dashboard/analytics` route redirects to `/dashboard/agent` (backward compat)
-- **Do NOT add settings redirects here** — the new `/dashboard/settings` page is created in NC-278. Old settings sub-routes (`/dashboard/settings/profile`, etc.) continue to work as-is until NC-278 replaces them.
-- i18n: update sidebar keys (en + es)
-- At least 2 tests: (1) `/dashboard` redirects to conversations, (2) sidebar renders 4 nav items
+- Old Home page content (advisor panel, share link card, agents grid, activity feed, knowledge banner) is simply removed — NOT moved to other pages in this task
+- All existing routes (`/dashboard/artifacts`, `/dashboard/analytics`, `/dashboard/agents/[id]`, `/dashboard/settings/*`) continue to work unchanged
+- i18n: update sidebar label keys (en + es). Old label "Home" → "Inbox", label for artifacts link → "Agent"
+- At least 2 tests: (1) `/dashboard` redirects to conversations, (2) sidebar renders 4 nav items with correct hrefs
 - `pnpm type-check` passes
 
 **Depends on:** —
@@ -981,7 +988,9 @@ If no sales artifact exists for the tenant, show a centered empty state: illustr
 - At least 4 tests: (1) page renders agent header with name + type, (2) identity section expanded by default, (3) approvals section auto-expands when pending > 0, (4) redirect from old `/dashboard/artifacts` works
 - `pnpm type-check` passes
 
-**Depends on:** NC-275 (sidebar updated to point to `/dashboard/agent`)
+**Sidebar href update:** After creating `/dashboard/agent`, update the sidebar nav in `apps/web/src/components/sidebar.tsx` to change the "Agent" link from `/dashboard/artifacts` to `/dashboard/agent`.
+
+**Depends on:** NC-275 (sidebar exists with 4 items — this task updates the Agent href)
 
 ---
 
@@ -1055,7 +1064,9 @@ Replace the 3-page settings sub-navigation with a single scrollable page using c
 - At least 3 tests: (1) profile section expanded by default, (2) billing section shows current plan, (3) old `/dashboard/settings/profile` redirects to `/dashboard/settings`
 - `pnpm type-check` passes
 
-**Depends on:** NC-275 (sidebar points to `/dashboard/settings`)
+**Sidebar href update:** After creating `/dashboard/settings`, update the sidebar nav in `apps/web/src/components/sidebar.tsx` to change the "Settings" link from `/dashboard/settings/billing` to `/dashboard/settings`.
+
+**Depends on:** NC-275 (sidebar exists with 4 items — this task updates the Settings href)
 
 ---
 
