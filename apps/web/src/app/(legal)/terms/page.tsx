@@ -23,9 +23,8 @@ export default function TermsPage() {
         <p>
           These Terms of Service (&ldquo;Terms&rdquo;) constitute a binding
           agreement between you (&ldquo;Customer,&rdquo; &ldquo;you&rdquo;)
-          and Mateo Daza, operating as Camello (&ldquo;Camello,&rdquo;
-          &ldquo;we,&rdquo; &ldquo;us&rdquo;), a sole proprietorship based
-          in Colombia.
+          and Camello (&ldquo;Camello,&rdquo; &ldquo;we,&rdquo;
+          &ldquo;us&rdquo;), based in Colombia.
         </p>
         <p>
           By creating an account or using the Camello platform at{' '}
@@ -200,20 +199,23 @@ export default function TermsPage() {
       {/* ── 8. Refund ── */}
       <Section n={8} title="Refund Policy">
         <p>
-          All subscription fees are non-refundable, except as required by
-          applicable law or Paddle&rsquo;s buyer protection policies. Because
-          Paddle acts as Merchant of Record, refund requests are governed by
-          Paddle&rsquo;s policies.
-        </p>
-        <p>
-          If we materially breach these Terms and fail to cure the breach
-          within 30 days of written notice, you are entitled to a pro-rata
-          refund of prepaid, unused fees.
+          You may request a full refund within <strong>14 days</strong> of
+          your initial purchase or renewal. Refund requests are processed by
+          Paddle in accordance with{' '}
+          <a
+            href="https://www.paddle.com/legal/invoiced-consumer-terms"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Paddle&rsquo;s buyer terms
+          </a>
+          . After the 14-day window, no refunds are issued for unused
+          subscription time.
         </p>
         <p>
           Cancellation takes effect at the end of the current billing
-          period. No partial refunds are issued for unused time within a
-          billing cycle.
+          period. See our{' '}
+          <a href="/refund">Refund Policy</a> for full details.
         </p>
       </Section>
 
