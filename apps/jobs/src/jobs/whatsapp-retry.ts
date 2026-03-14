@@ -50,6 +50,12 @@ export async function runWhatsappRetry(): Promise<WhatsappRetryResult> {
   let succeeded = 0;
   let failed = 0;
 
+  const secret = process.env.INTERNAL_RETRY_SECRET;
+  if (!secret) {
+    log.error('whatsapp-retry: INTERNAL_RETRY_SECRET is not set — aborting batch');
+    return { claimed: rows.length, succeeded: 0, failed: rows.length };
+  }
+
   for (const row of rows) {
     try {
       const res = await fetch(
@@ -58,12 +64,15 @@ export async function runWhatsappRetry(): Promise<WhatsappRetryResult> {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-internal-secret': process.env.INTERNAL_RETRY_SECRET!,
+            'x-internal-secret': secret,
           },
           body: JSON.stringify({ webhookEventId: row.id }),
         },
       );
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`API returned ${res.status}: ${body}`);
+      }
       succeeded++;
     } catch (err) {
       log.error(`whatsapp-retry: failed for event ${row.id}`, {

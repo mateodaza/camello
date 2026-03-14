@@ -26,12 +26,15 @@ export async function broadcastNewMessage(
 ): Promise<void> {
   const admin = getAdmin();
   if (!admin) return; // noop when env vars absent (dev/test)
+  const ch = admin.channel(`tenant:${tenantId}`);
   try {
-    const ch = admin.channel(`tenant:${tenantId}`);
     await ch.send({ type: 'broadcast', event: 'new_message', payload });
-    await admin.removeChannel(ch);
   } catch (err) {
     // Realtime broadcast is a non-critical side effect — never let it abort callers.
     console.error('[supabase-broadcast] broadcastNewMessage failed (non-blocking):', err);
+  } finally {
+    // Always remove channel — Supabase Realtime holds an open connection per channel;
+    // not removing it leaks connections in long-lived server processes.
+    await admin.removeChannel(ch).catch(() => { /* cleanup best-effort */ });
   }
 }

@@ -51,7 +51,10 @@ function makeResults(overrides: Record<number, Any[]> = {}): Any[] {
     [{ currency: 'USD', count: 2, totalAmount: '300.00' }],      // 2 pendingByCurrencyRows
     [{ count: 1, totalAmount: '120.00' }],                       // 3 paidPayRows
     [{ stage: 'new', count: 4 }, { stage: 'qualifying', count: 2 }], // 4 leadRows
-    [{ intentType: 'pricing', count: 5 }, { intentType: 'shipping', count: 3 }], // 5 gapRows
+    // gapRows: implementation reads row.metadata.intentType and counts in JS
+    Array.from({ length: 5 }, () => ({ metadata: { intentType: 'pricing' } })).concat(
+      Array.from({ length: 3 }, () => ({ metadata: { intentType: 'shipping' } })),
+    ),                                                                             // 5 gapRows
     [{ count: 1 }],                                              // 6 approvalRows
     [{ slug: 'book_meeting', count: 3 }],                        // 7 execRows
   ];

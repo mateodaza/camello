@@ -47,6 +47,7 @@ describe('useRealtimeInbox', () => {
     renderHook(() => useRealtimeInbox(TENANT_ID, onMessage));
 
     expect(capturedCallbackRef.current).not.toBeNull();
+    expect(mockChannel).toHaveBeenCalledWith(`tenant:${TENANT_ID}`);
 
     act(() => {
       capturedCallbackRef.current!({ payload: SAMPLE_PAYLOAD });

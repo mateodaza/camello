@@ -82,8 +82,9 @@ export const channelRouter = router({
   webhookConfig: tenantProcedure.query(({ ctx }) => {
     const secret = process.env.WA_VERIFY_TOKEN_SECRET;
     if (!secret) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'WA_VERIFY_TOKEN_SECRET not configured' });
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'API_URL not configured' });
+    // Prefer explicit API_URL; fall back to the origin of the incoming request so
+    // the procedure works even when API_URL is not set in the environment.
+    const apiUrl = process.env.API_URL ?? new URL(ctx.req.url).origin;
     const verifyToken = createHmac('sha256', secret).update(ctx.tenantId).digest('hex').slice(0, 32);
     const webhookUrl = `${apiUrl}/api/channels/whatsapp/webhook`;
     return { webhookUrl, verifyToken };

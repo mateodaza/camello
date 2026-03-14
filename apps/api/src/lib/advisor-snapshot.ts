@@ -1,4 +1,4 @@
-import { eq, and, gte, lt, desc, count, sum, sql } from 'drizzle-orm';
+import { eq, and, gte, lt, desc, count, sum } from 'drizzle-orm';
 import type { TenantDb } from '@camello/db';
 import {
   conversations,
@@ -71,19 +71,15 @@ export async function fetchAdvisorSnapshot(
         .where(eq(leads.tenantId, tenantId))
         .groupBy(leads.stage),
 
-      db.select({
-        intentType: sql<string>`${ownerNotifications.metadata}->>'intentType'`,
-        count: count(),
-      })
+      // Fetch all gap notifications and aggregate intentType in JS to avoid
+      // the Drizzle sql`` tag, which produces malformed SQL when bundled with tsup noExternal.
+      db.select({ metadata: ownerNotifications.metadata })
         .from(ownerNotifications)
         .where(and(
           eq(ownerNotifications.tenantId, tenantId),
           eq(ownerNotifications.type, 'knowledge_gap'),
           gte(ownerNotifications.createdAt, minus30d),
-        ))
-        .groupBy(sql`${ownerNotifications.metadata}->>'intentType'`)
-        .orderBy(desc(count()))
-        .limit(3),
+        )),
 
       db.select({ count: count() })
         .from(moduleExecutions)
@@ -108,6 +104,18 @@ export async function fetchAdvisorSnapshot(
       leadsByStage[row.stage] = row.count;
     }
 
+    // Aggregate intentType counts in JS (avoids Drizzle sql`` tag in bundled code).
+    const intentCounts = new Map<string, number>();
+    for (const row of gapRows) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const intentType = (row.metadata as any)?.intentType as string | undefined;
+      if (intentType) intentCounts.set(intentType, (intentCounts.get(intentType) ?? 0) + 1);
+    }
+    const topKnowledgeGaps = [...intentCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([intentType]) => intentType);
+
     const totalPendingCount = pendingByCurrencyRows.reduce((acc, r) => acc + r.count, 0);
 
     return {
@@ -125,7 +133,7 @@ export async function fetchAdvisorSnapshot(
         totalAmount: parseFloat(paidPayRows[0]?.totalAmount ?? '0'),
       },
       leadsByStage,
-      topKnowledgeGaps: gapRows.map((r) => r.intentType).filter(Boolean),
+      topKnowledgeGaps,
       pendingApprovals: approvalRows[0]?.count ?? 0,
       recentExecutions: execRows.map((r) => ({ slug: r.slug, count: r.count })),
     };

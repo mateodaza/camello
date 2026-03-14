@@ -788,7 +788,8 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
           ${params.tenantId}::uuid,
           ${docTypesLiteral}::text[],
           ${params.similarityThreshold},
-          ${params.matchCount}
+          ${params.matchCount},
+          ${params.artifactId ?? null}::uuid
         )
       `);
       return rows.rows as any[];
@@ -802,6 +803,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       embed,
       matchKnowledge,
       archetypeType: artifact.type as import('@camello/shared/types').ArtifactType,
+      artifactId: resolved.artifactId,
     }),
   );
 
@@ -866,7 +868,10 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       ].join('\n');
     } catch (err) {
       // Non-blocking: advisor continues without snapshot if fetch fails
-      console.warn('[handleMessage] Advisor snapshot fetch failed:', err instanceof Error ? err.message : String(err));
+      console.error('[handleMessage] Advisor snapshot fetch failed:', {
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

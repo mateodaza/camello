@@ -169,7 +169,7 @@ describe('advisorRouter.summarizeSession', () => {
 
   it('3c — messages query uses tenantId, conversationId, and role filter ["customer","artifact"]', async () => {
     mockVerifyAdvisor();
-    mockMessagesFetch([]);
+    mockMessagesFetch(); // non-empty so the empty-msgs guard doesn't fire
     mockInsert();
 
     const caller = createCaller(makeCtx(mockTenantDb()));
@@ -231,6 +231,21 @@ describe('advisorRouter.summarizeSession', () => {
 
     // Subsequent DB queries (messages fetch, insert) must NOT have been called
     expect(mocks.queryFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('3f — throws BAD_REQUEST when conversation has no messages; generateText is not called', async () => {
+    mockVerifyAdvisor();
+    mockMessagesFetch([]); // empty conversation
+
+    const caller = createCaller(makeCtx(mockTenantDb()));
+
+    await expect(
+      caller.summarizeSession({ conversationId: CONV_ID }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+    expect(mocks.generateText).not.toHaveBeenCalled();
+    // Only 2 DB calls: verify + messages fetch — insert must NOT have been called
+    expect(mocks.queryFn).toHaveBeenCalledTimes(2);
   });
 
   it('3e — throws NOT_FOUND when conversation belongs to non-advisor artifact', async () => {

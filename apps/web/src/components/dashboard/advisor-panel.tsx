@@ -23,8 +23,22 @@ export function AdvisorPanel() {
   // Count of seeded initialMessages so they're excluded from the "meaningful exchange" threshold
   const initialMessageCountRef = useRef(0);
 
-  const artifactList = trpc.artifact.list.useQuery({ type: 'advisor' });
+  // activeOnly: false — advisor artifact is an internal tool and should show
+  // even if isActive is false. Also handles pre-NC-267 tenants where the artifact
+  // may not exist yet (ensureAdvisor auto-creates it below).
+  const artifactList = trpc.artifact.list.useQuery({ type: 'advisor', activeOnly: false });
   const advisorArtifact = artifactList.data?.[0];
+
+  // Auto-create the advisor artifact for pre-NC-267 tenants who completed
+  // onboarding before advisor auto-creation was added.
+  const ensureAdvisor = trpc.advisor.ensureAdvisor.useMutation({
+    onSuccess: () => artifactList.refetch(),
+  });
+  useEffect(() => {
+    if (artifactList.isSuccess && !advisorArtifact && !ensureAdvisor.isPending) {
+      ensureAdvisor.mutate();
+    }
+  }, [artifactList.isSuccess, advisorArtifact]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
     data: snap,
@@ -90,7 +104,10 @@ export function AdvisorPanel() {
     // persisting low-signal summaries from trivial 1-owner-msg + 1-AI-reply sessions.
     const newMessageCount = liveMessageCountRef.current - initialMessageCountRef.current;
     if (newMessageCount >= 3 && liveConversationIdRef.current) {
-      summarizeSession.mutate({ conversationId: liveConversationIdRef.current });
+      summarizeSession.mutate(
+        { conversationId: liveConversationIdRef.current },
+        { onError: (err) => console.error('[AdvisorPanel] summarizeSession failed:', err.message) },
+      );
     }
     setIsOpen(false);
     setPendingOpen(false);
@@ -135,6 +152,8 @@ export function AdvisorPanel() {
           <span className="flex items-center gap-1 text-sm text-teal shrink-0 ml-3">
             {pendingOpen
               ? <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading…" />
+              : snapIsError
+              ? <span className="text-sunset text-xs">{t('advisorSnapError')}</span>
               : (
                 <>
                   {t('advisorPanelCta')}

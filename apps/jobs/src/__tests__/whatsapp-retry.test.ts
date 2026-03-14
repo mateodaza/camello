@@ -42,6 +42,14 @@ describe('runWhatsappRetry', () => {
     expect(sql).toMatch(/retry_count < 3/);
   });
 
+  it('claim SQL atomically increments retry_count before any fetch attempt', async () => {
+    mockServicePoolQuery.mockResolvedValue({ rows: [] });
+    await runWhatsappRetry();
+    const sql: string = mockServicePoolQuery.mock.calls[0][0];
+    // Counter must advance even on worker crash — verified by checking the SET clause
+    expect(sql).toMatch(/retry_count\s*=\s*retry_count\s*\+\s*1/);
+  });
+
   it('returns { claimed:1, succeeded:0, failed:1 } when API call throws — does not crash', async () => {
     mockServicePoolQuery.mockResolvedValue({ rows: [{ id: 'evt-fail' }] });
     mockFetch.mockRejectedValue(new Error('connection refused'));

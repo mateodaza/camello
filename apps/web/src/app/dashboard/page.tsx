@@ -46,11 +46,13 @@ export default function DashboardOverview() {
   const onboardingSettings = onboardingStatus.data?.settings as Record<string, unknown> | null | undefined;
   const showResumeBanner = !onboardingStatus.isLoading && onboardingSettings?.onboardingComplete !== true;
 
+  const salesArtifact = artifacts.data?.find((a) => a.isActive && a.type === 'sales');
+
   const showKnowledgeBanner =
     !sufficiencyScore.isLoading &&
     sufficiencyScore.data !== undefined &&
     sufficiencyScore.data.score < 60 &&
-    (artifacts.data?.length ?? 0) > 0;
+    !!salesArtifact;
 
   return (
     <div className="space-y-6 md:space-y-8 lg:space-y-10">
@@ -70,7 +72,7 @@ export default function DashboardOverview() {
 
       {showKnowledgeBanner && (
         <KnowledgeBanner
-          agentName={artifacts.data![0]!.name}
+          agentName={salesArtifact!.name}
           score={sufficiencyScore.data!.score}
           topSignal={sufficiencyScore.data!.signals[0] ?? ''}
           t={t}

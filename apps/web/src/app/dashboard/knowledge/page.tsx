@@ -15,8 +15,6 @@ import { Plus, Pencil, BookOpen, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { KnowledgeGuidedEmptyState } from '@/components/dashboard/knowledge-guided-empty-state';
 import { useToast } from '@/hooks/use-toast';
 
-const sourceTypes = ['upload', 'url', 'api'] as const;
-
 export default function KnowledgePage() {
   const t = useTranslations('knowledge');
   const tc = useTranslations('common');
@@ -25,7 +23,8 @@ export default function KnowledgePage() {
   const { addToast } = useToast();
 
   // --- Knowledge filters & pagination ---
-  const [filterSourceType, setFilterSourceType] = useState('');
+  const [filterScope, setFilterScope] = useState<'all' | 'global' | 'agent'>('all');
+  const [filterScopeArtifactId, setFilterScopeArtifactId] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
   const [offset, setOffset] = useState(0);
 
@@ -39,8 +38,7 @@ export default function KnowledgePage() {
   const [showIngest, setShowIngest] = useState(false);
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
-  const [sourceType, setSourceType] = useState<(typeof sourceTypes)[number]>('upload');
-  const [sourceUrl, setSourceUrl] = useState('');
+  const [ingestArtifactId, setIngestArtifactId] = useState('');
   const [ingestSuccess, setIngestSuccess] = useState<{ chunkCount: number; title?: string } | null>(null);
 
   // --- Edit mode ---
@@ -87,17 +85,10 @@ export default function KnowledgePage() {
     { enabled: !!selectedArtifactId },
   );
 
-  // Reset pagination + state on filter change
-  function handleSourceTypeChange(val: string) {
-    setFilterSourceType(val);
-    setOffset(0);
-    setDeleteConfirm(null);
-    setIngestSuccess(null);
-  }
-
   // --- Queries ---
   const knowledgeList = trpc.knowledge.list.useQuery({
-    sourceType: filterSourceType || undefined,
+    scope: filterScope,
+    artifactId: filterScope === 'agent' ? (filterScopeArtifactId || undefined) : undefined,
     limit: 50,
     offset,
   });
@@ -124,7 +115,7 @@ export default function KnowledgePage() {
       utils.knowledge.sufficiencyScore.invalidate();
       setContent('');
       setTitle('');
-      setSourceUrl('');
+      setIngestArtifactId('');
       if (editingTitle) {
         setEditingTitle(null);
         setShowIngest(false);
@@ -173,7 +164,6 @@ export default function KnowledgePage() {
     if (chunks.length === 0) return;
     setContent(chunks.map((c) => c.content).join('\n\n'));
     setTitle(editingTitle);
-    setSourceType((chunks[0].sourceType as typeof sourceType) ?? 'upload');
     setShowIngest(true);
   }, [editChunks.data, editingTitle]);
 
@@ -277,8 +267,8 @@ export default function KnowledgePage() {
     ingest.mutate({
       content: content.trim(),
       title: title.trim() || undefined,
-      sourceType,
-      sourceUrl: sourceType === 'url' && sourceUrl.trim() ? sourceUrl.trim() : undefined,
+      sourceType: 'upload',
+      artifactId: ingestArtifactId || undefined,
     });
   }
 
@@ -321,7 +311,7 @@ export default function KnowledgePage() {
     setShowIngest(false);
     setContent('');
     setTitle('');
-    setSourceUrl('');
+    setIngestArtifactId('');
   }
 
   function humanizeSlug(slug: string): string {
@@ -383,17 +373,32 @@ export default function KnowledgePage() {
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionDocuments')}</h2>
-          <div className="flex items-center gap-3">
-            <select
-              value={filterSourceType}
-              onChange={(e) => handleSourceTypeChange(e.target.value)}
-              className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-            >
-              <option value="">{t('filterAllTypes')}</option>
-              {sourceTypes.map((st) => (
-                <option key={st} value={st}>{st}</option>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Scope toggle */}
+            <div className="flex rounded-md border border-charcoal/15 bg-cream text-sm overflow-hidden">
+              {(['all', 'global', 'agent'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setFilterScope(s); setOffset(0); setDeleteConfirm(null); setIngestSuccess(null); }}
+                  className={`px-3 py-1.5 font-medium transition-colors ${filterScope === s ? 'bg-teal text-cream' : 'text-charcoal hover:bg-sand'}`}
+                >
+                  {s === 'all' ? t('scopeAll') : s === 'global' ? t('scopeGlobal') : t('scopeAgent')}
+                </button>
               ))}
-            </select>
+            </div>
+            {filterScope === 'agent' && (
+              <select
+                value={filterScopeArtifactId}
+                onChange={(e) => { setFilterScopeArtifactId(e.target.value); setOffset(0); }}
+                className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+              >
+                <option value="">—</option>
+                {artifacts.data?.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            )}
             <input
               type="search"
               value={filterSearch}
@@ -441,32 +446,22 @@ export default function KnowledgePage() {
                       maxLength={200}
                     />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelType')}</label>
-                    <select
-                      value={sourceType}
-                      onChange={(e) => setSourceType(e.target.value as typeof sourceType)}
-                      className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-                    >
-                      {sourceTypes.map((st) => (
-                        <option key={st} value={st}>{st}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {(artifacts.data?.length ?? 0) > 0 && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelAssignTo')}</label>
+                      <select
+                        value={ingestArtifactId}
+                        onChange={(e) => setIngestArtifactId(e.target.value)}
+                        className="rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
+                      >
+                        <option value="">{t('assignToAllAgents')}</option>
+                        {artifacts.data?.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
-                {sourceType === 'url' && (
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-charcoal">{t('labelSourceUrl')}</label>
-                    <input
-                      type="url"
-                      value={sourceUrl}
-                      onChange={(e) => setSourceUrl(e.target.value)}
-                      placeholder={t('placeholderSourceUrl')}
-                      className="w-full rounded-md border border-charcoal/15 bg-cream px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal"
-                      required
-                    />
-                  </div>
-                )}
                 <div className="flex items-center gap-3">
                   <Button type="submit" disabled={ingest.isPending || deleteByTitle.isPending}>
                     {ingest.isPending || deleteByTitle.isPending
@@ -494,8 +489,7 @@ export default function KnowledgePage() {
         {filteredDocs.length === 0 && !filterSearch ? (
           <KnowledgeGuidedEmptyState
             t={t}
-            onAddType={(type) => {
-              setSourceType(type);
+            onAddType={(_type) => {
               setShowIngest(true);
             }}
           />
@@ -508,7 +502,7 @@ export default function KnowledgePage() {
                 <thead>
                   <tr className="border-b border-charcoal/8 text-left text-dune">
                     <th className="px-4 py-3 font-medium">{t('columnTitle')}</th>
-                    <th className="px-4 py-3 font-medium">{t('columnType')}</th>
+                    <th className="px-4 py-3 font-medium">{t('columnScope')}</th>
                     <th className="px-4 py-3 font-medium">{t('columnChunks')}</th>
                     <th className="px-4 py-3 font-medium">{t('columnCreated')}</th>
                     <th className="px-4 py-3 font-medium" />
@@ -519,7 +513,15 @@ export default function KnowledgePage() {
                     <tr key={doc.key} className="border-b border-charcoal/8 last:border-0">
                       <td className="px-4 py-3 font-medium">{doc.title ?? t('untitled')}</td>
                       <td className="px-4 py-3">
-                        <Badge>{doc.sourceType}</Badge>
+                        {doc.artifactId ? (
+                          <Badge variant="outline" className="text-xs">
+                            {artifacts.data?.find((a) => a.id === doc.artifactId)?.name ?? doc.artifactId.slice(0, 8)}
+                          </Badge>
+                        ) : (
+                          <span className="rounded-full bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal">
+                            {t('scopeGlobalBadge')}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-dune">{doc.chunkCount}</td>
                       <td className="px-4 py-3 text-dune">{fmtDate(doc.createdAt, locale)}</td>

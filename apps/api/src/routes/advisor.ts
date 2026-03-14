@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { router, tenantProcedure } from '../trpc/init.js';
-import { messages, conversations, artifacts, knowledgeDocs } from '@camello/db';
+import { messages, conversations, artifacts, tenants, knowledgeDocs } from '@camello/db';
 import { generateText } from 'ai';
 import { generateEmbedding, createLLMClient } from '@camello/ai';
 import { fetchAdvisorSnapshot } from '../lib/advisor-snapshot.js';
@@ -11,6 +11,39 @@ export const advisorRouter = router({
   /** Live business snapshot for this tenant. */
   snapshot: tenantProcedure.query(async ({ ctx }) => {
     return fetchAdvisorSnapshot(ctx.tenantDb, ctx.tenantId);
+  }),
+
+  /**
+   * Idempotently creates the advisor artifact if it doesn't already exist.
+   * Called by the dashboard when a tenant completed onboarding before advisor
+   * auto-creation was added (pre-NC-267 tenants).
+   */
+  ensureAdvisor: tenantProcedure.mutation(async ({ ctx }) => {
+    return ctx.tenantDb.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: artifacts.id })
+        .from(artifacts)
+        .where(and(eq(artifacts.tenantId, ctx.tenantId), eq(artifacts.type, 'advisor')))
+        .limit(1);
+      if (existing) return { id: existing.id, created: false };
+
+      const [tenantRow] = await tx
+        .select({ name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .limit(1);
+
+      const [inserted] = await tx.insert(artifacts).values({
+        tenantId: ctx.tenantId,
+        name: `${tenantRow?.name ?? 'Unnamed'} Advisor`,
+        type: 'advisor',
+        isActive: true,
+        personality: { instructions: '', tone: 'analytical, direct, and specific' },
+        constraints: {},
+      }).returning({ id: artifacts.id });
+
+      return { id: inserted.id, created: true };
+    });
   }),
 
   /** Summarize an advisor session and store as a knowledge_doc for future RAG. */
@@ -64,6 +97,13 @@ export const advisorRouter = router({
           .orderBy(desc(messages.createdAt))
           .limit(20);
       });
+
+      if (msgs.length === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No messages found in this conversation to summarize',
+        });
+      }
 
       // 3. Format as chronological Owner/Advisor dialogue.
       //    'customer' → 'Owner' (owner's messages in the advisor chat)
