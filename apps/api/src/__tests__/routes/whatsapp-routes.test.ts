@@ -17,6 +17,7 @@ const {
   mockSendText,
   mockHandleMessage,
   mockGetWhatsappTenantIds,
+  mockBroadcastNewMessage,
 } = vi.hoisted(() => ({
   mockVerifySignature: vi.fn(),
   mockResolveTenant: vi.fn(),
@@ -28,6 +29,7 @@ const {
   mockSendText: vi.fn(),
   mockHandleMessage: vi.fn(),
   mockGetWhatsappTenantIds: vi.fn(),
+  mockBroadcastNewMessage: vi.fn(),
 }));
 
 vi.mock('../../adapters/whatsapp.js', () => ({
@@ -44,6 +46,10 @@ vi.mock('../../adapters/whatsapp.js', () => ({
 
 vi.mock('../../orchestration/message-handler.js', () => ({
   handleMessage: mockHandleMessage,
+}));
+
+vi.mock('../../lib/supabase-broadcast.js', () => ({
+  broadcastNewMessage: mockBroadcastNewMessage,
 }));
 
 vi.mock('@camello/db', () => ({
@@ -100,6 +106,7 @@ describe('WhatsApp webhook routes', () => {
     vi.stubEnv('WA_VERIFY_TOKEN_SECRET', TEST_SECRET);
     vi.stubEnv('WA_APP_SECRET', 'test-app-secret');
     mockGetWhatsappTenantIds.mockResolvedValue([TEST_TENANT_ID]);
+    mockBroadcastNewMessage.mockResolvedValue(undefined);
   });
 
   // -------------------------------------------------------------------------
@@ -309,6 +316,43 @@ describe('WhatsApp webhook routes', () => {
       );
       expect(mockMarkWebhookProcessed).toHaveBeenCalledWith(
         TENANT_ID, 'wamid.async1',
+      );
+    });
+
+    it('async path calls broadcastNewMessage with correct payload', async () => {
+      mockVerifySignature.mockReturnValue(true);
+      mockExtractMetaMessage.mockReturnValue({
+        phoneNumberId: 'pn_123',
+        message: { from: '555', id: 'wamid.bcast1', timestamp: '1700000000', type: 'text', text: { body: 'Broadcast test' } },
+        contact: { name: 'Jane', waId: '555' },
+      });
+      mockResolveTenant.mockResolvedValue({ tenantId: TENANT_ID, credentials: { access_token: 'tok' } });
+      mockInsertWebhookEvent.mockResolvedValue(true);
+      mockFindOrCreateCustomer.mockResolvedValue('cust_bcast');
+      mockNormalizeMetaMessage.mockReturnValue({
+        id: 'msg_b', channel: 'whatsapp', direction: 'inbound',
+        content: { type: 'text', text: 'Broadcast test' },
+      });
+      mockHandleMessage.mockResolvedValue({
+        conversationId: 'conv_bcast',
+        responseText: 'Got it!',
+        intent: 'general_inquiry', modelUsed: 'gpt-4o-mini', latencyMs: 50,
+      });
+      mockSendText.mockResolvedValue('wamid.resp');
+      mockMarkWebhookProcessed.mockResolvedValue(undefined);
+
+      await postWebhook(sampleMetaPayload);
+      await vi.waitFor(() => expect(mockBroadcastNewMessage).toHaveBeenCalled());
+
+      expect(mockBroadcastNewMessage).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          event: 'new_message',
+          tenantId: TENANT_ID,
+          conversationId: 'conv_bcast',
+          channel: 'whatsapp',
+          preview: 'Broadcast test',
+        }),
       );
     });
 

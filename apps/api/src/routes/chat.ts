@@ -5,6 +5,7 @@ import { router, tenantProcedure } from '../trpc/init.js';
 import { artifacts, customers } from '@camello/db';
 import { channelSchema } from '@camello/shared/schemas';
 import { handleMessage } from '../orchestration/message-handler.js';
+import { broadcastNewMessage } from '../lib/supabase-broadcast.js';
 
 export const chatRouter = router({
   /** Send a message and get an AI response. Full orchestration pipeline. */
@@ -74,6 +75,16 @@ export const chatRouter = router({
         ...(input.sandbox && input.artifactId
           ? { artifactId: input.artifactId, conversationMetadata: { sandbox: true } }
           : {}),
+      });
+
+      // Broadcast real-time inbox update (fire-and-forget, fail-open)
+      void broadcastNewMessage(ctx.tenantId, {
+        event: 'new_message',
+        tenantId: ctx.tenantId,
+        conversationId: result.conversationId,
+        channel: input.channel === 'whatsapp' ? 'whatsapp' : 'webchat',
+        preview: input.message.slice(0, 100),
+        at: new Date().toISOString(),
       });
 
       return {

@@ -7,6 +7,7 @@ import { customers, conversations, messages, artifacts, tenants, artifactModules
 import { getQuickActionsForModules } from '@camello/ai';
 import { createWidgetToken, verifyWidgetToken } from '../lib/widget-jwt.js';
 import { handleMessage } from '../orchestration/message-handler.js';
+import { broadcastNewMessage } from '../lib/supabase-broadcast.js';
 import { extractClientIp } from '../lib/client-ip.js';
 
 // ---------------------------------------------------------------------------
@@ -458,6 +459,16 @@ widgetRoutes.post('/message', async (c) => {
       customerId: claims.customer_id,
       messageText,
       existingConversationId,
+    });
+
+    // Broadcast real-time inbox update (fire-and-forget, fail-open)
+    void broadcastNewMessage(claims.tenant_id, {
+      event: 'new_message',
+      tenantId: claims.tenant_id,
+      conversationId: result.conversationId,
+      channel: 'webchat',
+      preview: messageText.slice(0, 100),
+      at: new Date().toISOString(),
     });
 
     return c.json({

@@ -632,7 +632,7 @@ _Done: Migration 0027 adds retry_count. `servicePool` exported from `@camello/db
 
 ---
 
-#### NC-271 [ ] Real-time inbox — Supabase Realtime Broadcast for new messages
+#### NC-271 [x] Real-time inbox — Supabase Realtime Broadcast for new messages
 
 When a WhatsApp (or webchat) message arrives, the conversations list and chat thread should update automatically. Currently the owner must refresh manually.
 
@@ -702,6 +702,7 @@ export function useRealtimeInbox(tenantId: string | null, onMessage: (payload: N
 - `pnpm type-check` passes
 
 **Depends on:** —
+_Done: `supabase-broadcast.ts` (lazy admin client, noop without env vars). `broadcastNewMessage` wired into whatsapp.ts (after markWebhookProcessed) + conversation.ts (replyAsOwner, fire-and-forget). `@supabase/supabase-js` added to web. `supabase-client.ts` browser singleton + `use-realtime-inbox.ts` hook. `conversations/page.tsx` uses `useOrganization().publicMetadata.camello_tenant_id`, invalidates list always + byId/messages(no-args)/activity when conversationId matches. 7 tests: broadcast T1 in whatsapp-routes.test.ts, assertion in conversation-reply-as-owner.test.ts, 3 in use-realtime-inbox.test.ts, 4 in conversations-realtime.test.tsx. `pnpm type-check` passes._
 
 ---
 

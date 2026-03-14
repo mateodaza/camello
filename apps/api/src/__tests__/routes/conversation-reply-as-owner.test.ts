@@ -8,6 +8,12 @@ vi.mock('../../adapters/whatsapp.js', () => ({
   whatsappAdapter: { sendText: mockSendText, channel: 'whatsapp' },
 }));
 
+vi.mock('../../lib/supabase-broadcast.js', () => ({
+  broadcastNewMessage: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { broadcastNewMessage } from '../../lib/supabase-broadcast.js';
+
 import { createCallerFactory } from '../../trpc/init.js';
 import { conversationRouter } from '../../routes/conversation.js';
 import type { TenantDb } from '@camello/db';
@@ -91,6 +97,10 @@ describe('conversation.replyAsOwner', () => {
     expect(result.role).toBe('human');
     expect(result.content).toBe('Hello!');
     expect(mockSendText).not.toHaveBeenCalled();
+    expect(broadcastNewMessage).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ event: 'new_message', conversationId: CONV_ID }),
+    );
   });
 
   it('2 — non-owner: FORBIDDEN when tenant_members returns no owner row', async () => {
