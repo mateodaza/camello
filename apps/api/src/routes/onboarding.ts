@@ -475,31 +475,32 @@ Directrices:
    * Marks onboarding as complete. Idempotently creates the internal advisor artifact.
    */
   complete: tenantProcedure.mutation(async ({ ctx }) => {
-    await ctx.tenantDb.query(async (db) => {
-      await db
+    // Wrap all operations in a single transaction so onboardingComplete=true
+    // is never committed without the advisor artifact (or vice versa).
+    await ctx.tenantDb.transaction(async (tx) => {
+      await tx
         .update(tenants)
         .set({
           settings: sql`COALESCE(settings, '{}'::jsonb) || '{"onboardingComplete": true}'::jsonb`,
           updatedAt: new Date(),
         })
         .where(eq(tenants.id, ctx.tenantId));
-    });
 
-    const [tenantRow] = await ctx.tenantDb.query(async (db) =>
-      db.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1),
-    );
+      const [tenantRow] = await tx
+        .select({ name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .limit(1);
 
-    const [existingAdvisor] = await ctx.tenantDb.query(async (db) =>
-      db
+      const [existingAdvisor] = await tx
         .select({ id: artifacts.id })
         .from(artifacts)
         .where(and(eq(artifacts.tenantId, ctx.tenantId), eq(artifacts.type, 'advisor')))
-        .limit(1),
-    );
+        .limit(1);
 
-    if (!existingAdvisor) {
-      await ctx.tenantDb.query(async (db) => {
-        await db.insert(artifacts).values({
+      // Idempotent: skip insert if an advisor artifact already exists for this tenant
+      if (!existingAdvisor) {
+        await tx.insert(artifacts).values({
           tenantId: ctx.tenantId,
           name: `${tenantRow?.name ?? 'Unnamed'} Advisor`,
           type: 'advisor',
@@ -507,8 +508,8 @@ Directrices:
           personality: { instructions: '', tone: 'analytical, direct, and specific' },
           constraints: {},
         });
-      });
-    }
+      }
+    });
 
     return { ok: true };
   }),

@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
 import { eq, and, sql } from 'drizzle-orm';
-import { db } from '@camello/db';
+import { pool } from '@camello/db';
 import { webhookEvents, customers } from '@camello/db';
 import { createTenantDb } from '@camello/db';
 import type { TenantDb } from '@camello/db';
@@ -49,10 +49,13 @@ export function verifyWhatsAppSignature(
 export async function resolveTenantByPhoneNumberId(
   phoneNumberId: string,
 ): Promise<{ tenantId: string; credentials: Record<string, unknown> } | null> {
-  const result = await db.execute(
-    sql`SELECT * FROM resolve_channel_config_by_phone('whatsapp', ${phoneNumberId})`,
+  // pool.query() instead of db.execute(sql`...`) — Drizzle sql tag produces malformed SQL when
+  // bundled with tsup noExternal. SECURITY DEFINER RPC bypasses RLS (no tenant context yet).
+  const result = await pool.query<{ tenant_id: string; credentials: unknown }>(
+    `SELECT * FROM resolve_channel_config_by_phone('whatsapp', $1)`,
+    [phoneNumberId],
   );
-  const row = (result.rows as Array<{ tenant_id: string; credentials: unknown }>)[0];
+  const row = result.rows[0];
   if (!row) return null;
   return {
     tenantId: row.tenant_id,
@@ -71,10 +74,12 @@ export async function resolveTenantByPhoneNumberId(
  * setup works: Meta's webhook challenge fires before any channel_configs row exists.
  */
 export async function getWhatsappTenantIds(): Promise<string[]> {
-  const result = await db.execute(
-    sql`SELECT tenant_id FROM get_whatsapp_tenant_ids()`,
+  // pool.query() instead of db.execute(sql`...`) — Drizzle sql tag produces malformed SQL when
+  // bundled with tsup noExternal. SECURITY DEFINER RPC returns all tenants (no RLS context needed).
+  const result = await pool.query<{ tenant_id: string }>(
+    'SELECT tenant_id FROM get_whatsapp_tenant_ids()',
   );
-  return (result.rows as Array<{ tenant_id: string }>).map((r) => r.tenant_id);
+  return result.rows.map((r) => r.tenant_id);
 }
 
 // ---------------------------------------------------------------------------
@@ -90,16 +95,35 @@ export async function verifyPhoneNumberId(
   phoneNumberId: string,
   accessToken: string,
 ): Promise<{ displayPhoneNumber: string } | null> {
+  const url = `${GRAPH_API_BASE}/${phoneNumberId}?fields=display_phone_number`;
+  let response: Response;
   try {
-    const url = `${GRAPH_API_BASE}/${phoneNumberId}?fields=display_phone_number&access_token=${encodeURIComponent(accessToken)}`;
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const data = (await response.json()) as { display_phone_number?: string };
-    if (!data.display_phone_number) return null;
-    return { displayPhoneNumber: data.display_phone_number };
-  } catch {
+    response = await fetch(url, {
+      signal: AbortSignal.timeout(10_000),
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (err) {
+    // Network-level failure (DNS, timeout, connection reset) — log for ops visibility
+    console.error('[verifyPhoneNumberId] Network error reaching Meta Graph API:', err);
     return null;
   }
+
+  if (!response.ok) {
+    // Log status so we can tell 401 (bad creds) from 429/503 (Meta issues) in logs
+    console.warn(`[verifyPhoneNumberId] Meta Graph API returned ${response.status} for phoneNumberId=${phoneNumberId}`);
+    return null;
+  }
+
+  let data: { display_phone_number?: string };
+  try {
+    data = (await response.json()) as { display_phone_number?: string };
+  } catch (err) {
+    console.error('[verifyPhoneNumberId] Failed to parse Meta Graph API response as JSON:', err);
+    return null;
+  }
+
+  if (!data.display_phone_number) return null;
+  return { displayPhoneNumber: data.display_phone_number };
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +137,8 @@ export async function findOrCreateWhatsAppCustomer(
   profileName?: string,
 ): Promise<string> {
   return tenantDb.transaction(async (tx) => {
-    // Serialize display_name assignment per tenant
+    // Advisory lock on tenantId: serialize all concurrent customer upserts for this tenant
+    // so the Visitor N sequential numbering is gapless.
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`);
 
     const nameValue = profileName ?? null;

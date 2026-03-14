@@ -22,6 +22,7 @@ type Stage =
 export interface Suggestion {
   template: 'services' | 'ecommerce' | 'saas' | 'restaurant' | 'realestate';
   agentName: string;
+  /** 'advisor' intentionally excluded — advisor is system-created, never user-configured */
   agentType: 'sales' | 'support' | 'marketing' | 'custom';
   personality: {
     tone: 'professional' | 'friendly' | 'casual' | 'formal';
@@ -34,9 +35,14 @@ export interface Suggestion {
 }
 
 function stepToStage(step: number): Stage {
-  if (step <= 2) return 'ask_description';
-  if (step === 3) return 'confirm_agent';
-  if (step === 4) return 'collecting_knowledge';
+  // step 1 = ask_description (description not yet submitted)
+  // step 2 = confirm_agent  (LLM result received, awaiting confirmation)
+  // step 3 = collecting_knowledge
+  // step 4/5 = ask_channel
+  // step 6+ = done
+  if (step <= 1) return 'ask_description';
+  if (step === 2) return 'confirm_agent';
+  if (step === 3) return 'collecting_knowledge';
   if (step >= 6) return 'done';
   return 'ask_channel';
 }
@@ -101,6 +107,7 @@ export function ChatOnboarding({ _testStage }: Props) {
       setSuggestion(s);
       setAgentName(s.agentName);
       setNameInput(s.agentName);
+      // step 2 = confirm_agent in the resume mapping (stepToStage(2) === 'confirm_agent')
       saveStep.mutate({ step: 2, suggestion: s, businessDescription: description });
       setStage('confirm_agent');
     },
@@ -125,8 +132,10 @@ export function ChatOnboarding({ _testStage }: Props) {
     },
   });
 
+  const [completeError, setCompleteError] = useState<string | null>(null);
   const complete = trpc.onboarding.complete.useMutation({
     onSuccess: () => router.push('/dashboard'),
+    onError: (err) => setCompleteError(err.message),
   });
 
   const webhookCfg = trpc.channel.webhookConfig.useQuery(undefined, {
@@ -198,7 +207,9 @@ export function ChatOnboarding({ _testStage }: Props) {
     });
   };
 
+  const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const handleKnowledgeContinue = async () => {
+    setKnowledgeError(null);
     if (knowledgeText.trim().length >= 10) {
       try {
         await ingest.mutateAsync({
@@ -206,12 +217,19 @@ export function ChatOnboarding({ _testStage }: Props) {
           title: 'Quick Facts',
           sourceType: 'upload',
         });
-      } catch { /* continue anyway */ }
+      } catch (err) {
+        // Non-blocking — advance anyway, but surface the error so the user knows
+        const msg = err instanceof Error ? err.message : 'Knowledge text could not be saved';
+        setKnowledgeError(`${msg} — you can add it from the Knowledge page in your dashboard.`);
+      }
     }
     if (websiteUrl.trim()) {
       try {
         await queueUrl.mutateAsync({ url: websiteUrl.trim() });
-      } catch { /* continue anyway */ }
+      } catch {
+        // Non-fatal — flow continues, but surface the failure so user knows to retry
+        setKnowledgeError(t('websiteQueueError'));
+      }
     }
     saveStep.mutate({ step: 4 });
     setStage('ask_channel');
@@ -393,6 +411,9 @@ export function ChatOnboarding({ _testStage }: Props) {
               placeholder={t('websitePlaceholder')}
               className="w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
             />
+            {knowledgeError && (
+              <p className="text-sm text-sunset">{knowledgeError}</p>
+            )}
             <div className="flex gap-2">
               <Button
                 onClick={handleKnowledgeContinue}
@@ -496,7 +517,7 @@ export function ChatOnboarding({ _testStage }: Props) {
             />
             <p className="text-xs text-dune">{tc('channelWhatsappPhoneNumberIdHint')}</p>
             {errors.phoneNumberId && (
-              <p className="text-sm text-error">{errors.phoneNumberId}</p>
+              <p className="text-sm text-sunset">{errors.phoneNumberId}</p>
             )}
           </div>
 
@@ -513,9 +534,13 @@ export function ChatOnboarding({ _testStage }: Props) {
             />
             <p className="text-xs text-dune">{tc('channelWhatsappAccessTokenHint')}</p>
             {errors.token && (
-              <p className="text-sm text-error">{errors.token}</p>
+              <p className="text-sm text-sunset">{errors.token}</p>
             )}
           </div>
+
+          {webhookCfg.isError && (
+            <p className="text-sm text-sunset">{t('webhookConfigError')}</p>
+          )}
 
           <div className="space-y-1">
             <label className="text-sm font-medium">
@@ -580,7 +605,7 @@ export function ChatOnboarding({ _testStage }: Props) {
               </Button>
             </div>
             {channelUpsert.isError && (
-              <p className="text-sm text-error">{channelUpsert.error.message}</p>
+              <p className="text-sm text-sunset">{channelUpsert.error.message}</p>
             )}
             <button
               type="button"
@@ -597,9 +622,12 @@ export function ChatOnboarding({ _testStage }: Props) {
       {stage === 'done' && (
         <>
           <ChatBubble>{t('done', { agentName })}</ChatBubble>
-          <Button onClick={() => complete.mutate()} disabled={complete.isPending}>
+          <Button onClick={() => { setCompleteError(null); complete.mutate(); }} disabled={complete.isPending}>
             {complete.isPending ? t('finishing') : t('openDashboard')}
           </Button>
+          {completeError && (
+            <p className="text-sm text-sunset">{completeError}</p>
+          )}
         </>
       )}
     </div>

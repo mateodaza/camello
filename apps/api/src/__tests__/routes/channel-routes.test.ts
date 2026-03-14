@@ -43,9 +43,17 @@ describe('channel router', () => {
     it('returns valid=true with displayPhoneNumber for correct credentials (mock Meta API)', async () => {
       mockVerifyPhoneNumberId.mockResolvedValue({ displayPhoneNumber: '+57 300 123 4567' });
 
+      let capturedSetArg: Any = null;
+      const returningMock = vi.fn().mockResolvedValue([{ id: 'ch_1' }]);
+
       const db = mockTenantDb(async (fn: Any) => {
         const mockDb = {
-          update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+          update: () => ({
+            set: (args: Any) => {
+              capturedSetArg = args;
+              return { where: () => ({ returning: returningMock }) };
+            },
+          }),
         };
         return fn(mockDb);
       });
@@ -56,6 +64,32 @@ describe('channel router', () => {
       expect(result.valid).toBe(true);
       expect((result as Any).displayPhoneNumber).toBe('+57 300 123 4567');
       expect(mockVerifyPhoneNumberId).toHaveBeenCalledWith('123456789', 'tok');
+      // Verify DB update merges display_phone_number into credentials
+      expect(returningMock).toHaveBeenCalled();
+      expect(JSON.stringify(capturedSetArg)).toContain('display_phone_number');
+    });
+
+    it('throws NOT_FOUND when channel row does not exist (upsert not called first)', async () => {
+      mockVerifyPhoneNumberId.mockResolvedValue({ displayPhoneNumber: '+57 300 123 4567' });
+
+      const db = mockTenantDb(async (fn: Any) => {
+        const mockDb = {
+          update: () => ({
+            set: () => ({
+              where: () => ({
+                // 0 rows updated — no channel_configs row exists yet
+                returning: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        };
+        return fn(mockDb);
+      });
+
+      const caller = createCaller(makeCtx(db));
+      await expect(
+        caller.verifyWhatsapp({ phoneNumberId: '123456789', accessToken: 'tok' }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
     });
 
     it('returns valid=false when Meta API call fails', async () => {

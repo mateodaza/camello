@@ -139,12 +139,41 @@ describe('WhatsApp webhook routes', () => {
       );
       expect(res.status).toBe(500);
     });
+
+    it('returns 403 when no tenants are registered (empty platform)', async () => {
+      // If getWhatsappTenantIds returns [] — no tenants yet — no token can match.
+      mockGetWhatsappTenantIds.mockResolvedValue([]);
+      const token = createHmac('sha256', TEST_SECRET)
+        .update(TEST_TENANT_ID).digest('hex').slice(0, 32);
+      const res = await whatsappRoutes.request(
+        `/webhook?hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=challenge_abc`,
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 500 when getWhatsappTenantIds DB query fails', async () => {
+      mockGetWhatsappTenantIds.mockRejectedValue(new Error('DB connection lost'));
+      const res = await whatsappRoutes.request(
+        '/webhook?hub.mode=subscribe&hub.verify_token=anything&hub.challenge=test',
+      );
+      expect(res.status).toBe(500);
+    });
   });
 
   // -------------------------------------------------------------------------
   // POST /webhook — inbound messages
   // -------------------------------------------------------------------------
   describe('POST /webhook — inbound messages', () => {
+    it('returns 400 for malformed JSON body', async () => {
+      mockVerifySignature.mockReturnValue(true); // pass sig check to reach JSON parsing
+      const res = await whatsappRoutes.request('/webhook', {
+        method: 'POST',
+        body: 'not valid json{{{',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      expect(res.status).toBe(400);
+    });
+
     it('returns 401 for invalid signature', async () => {
       mockVerifySignature.mockReturnValue(false);
 
@@ -262,8 +291,8 @@ describe('WhatsApp webhook routes', () => {
 
       await postWebhook(sampleMetaPayload);
 
-      // Wait for setImmediate to fire
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Wait for setImmediate to fire and async processing to complete
+      await vi.waitFor(() => expect(mockFindOrCreateCustomer).toHaveBeenCalled());
 
       expect(mockFindOrCreateCustomer).toHaveBeenCalledWith(
         expect.anything(), TENANT_ID, '555', 'Jane',
@@ -303,8 +332,8 @@ describe('WhatsApp webhook routes', () => {
       const res = await postWebhook(sampleMetaPayload);
       expect(res.status).toBe(200); // Response already sent
 
-      // Wait for setImmediate to fire
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Wait for setImmediate to fire and error to be logged
+      await vi.waitFor(() => expect(consoleSpy).toHaveBeenCalled());
 
       // Error logged, not thrown
       expect(consoleSpy).toHaveBeenCalledWith(

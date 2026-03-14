@@ -90,4 +90,33 @@ describe('agent.markPaymentPaid (NC-262)', () => {
       createAgentCaller(makeCtx(db)).markPaymentPaid({ paymentId: PAYMENT_ID }),
     ).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' });
   });
+
+  it('Test 3: throws NOT_FOUND when payment does not exist (or belongs to a different tenant)', async () => {
+    // Conditional UPDATE returns 0 rows, discriminating SELECT also returns 0 rows → NOT_FOUND.
+    const db = mockTenantDb(async (fn: Any) => {
+      const mockDb = {
+        update: () => ({
+          set: () => ({
+            where: () => ({
+              returning: () => Promise.resolve([]), // 0 rows — condition not met
+            }),
+          }),
+        }),
+        select: () => ({
+          from: () => ({
+            where: () => Promise.resolve([]), // row not found → different tenant or doesn't exist
+          }),
+        }),
+      };
+      return fn(mockDb);
+    });
+
+    await expect(
+      createAgentCaller(makeCtx(db)).markPaymentPaid({ paymentId: PAYMENT_ID }),
+    ).rejects.toThrow(TRPCError);
+
+    await expect(
+      createAgentCaller(makeCtx(db)).markPaymentPaid({ paymentId: PAYMENT_ID }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
 });

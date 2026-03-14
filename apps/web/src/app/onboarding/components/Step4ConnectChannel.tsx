@@ -133,7 +133,7 @@ export function Step4ConnectChannel({ onComplete }: Props) {
           />
           <p className="text-xs text-dune">{tc('channelWhatsappPhoneNumberIdHint')}</p>
           {errors.phoneNumberId && (
-            <p className="text-sm text-error">{errors.phoneNumberId}</p>
+            <p className="text-sm text-sunset">{errors.phoneNumberId}</p>
           )}
         </div>
 
@@ -150,7 +150,7 @@ export function Step4ConnectChannel({ onComplete }: Props) {
           />
           <p className="text-xs text-dune">{tc('channelWhatsappAccessTokenHint')}</p>
           {errors.token && (
-            <p className="text-sm text-error">{errors.token}</p>
+            <p className="text-sm text-sunset">{errors.token}</p>
           )}
         </div>
 
@@ -212,7 +212,7 @@ export function Step4ConnectChannel({ onComplete }: Props) {
         </div>
 
         {channelUpsert.isError && (
-          <p className="text-sm text-error">{channelUpsert.error.message}</p>
+          <p className="text-sm text-sunset">{channelUpsert.error.message}</p>
         )}
       </CardContent>
     </Card>

@@ -1060,7 +1060,8 @@
     "channelWebhookInstructions": "Paste this URL into your Meta App's webhook settings, then enter your verify token below.",
     "channelSave": "Save",
     "channelDisconnect": "Disconnect",
-    "channelVerifyError": "Failed to verify credentials with Meta. Check your access token and phone number ID."
+    "channelVerifyError": "Failed to verify credentials with Meta. Check your access token and phone number ID.",
+    "channelWebhookConfigError": "Could not load webhook configuration. Please refresh the page."
   },
   "onboardingChat": {
     "hello": "Hi! I'm going to help you set up your AI sales agent. First — what's your company called?",
@@ -1097,6 +1098,8 @@
     "whatsAppPhoneNumberIdRequired": "Phone Number ID is required",
     "whatsAppAccessTokenRequired": "Access token is required",
     "finishing": "Finishing…",
-    "finishLater": "I'll finish this later"
+    "finishLater": "I'll finish this later",
+    "webhookConfigError": "Could not load webhook configuration. Please refresh the page.",
+    "websiteQueueError": "Your website URL could not be saved — you can add it from the Knowledge page in your dashboard."
   }
 }

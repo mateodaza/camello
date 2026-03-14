@@ -19,7 +19,7 @@ export const artifacts = pgTable('artifacts', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (_table) => [
-  check('artifacts_type_values', sql`type IN ('sales', 'support', 'marketing', 'custom')`),
+  check('artifacts_type_values', sql`type IN ('sales', 'support', 'marketing', 'custom', 'advisor')`),
 ]);
 
 export const artifactModules = pgTable('artifact_modules', {

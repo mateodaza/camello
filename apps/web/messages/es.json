@@ -1060,7 +1060,8 @@
     "channelWebhookInstructions": "Pega esta URL en la configuración de webhook de tu aplicación de Meta, luego ingresa tu token de verificación a continuación.",
     "channelSave": "Guardar",
     "channelDisconnect": "Desconectar",
-    "channelVerifyError": "No se pudieron verificar las credenciales con Meta. Revisa tu token de acceso e ID de número de teléfono."
+    "channelVerifyError": "No se pudieron verificar las credenciales con Meta. Revisa tu token de acceso e ID de número de teléfono.",
+    "channelWebhookConfigError": "No se pudo cargar la configuración del webhook. Por favor, recarga la página."
   },
   "onboardingChat": {
     "hello": "¡Hola! Voy a ayudarte a configurar tu agente de ventas con IA. Primero — ¿cómo se llama tu empresa?",
@@ -1097,6 +1098,8 @@
     "whatsAppPhoneNumberIdRequired": "El ID de número de teléfono es obligatorio",
     "whatsAppAccessTokenRequired": "El token de acceso es obligatorio",
     "finishing": "Finalizando…",
-    "finishLater": "Terminaré esto más tarde"
+    "finishLater": "Terminaré esto más tarde",
+    "webhookConfigError": "No se pudo cargar la configuración del webhook. Por favor, recarga la página.",
+    "websiteQueueError": "No se pudo guardar tu URL — puedes agregarla desde la página de Conocimiento en el panel."
   }
 }

@@ -26,7 +26,10 @@ export default function ChannelsPage() {
   const waRow = channelList.data?.find((c) => c.channelType === 'whatsapp');
   const displayPhoneNumber = (waRow as { displayPhoneNumber?: string | null } | undefined)?.displayPhoneNumber ?? null;
 
-  // Pre-populate phoneNumberId from existing config
+  // Pre-populate phoneNumberId from existing config (only on first load).
+  // phoneNumberId omitted from deps intentionally: `!phoneNumberId` guard means we
+  // only pre-fill once, so including it would overwrite user input on every keystroke.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (waRow?.phoneNumber && !phoneNumberId) {
       setPhoneNumberId(waRow.phoneNumber);
@@ -147,12 +150,15 @@ export default function ChannelsPage() {
           <CardTitle className="text-base">{t('channelWebhookUrl')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {webhookCfg.isError && (
+            <p className="text-sm text-sunset">{t('channelWebhookConfigError')}</p>
+          )}
           {webhookCfg.isLoading ? (
             <div className="space-y-3">
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
             </div>
-          ) : (
+          ) : !webhookCfg.isError && (
             <>
               <div>
                 <label className="mb-1 block text-sm font-medium text-charcoal">
@@ -170,7 +176,7 @@ export default function ChannelsPage() {
                     size="sm"
                     onClick={() => copyToClipboard(webhookCfg.data?.webhookUrl ?? '')}
                   >
-                    Copy
+                    {t('copy')}
                   </Button>
                 </div>
               </div>
@@ -191,7 +197,7 @@ export default function ChannelsPage() {
                     size="sm"
                     onClick={() => copyToClipboard(webhookCfg.data?.verifyToken ?? '')}
                   >
-                    Copy
+                    {t('copy')}
                   </Button>
                 </div>
               </div>

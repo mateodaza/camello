@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createTenantDb } from '@camello/db';
 import {
   verifyWhatsAppSignature,
@@ -47,11 +47,22 @@ whatsappRoutes.get('/webhook', async (c) => {
     return c.text('Forbidden', 403);
   }
 
-  const tenantIds = await getWhatsappTenantIds();
-  const matched = tenantIds.some(
-    (tenantId) =>
-      createHmac('sha256', secret).update(tenantId).digest('hex').slice(0, 32) === token,
-  );
+  let tenantIds: string[];
+  try {
+    tenantIds = await getWhatsappTenantIds();
+  } catch (err) {
+    console.error('[whatsapp] Failed to fetch tenant IDs for webhook verification:', err);
+    return c.text('Server error', 500);
+  }
+
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const matched = tenantIds.some((tenantId) => {
+    const expected = Buffer.from(
+      createHmac('sha256', secret).update(tenantId).digest('hex').slice(0, 32),
+      'utf8',
+    );
+    return expected.length === tokenBuf.length && timingSafeEqual(expected, tokenBuf);
+  });
 
   if (matched) {
     return c.text(challenge ?? '', 200);
@@ -87,8 +98,15 @@ whatsappRoutes.post('/webhook', async (c) => {
   }
 
   // 3. Parse payload
-  const payload = JSON.parse(new TextDecoder().decode(rawBody));
-  const extracted = extractMetaMessage(payload);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    console.warn('[whatsapp] Received malformed JSON body');
+    return c.text('Bad Request', 400);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const extracted = extractMetaMessage(payload as any);
 
   // Status updates (delivered/read) — acknowledge, don't process
   if (!extracted) {
@@ -113,8 +131,9 @@ whatsappRoutes.post('/webhook', async (c) => {
 
   // 6. Return 200 immediately, then process async
   //    Using setImmediate to defer processing after the response is sent.
-  //    The webhookEvents row (processed_at = NULL) is durable: if the process
-  //    crashes, a future Trigger.dev worker (#35) can retry unprocessed events.
+  //    The webhookEvents row (processed_at = NULL) acts as a dead-letter queue.
+  //    No automatic retry job exists today — add a node-cron job in apps/jobs/
+  //    to sweep rows older than N minutes if retry durability is required.
   const tenantId = resolved.tenantId;
   const credentials = resolved.credentials;
   const externalId = message.id;
@@ -153,8 +172,7 @@ whatsappRoutes.post('/webhook', async (c) => {
       await markWebhookProcessed(tenantId, externalId);
     } catch (err) {
       console.error('[whatsapp] Async processing error:', err);
-      // The webhookEvents row stays with processed_at = NULL.
-      // A future Trigger.dev worker can pick it up for retry.
+      // The webhookEvents row remains with processed_at = NULL (no automatic retry today).
     }
   });
 

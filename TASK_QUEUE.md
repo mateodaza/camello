@@ -496,6 +496,14 @@ _Done: Migration 0026_advisor_artifact_type.sql adds 'advisor' to CHECK constrai
 
 ---
 
+#### NC-269 [x] PR audit + hardening pass (NC-257–268 branch)
+
+4-agent automated PR review (code-reviewer, silent-failure-hunter, pr-test-analyzer, comment-analyzer) run against the full sprint branch. All critical and high-priority findings resolved.
+
+_Done: (1) **`pool.query()` fix** — `resolveTenantByPhoneNumberId()` and `getWhatsappTenantIds()` both used `db.execute(sql\`...\`)` which produces malformed SQL when bundled with tsup `noExternal`. Replaced both with `pool.query<T>()` raw pg driver calls. (2) **`verifyWhatsapp` silent success fixed** — 0-row DB update (channel not upserted first) now throws `NOT_FOUND` instead of silently succeeding. (3) **`queueUrl` silent failure surfaced** — catch block in `ChatOnboarding.tsx` now calls `setKnowledgeError(t('websiteQueueError'))` instead of discarding the error. (4) **Stale Trigger.dev comments** replaced with accurate dead-letter queue description. (5) **`onboarding-advisor.test.ts` rewritten** — previous test used 4× `mockImplementationOnce` for a single-transaction function; rewrote with `makeTxMock()` helper + single `transactionFn.mockImplementation`. (6) **5 new tests**: malformed JSON → 400, empty tenant list → 403, DB fail → 500 (whatsapp-routes); `verifyWhatsapp` NOT_FOUND (channel-routes); `markPaymentPaid` NOT_FOUND (mark-payment-paid). (7) **Design-system fix**: `text-error` → `text-sunset` in Step4ConnectChannel. (8) **`webhookConfigError`/`websiteQueueError` i18n keys** added (en+es). Type-check passes._
+
+---
+
 ## Post-Sprint (After NC-268)
 
 After this sprint completes, the product is ready for the first 5-10 real users. Next priorities (to be planned after user feedback):

@@ -142,6 +142,34 @@ describe('knowledge.sufficiencyScore', () => {
     expect(result.signals).toHaveLength(0);
   });
 
+  it('6 — gap query failure degrades gracefully: score computed without penalty, gapCount=0', async () => {
+    // Simulate the ownerNotifications query throwing (e.g., table missing or permission error).
+    // The implementation catches this and defaults gapCount to 0, so score should be unpenalized.
+    let call = 0;
+    const db = mockTenantDb(async (cb: Any) => {
+      const fakeDb = {
+        select: (_fields: Any) => ({
+          from: (_table: Any) => ({
+            where: (_cond: Any) => {
+              call++;
+              if (call === 1) return [{ count: 4 }];   // knowledgeDocs
+              if (call === 2) return [{ count: 1 }];   // knowledgeSyncs (has synced URL)
+              throw new Error('ownerNotifications unavailable'); // gap query fails
+            },
+          }),
+        }),
+      };
+      return cb(fakeDb);
+    });
+    const caller = createCaller(makeCtx({ tenantDb: db }));
+    const result = await caller.sufficiencyScore();
+
+    // With 4 docs + synced URL + 0 gap penalty (failure defaulted) = 100
+    expect(result.score).toBe(100);
+    expect(result.gapCount).toBe(0);
+    expect(result.signals).toHaveLength(0);
+  });
+
   it('5 — signals never empty when score < 60 (docCount=1, synced URL, no gaps)', async () => {
     const db = mockDbForScore(1, 1, 0);
     const caller = createCaller(makeCtx({ tenantDb: db }));

@@ -203,18 +203,25 @@ export const knowledgeRouter = router({
         // ③ Recent gaps — count owner_notifications of type 'knowledge_gap' in last 30 days.
         // recordKnowledgeGap() (orchestration/knowledge-gap.ts) inserts rows here when the
         // agent cannot answer a question, so this accurately reflects real knowledge gaps
-        // rather than all interaction logs.
-        const gapRows = await db
-          .select({ count: sql<number>`COUNT(*)::int` })
-          .from(ownerNotifications)
-          .where(and(
-            eq(ownerNotifications.tenantId, ctx.tenantId),
-            eq(ownerNotifications.type, 'knowledge_gap'),
-            sql`${ownerNotifications.createdAt} > now() - interval '30 days'`,
-          ));
-        const gapCount = gapRows[0]?.count ?? 0;
+        // rather than all interaction logs. Isolated try/catch so a gap query failure
+        // degrades gracefully (score computed without penalty) rather than killing the whole score.
+        let gapCount = 0;
+        try {
+          const gapRows = await db
+            .select({ count: sql<number>`COUNT(*)::int` })
+            .from(ownerNotifications)
+            .where(and(
+              eq(ownerNotifications.tenantId, ctx.tenantId),
+              eq(ownerNotifications.type, 'knowledge_gap'),
+              sql`${ownerNotifications.createdAt} > now() - interval '30 days'`,
+            ));
+          gapCount = gapRows[0]?.count ?? 0;
+        } catch (err) {
+          console.warn(`[sufficiencyScore] Gap count query failed for tenant ${ctx.tenantId}, defaulting to 0:`, err);
+        }
 
-        // Score formula
+        // Score is 0–100. Base: min(docCount * 20, 80) — maxes at 4 docs.
+        // Website bonus: +20. Gap penalty: min(gapCount * 5, 40), floor at 0.
         const base = Math.min(docCount * 20, 80);
         const websiteBonus = hasActiveSyncedUrl ? 20 : 0;
         const gapPenalty = Math.min(gapCount * 5, 40);

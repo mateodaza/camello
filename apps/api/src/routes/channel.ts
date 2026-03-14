@@ -97,20 +97,32 @@ export const channelRouter = router({
         return { valid: false as const, error: 'Failed to verify credentials with Meta. Check your access token and phone number ID.' };
       }
 
-      // Merge display_phone_number into existing credentials JSONB — preserves access_token
-      await ctx.tenantDb.query(async (db) => {
-        await db
+      // Merge display_phone_number into existing credentials JSONB — preserves access_token.
+      // COALESCE handles NULL credentials. Check returning to catch pre-upsert calls.
+      const updated = await ctx.tenantDb.query(async (db) => {
+        return db
           .update(channelConfigs)
           .set({
-            credentials: sql`${channelConfigs.credentials} || ${JSON.stringify({ display_phone_number: result.displayPhoneNumber })}::jsonb`,
+            credentials: sql`COALESCE(${channelConfigs.credentials}, '{}'::jsonb) || ${JSON.stringify({ display_phone_number: result.displayPhoneNumber })}::jsonb`,
           })
           .where(
             and(
               eq(channelConfigs.tenantId, ctx.tenantId),
               eq(channelConfigs.channelType, 'whatsapp'),
             ),
-          );
+          )
+          .returning({ id: channelConfigs.id });
       });
+
+      if (!updated || updated.length === 0) {
+        // No channel_configs row exists yet — upsert must be called before verifyWhatsapp.
+        // Return NOT_FOUND so the client surface the ordering constraint rather than silently
+        // losing the display_phone_number write.
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'WhatsApp channel not configured — please save credentials first.',
+        });
+      }
 
       return { valid: true as const, displayPhoneNumber: result.displayPhoneNumber };
     }),
