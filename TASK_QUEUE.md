@@ -504,6 +504,302 @@ _Done: (1) **`pool.query()` fix** — `resolveTenantByPhoneNumberId()` and `getW
 
 ---
 
+---
+
+## Reliability + Intelligence Sprint (NC-270 → NC-272)
+
+> **Sprint goal:** Make the platform production-ready for real users on three fronts: (1) WhatsApp reliability — automatically retry failed webhook events instead of silently dropping them; (2) real-time inbox — new messages appear without a manual refresh; (3) advisor intelligence — inject live business data into every advisor conversation, surface it on the dashboard home, and persist session learnings so the advisor accumulates knowledge of the owner's business over time.
+
+---
+
+#### NC-270 [ ] WhatsApp dead-letter retry cron
+
+The `webhook_events` table is a dead-letter queue — rows with `processed_at = NULL` are unprocessed messages that failed silently. Currently nothing retries them. Add a 5-minute sweep job.
+
+**Background:** The `setImmediate` callback in `apps/api/src/webhooks/whatsapp.ts` catches errors and logs them, leaving `processed_at = NULL` as the failure signal. The `webhook_events` table currently has no `retry_count` column — add one.
+
+**Cross-app constraint:** `handleMessage`, `findOrCreateWhatsAppCustomer`, and `whatsappAdapter.sendText` all live in `apps/api` — NOT in shared packages. The jobs worker (`apps/jobs`) cannot import from `apps/api` (separate monorepo app). The solution is an internal Hono route on the API that the retry job calls via HTTP. This reuses 100% of the existing pipeline with no code duplication.
+
+**Architecture:** The retry job claims stale rows → calls `POST /api/internal/webhook-retry` on the API with `{ webhookEventId }` + `x-internal-secret` header → the internal route re-runs the full processing pipeline for that row, bypassing signature verification (already verified on first receipt) and idempotency check (row already exists with `processed_at = NULL`).
+
+**Files to create/modify:**
+- `packages/db/migrations/0027_webhook_events_retry_count.sql` — add `retry_count` column
+- `apps/api/src/routes/internal.ts` — new Hono router with `POST /internal/webhook-retry`
+- `apps/api/src/index.ts` (or wherever Hono routes are mounted) — mount internal router at `/api/internal`
+- `apps/jobs/src/jobs/whatsapp-retry.ts` — new job file
+- `apps/jobs/src/main.ts` — register `*/5 * * * *` cron schedule
+- `apps/jobs/src/__tests__/whatsapp-retry.test.ts` — new test file
+
+**Migration (`0027_webhook_events_retry_count.sql`):**
+```sql
+ALTER TABLE webhook_events ADD COLUMN IF NOT EXISTS retry_count integer NOT NULL DEFAULT 0;
+```
+
+**Internal API route (`apps/api/src/routes/internal.ts`):**
+```ts
+import { Hono } from 'hono';
+// Protected by shared secret — NOT public
+export const internalRoutes = new Hono();
+
+internalRoutes.post('/webhook-retry', async (c) => {
+  const secret = c.req.header('x-internal-secret');
+  if (!secret || secret !== process.env.INTERNAL_RETRY_SECRET) {
+    return c.text('Forbidden', 403);
+  }
+  const { webhookEventId } = await c.req.json();
+
+  // Fetch the stored event
+  const { rows } = await servicePool.query<{ tenant_id: string; external_id: string; raw_payload: unknown }>(
+    `SELECT tenant_id, external_id, raw_payload FROM webhook_events WHERE id = $1 AND processed_at IS NULL`,
+    [webhookEventId],
+  );
+  if (!rows[0]) return c.text('Not found or already processed', 404);
+
+  const { tenant_id, external_id, raw_payload } = rows[0];
+
+  // Re-run the same async processing pipeline as the live webhook handler
+  // (same logic as the setImmediate block in apps/api/src/webhooks/whatsapp.ts)
+  const extracted = extractMetaMessage(raw_payload as any);
+  if (!extracted) return c.text('OK', 200); // status-only event
+
+  const resolved = await resolveTenantByPhoneNumberId(extracted.phoneNumberId);
+  if (!resolved) return c.text('OK', 200);
+
+  const tenantDb = createTenantDb(tenant_id);
+  const customerId = await findOrCreateWhatsAppCustomer(tenantDb, tenant_id, extracted.contact.waId, extracted.contact.name);
+  const canonical = normalizeMetaMessage(extracted.message, tenant_id, customerId, extracted.contact.waId);
+  const result = await handleMessage({ tenantDb, tenantId: tenant_id, channel: 'whatsapp', customerId, messageText: canonical.content.text ?? '[non-text]' });
+  await whatsappAdapter.sendText(extracted.contact.waId, result.responseText, { credentials: resolved.credentials, phoneNumber: extracted.phoneNumberId });
+  await markWebhookProcessed(tenant_id, external_id);
+
+  return c.text('OK', 200);
+});
+```
+
+**Job logic (`whatsapp-retry.ts`):**
+```ts
+// 1. Claim up to 20 stale rows atomically (SKIP LOCKED = no double-processing)
+const rows = await servicePool.query<{ id: string }>(
+  `UPDATE webhook_events
+   SET retry_count = retry_count + 1
+   WHERE id IN (
+     SELECT id FROM webhook_events
+     WHERE processed_at IS NULL
+       AND retry_count < 3
+       AND created_at < now() - interval '10 minutes'
+     ORDER BY created_at
+     FOR UPDATE SKIP LOCKED
+     LIMIT 20
+   )
+   RETURNING id`,
+);
+
+// 2. For each claimed row: call the internal retry endpoint
+for (const row of rows.rows) {
+  try {
+    const res = await fetch(`${process.env.API_URL}/api/internal/webhook-retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_RETRY_SECRET! },
+      body: JSON.stringify({ webhookEventId: row.id }),
+    });
+    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    // processed_at is set by the internal route on success
+  } catch (err) {
+    console.error('[whatsapp-retry] Failed attempt for event', row.id, err);
+    // retry_count already incremented above — retried next sweep until count = 3
+  }
+}
+```
+
+**Notes:**
+- `INTERNAL_RETRY_SECRET` env var must be set on both Railway API and Railway Jobs services
+- Follow `createWorker()` factory pattern from `apps/jobs/src/worker.ts` (zero side effects at import)
+- Use `DATABASE_URL_SERVICE_ROLE` pool for the claim query — NOT `@camello/db` client
+- After 3 failures the row stays with `retry_count = 3` and `processed_at = NULL` — manual intervention required (intentional)
+
+**Acceptance Criteria:**
+- Migration `0027_webhook_events_retry_count.sql` adds `retry_count integer NOT NULL DEFAULT 0`
+- Job registered on `*/5 * * * *` schedule in `main.ts`
+- Skips events newer than 10 minutes (avoid racing the live webhook handler)
+- Skips events with `retry_count >= 3`
+- Increments `retry_count` atomically before attempting (prevents double-count on crash)
+- Sets `processed_at = now()` on success
+- At least 3 tests: (1) skips fresh events (<10 min), (2) skips exhausted retries (count=3), (3) increments retry_count on processing failure without crashing job
+- `pnpm type-check` passes
+
+**Depends on:** —
+
+---
+
+#### NC-271 [ ] Real-time inbox — Supabase Realtime Broadcast for new messages
+
+When a WhatsApp (or webchat) message arrives, the conversations list and chat thread should update automatically. Currently the owner must refresh manually.
+
+**Background:** Supabase Realtime Broadcast is the planned real-time mechanism (NOT Postgres Changes). Neither a server-side admin broadcast client nor a web browser Supabase client exist yet — both must be created from scratch. The inbox (`/dashboard/conversations`) uses tRPC `conversation.list` and `conversation.byId` queries — these need to be invalidated when a new message arrives for the current tenant.
+
+**Files to create/modify:**
+- `apps/api/src/lib/supabase-broadcast.ts` — NEW: creates a Supabase admin client and exports `broadcastNewMessage(tenantId, payload)`. Uses `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (already set on Railway).
+- `apps/api/src/webhooks/whatsapp.ts` — call `broadcastNewMessage` after `markWebhookProcessed` in the setImmediate callback
+- `apps/api/src/routes/conversation.ts` — call `broadcastNewMessage` in `replyAsOwner`
+- `apps/web/src/lib/supabase-client.ts` — NEW: browser Supabase client singleton (`createClient(NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY)`). Add `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` to Vercel env vars (same project as the existing Supabase instance).
+- `apps/web/src/hooks/use-realtime-inbox.ts` — NEW: subscribes to `tenant:{tenantId}` broadcast channel
+- `apps/web/src/app/dashboard/conversations/page.tsx` — consume hook, invalidate queries on new event
+
+**Broadcast payload:**
+```ts
+{
+  event: 'new_message',
+  tenantId: string,
+  conversationId: string,
+  channel: 'whatsapp' | 'webchat',
+  preview: string,   // first 100 chars of message
+  at: string,        // ISO timestamp
+}
+```
+
+**Channel name:** `tenant:${tenantId}` — scoped per tenant so one tenant's messages never trigger another's inbox refresh.
+
+**`broadcastNewMessage` helper (`apps/api/src/lib/supabase-broadcast.ts`):**
+```ts
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } },
+);
+
+export async function broadcastNewMessage(tenantId: string, payload: NewMessagePayload) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return; // noop in dev
+  const channel = supabaseAdmin.channel(`tenant:${tenantId}`);
+  await channel.send({ type: 'broadcast', event: 'new_message', payload });
+  await supabaseAdmin.removeChannel(channel);
+}
+```
+
+**`use-realtime-inbox` hook:**
+```ts
+export function useRealtimeInbox(tenantId: string | null, onMessage: (payload: NewMessagePayload) => void) {
+  useEffect(() => {
+    if (!tenantId) return;
+    const channel = supabaseBrowser
+      .channel(`tenant:${tenantId}`)
+      .on('broadcast', { event: 'new_message' }, ({ payload }) => onMessage(payload))
+      .subscribe();
+    return () => { supabaseBrowser.removeChannel(channel); };
+  }, [tenantId, onMessage]);
+}
+```
+
+**Acceptance Criteria:**
+- `broadcastNewMessage` called after WhatsApp `markWebhookProcessed` and after `replyAsOwner`
+- Conversations page subscribes and invalidates `conversation.list` on `new_message` event
+- Active conversation (`byId`) also invalidated if `payload.conversationId` matches
+- Channel unsubscribed on component unmount (no memory leaks)
+- Graceful noop when `SUPABASE_SERVICE_ROLE_KEY` not set (dev/test environments)
+- At least 2 tests: (1) `broadcastNewMessage` called with correct payload after webhook processing, (2) hook triggers invalidation on event receipt (mock Supabase channel)
+- `pnpm type-check` passes
+
+**Depends on:** —
+
+---
+
+#### NC-272 [ ] Advisor — business snapshot + dashboard panel + session learning
+
+Make the advisor the owner's real business co-pilot: inject live business data into every conversation so it can answer "how am I doing?", surface it prominently on the dashboard, and store learnings from each session so the advisor accumulates knowledge of the business over time.
+
+**Background:** The advisor artifact exists (`type: 'advisor'`, auto-created in onboarding) but currently has no business data access — it only reads knowledge docs via RAG. The `handleMessage()` pipeline doesn't differentiate advisor artifacts from customer-facing ones. The learning system (`knowledge_docs`) accepts new entries programmatically.
+
+**Files to create/modify:**
+- `packages/db/migrations/0028_knowledge_docs_advisor_source.sql` — add `'advisor'` to `source_type` check constraint
+- `apps/api/src/routes/advisor.ts` — new router: `snapshot` + `summarizeSession` procedures
+- `apps/api/src/routes/index.ts` — register `advisorRouter` as `advisor`
+- `apps/api/src/orchestration/message-handler.ts` — inject snapshot context when `artifact.type === 'advisor'`
+- `apps/web/src/components/dashboard/advisor-panel.tsx` — new collapsible chat panel
+- `apps/web/src/app/dashboard/page.tsx` — render `AdvisorPanel` as first card on home
+- i18n: `apps/web/messages/en.json` + `es.json`
+
+**Migration (`0028_knowledge_docs_advisor_source.sql`):**
+```sql
+-- knowledge_docs has no existing source_type CHECK constraint (confirmed: no prior migration adds one).
+-- Drop defensively in case a future migration adds one, then recreate including all known values.
+-- IMPORTANT: include 'website' — URL sync may insert rows with source_type = 'website'.
+ALTER TABLE knowledge_docs DROP CONSTRAINT IF EXISTS knowledge_docs_source_type_check;
+ALTER TABLE knowledge_docs ADD CONSTRAINT knowledge_docs_source_type_check
+  CHECK (source_type IN ('upload', 'url', 'website', 'api', 'advisor'));
+```
+
+**`advisor.snapshot` procedure (`tenantProcedure`, no input):**
+```ts
+// Returns a live business snapshot scoped to ctx.tenantId
+{
+  activeConversations: number,        // conversations created/updated in last 7 days
+  conversationTrend: number,          // % delta vs prior 7-day window (signed)
+  pendingPayments: { count: number, totalAmount: number, currency: string },
+  paidPayments:    { count: number, totalAmount: number },
+  leadsByStage: Record<string, number>, // stage → count (from leads table or conversation metadata)
+  topKnowledgeGaps: string[],          // top 3 most frequent unanswered intents (owner_notifications type='knowledge_gap', last 30d)
+  pendingApprovals: number,            // module_executions with status = 'pending'
+  recentExecutions: { slug: string, count: number }[], // module_executions last 7d, grouped by module_slug
+}
+```
+Use `ctx.tenantDb.query()` (Drizzle) for all queries — no raw SQL needed here.
+
+**Context injection in `message-handler.ts`:**
+After resolving the artifact (step 0), if `artifact.type === 'advisor'`, fetch `advisor.snapshot` data and prepend a formatted block to the system prompt before the LLM call:
+```
+=== Business Snapshot (${formattedDate}) ===
+Conversations (7d): ${activeConversations} (${trend > 0 ? '+' : ''}${trend}% vs prior week)
+Payments pending: ${pendingPayments.count} totalling ${currency} ${totalAmount}
+Leads: ${Object.entries(leadsByStage).map(([s,n]) => `${s}: ${n}`).join(' · ')}
+Top unanswered questions: ${topKnowledgeGaps.join(', ') || 'none yet'}
+Pending approvals: ${pendingApprovals}
+==============================================
+```
+This runs synchronously with step 0 — do NOT add a separate DB round-trip; pass snapshot data directly into the system prompt string. The snapshot fetch happens inside `handleMessage` only when `artifact.type === 'advisor'`.
+
+**`advisor.summarizeSession` procedure (`tenantProcedure`, input: `{ conversationId: z.string().uuid() }`):**
+1. Fetch last 20 messages from the conversation (filter by `conversationId` + `tenantId`)
+2. Format as `"Owner: ...\nAdvisor: ...\n..."` dialogue
+3. Call LLM (use `generateText`, model: `openai/gpt-4o-mini`) with prompt:
+   *"Summarize the key business facts, corrections, and decisions from this advisor conversation in 3–5 concise bullet points. Focus on what the owner revealed about their business, not the advisor's responses."*
+4. Insert into `knowledge_docs`:
+   ```ts
+   { tenantId: ctx.tenantId, title: `Advisor session — ${new Date().toLocaleDateString()}`,
+     content: summaryText, sourceType: 'advisor', isActive: true }
+   ```
+5. Return `{ ok: true, summary: summaryText }`
+
+These stored docs are immediately available in future advisor RAG lookups — the advisor's `ragBias` already covers all source types. The advisor will reference past sessions naturally: *"Last time you mentioned your conversion rate is 30%..."*
+
+**Dashboard panel (`advisor-panel.tsx`):**
+- Collapsible card rendered **between `KnowledgeBanner` and the hero metrics grid** on dashboard home (after banners, before agents section). Current order: title → ShareLinkCard → OnboardingResumeBanner → KnowledgeBanner → **AdvisorPanel** → hero metrics → YourAgentsSection → ActivityFeedSection.
+- Only renders when an advisor artifact exists — wrap in `if (!advisorArtifact) return null`.
+- Snapshot query is lazy — fetched only when `AdvisorPanel` mounts, not on initial page load.
+- **Collapsed state (default):** One-line header showing live snapshot stats — `"N conversations · N payments pending · N leads"` — plus a "Chat with your advisor ›" chevron
+- **Expanded state:** Full chat interface using the existing `TestChatPanel` component (pass `artifactId` of the advisor artifact). Auto-sends an opening message from the advisor: *"Here's your business as of [date]: [top 2 snapshot signals]. What do you want to dig into?"* — generated client-side from snapshot data, no extra LLM call.
+- On collapse: if `messageCount >= 3`, call `advisor.summarizeSession({ conversationId })` mutation (fire-and-forget — don't block UI). This stores the session learning.
+- Show only when an advisor artifact exists (`byType.get('advisor')` from `trpc.agent.workspace` or a dedicated `advisor.getArtifact` query)
+- Gold accent border (`ring-1 ring-gold/30`) matching the AdvisorCard on the artifacts page
+
+**i18n keys (en + es) under `advisor` namespace:**
+`advisorPanelHeader`, `advisorPanelCta`, `advisorConversations`, `advisorPaymentsPending`, `advisorLeads`, `advisorOpeningMessage`, `advisorSessionSaved`
+
+**Acceptance Criteria:**
+- Migration `0028` adds `'advisor'` to `knowledge_docs.source_type` without breaking existing rows
+- `advisor.snapshot` returns accurate, tenant-scoped business data from real DB tables
+- System prompt for advisor artifact conversations includes the snapshot block (assert in test: prompt string contains "Business Snapshot")
+- `advisor.summarizeSession` stores a `knowledge_docs` row with `source_type = 'advisor'`
+- On the next advisor session, past session docs appear in RAG context (RAG test: search returns advisor-source doc)
+- Dashboard home renders `AdvisorPanel` as first card; collapsed by default; expands to chat
+- Panel collapse with ≥3 messages fires `summarizeSession` mutation
+- At least 4 tests: (1) `snapshot` returns correct counts for known fixture data, (2) message-handler injects snapshot block when artifact type = 'advisor', (3) `summarizeSession` inserts knowledge_doc with source_type='advisor', (4) advisor panel renders collapsed state with snapshot stats
+- `pnpm type-check` passes
+
+**Depends on:** NC-268 (advisor artifact exists)
+
+---
+
 ## Post-Sprint (After NC-268)
 
 After this sprint completes, the product is ready for the first 5-10 real users. Next priorities (to be planned after user feedback):
