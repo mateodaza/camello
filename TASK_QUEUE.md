@@ -1074,7 +1074,7 @@ Replace the 3-page settings sub-navigation with a single scrollable page using c
 
 ## P1 — Knowledge Simplification
 
-#### NC-279 [ ] Knowledge page cleanup — reduce visual noise
+#### NC-279 [x] Knowledge page cleanup — reduce visual noise
 
 Simplify the Knowledge page (currently 835 lines, 5 sections) without removing functionality.
 
@@ -1104,6 +1104,7 @@ Simplify the Knowledge page (currently 835 lines, 5 sections) without removing f
 - `pnpm type-check` passes
 
 **Depends on:** NC-276 (audit log moves to Agent page Advanced section, which must exist first)
+_Done: Ingest form → Dialog modal (reuses existing `Dialog` component). Knowledge score → inline header subtitle ("Score: 72/100 — Good"). Learnings section removed (−205 lines, 835→630). Document table simplified: title + scope badge + overflow `...` menu (edit/delete). No dropdown-menu primitive needed — uses inline expand pattern. 2 i18n keys added (en+es: `knowledgeScoreInline`, `docActions`). Type-check passes._
 
 ---
 

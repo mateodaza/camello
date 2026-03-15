@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-279 | Knowledge page cleanup — reduce visual noise | Mar 15 | Ingest form → Dialog modal. Score → inline header subtitle. Learnings section removed (835→630 lines). Doc table: title + scope + overflow menu. 2 i18n keys (en+es). Type-check passes. |
 | NC-278 | One-page Settings — merge Profile + Billing + Channels | Mar 15 | Created `settings/page.tsx` (merged 3-section accordion: ProfileSection, ChannelsSection, BillingSection). Rewrote 3 sub-pages as redirects. Stubbed `settings-nav.tsx`. Updated sidebar href→`/dashboard/settings` + removed special isActive. i18n: 4 new keys, 3 nav keys removed (en+es). 3-test suite `settings-page.test.tsx`. Type-check passes. |
 | NC-275 | Inbox as home — redirect + stat strip | Mar 14 | `/dashboard/page.tsx` → redirect to `/dashboard/conversations`. Sidebar 6→4 items (Inbox, Agent→`/dashboard/artifacts`, Knowledge, Settings→`/dashboard/settings/billing`). Conversations page: stat strip (3 metrics from `dashboardOverview`) + onboarding resume banner. 6 i18n keys (en+es). Type-check passes. |
 | NC-274 | Global vs per-agent knowledge split | Mar 14 | Migration 0029 (`artifact_id` on `knowledge_docs`, rewritten `match_knowledge()`). Schema, RAG, message-handler, knowledge route, format.ts, knowledge page UX (scope toggle + Visible-to badge + Assign-to-agent form). 7 i18n keys. Both .env.example files updated. `pnpm type-check` passes. |
