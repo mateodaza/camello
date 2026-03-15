@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import {
-  ChevronDown, Bot, MessageSquare,
+  Bot, MessageSquare,
 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,7 @@ import { ModuleSettings } from '@/components/agent-workspace/module-settings';
 import { WidgetAppearanceSection } from '@/components/agent-workspace/widget-appearance-section';
 import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
 import { AdvisorPanel } from '@/components/dashboard/advisor-panel';
+import { Section } from '@/components/dashboard/section';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -37,46 +38,6 @@ function matchTonePreset(tone: string): string {
     (p) => p.en.toLowerCase() === lower || p.es.toLowerCase() === lower,
   );
   return match ? match.key : 'other';
-}
-
-function CollapsibleSection({
-  title,
-  badge,
-  open,
-  onToggle,
-  children,
-  testId,
-}: {
-  title: string;
-  badge?: number;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-  testId?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-charcoal/8 bg-cream" data-testid={testId}>
-      <button
-        type="button"
-        className="flex w-full items-center justify-between px-5 py-4"
-        onClick={onToggle}
-        aria-expanded={open}
-      >
-        <span className="flex items-center gap-2 font-heading text-base font-semibold text-charcoal">
-          {title}
-          {badge != null && badge > 0 && (
-            <span className="rounded-full bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal">
-              {badge}
-            </span>
-          )}
-        </span>
-        <ChevronDown
-          className={`h-4 w-4 text-dune transition-transform ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && <div className="border-t border-charcoal/8 px-5 py-4">{children}</div>}
-    </div>
-  );
 }
 
 export default function AgentPage() {
@@ -105,24 +66,10 @@ export default function AgentPage() {
     { enabled: !!artifactId },
   );
 
-  // Section open states — all controlled in parent to avoid stale useState(defaultOpen) bug
-  const [identityOpen, setIdentityOpen] = useState(true); // Identity is expanded by default
-  const [personalityOpen, setPersonalityOpen] = useState(false);
-  const [modulesOpen, setModulesOpen] = useState(false);
-  const [approvalsOpen, setApprovalsOpen] = useState(false); // opened via useEffect below
-  const [performanceOpen, setPerformanceOpen] = useState(false);
-  const [salesActivityOpen, setSalesActivityOpen] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
 
-  // Auto-expand Approvals when pendingExec resolves with items.
-  // Using controlled state + useEffect avoids the stale useState(defaultOpen) bug
-  // where the initial render fires before the async query returns.
-  useEffect(() => {
-    if (pendingExec.isSuccess && (pendingExec.data?.length ?? 0) > 0) {
-      setApprovalsOpen(true);
-    }
-  }, [pendingExec.isSuccess, pendingExec.data]);
+  // Ref for Modules section — used by TrustGraduationCard's onGoToModules callback
+  const modulesRef = useRef<HTMLDetailsElement>(null);
 
   // Identity form state
   const [name, setName] = useState('');
@@ -198,7 +145,7 @@ export default function AgentPage() {
 
   // Pending count from dashboardOverview — uncapped (real SQL count(*), no limit: 50)
   // Used for header metric and section badge.
-  // pendingExec.data?.length is used ONLY for the auto-expand boolean above.
+  // pendingExec.data?.length is used ONLY for the autoOpen boolean on <Section>.
   const pendingCount = dashboardOverview.data?.pendingApprovalsCount ?? 0;
   const activeLeadsCount = dashboardOverview.data?.activeLeadsCount ?? 0;
 
@@ -319,10 +266,9 @@ export default function AgentPage() {
       </div>
 
       {/* Identity — expanded by default */}
-      <CollapsibleSection
+      <Section
         title={t('agentIdentity')}
-        open={identityOpen}
-        onToggle={() => setIdentityOpen((v) => !v)}
+        defaultOpen={true}
         testId="section-identity"
       >
         <div className="space-y-3">
@@ -377,13 +323,12 @@ export default function AgentPage() {
             Save
           </button>
         </div>
-      </CollapsibleSection>
+      </Section>
 
       {/* Personality — collapsed by default */}
-      <CollapsibleSection
+      <Section
         title={t('agentPersonality')}
-        open={personalityOpen}
-        onToggle={() => setPersonalityOpen((v) => !v)}
+        defaultOpen={false}
         testId="section-personality"
       >
         <div className="space-y-3">
@@ -439,13 +384,13 @@ export default function AgentPage() {
             Save
           </button>
         </div>
-      </CollapsibleSection>
+      </Section>
 
       {/* Modules & Autonomy — collapsed by default */}
-      <CollapsibleSection
+      <Section
         title={t('agentModules')}
-        open={modulesOpen}
-        onToggle={() => setModulesOpen((v) => !v)}
+        defaultOpen={false}
+        ref={modulesRef}
         testId="section-modules"
       >
         {!!artifactId && (
@@ -463,14 +408,14 @@ export default function AgentPage() {
             />
           </WorkspaceSectionErrorBoundary>
         )}
-      </CollapsibleSection>
+      </Section>
 
       {/* Approvals — auto-expanded when pending > 0 */}
-      <CollapsibleSection
+      <Section
         title={t('agentApprovals')}
         badge={pendingCount}
-        open={approvalsOpen}
-        onToggle={() => setApprovalsOpen((v) => !v)}
+        defaultOpen={false}
+        autoOpen={pendingExec.isSuccess && (pendingExec.data?.length ?? 0) > 0}
         testId="section-approvals"
       >
         {!!artifactId && (
@@ -478,13 +423,12 @@ export default function AgentPage() {
             <ApprovalsSection artifactId={artifactId} />
           </WorkspaceSectionErrorBoundary>
         )}
-      </CollapsibleSection>
+      </Section>
 
       {/* Performance — collapsed by default */}
-      <CollapsibleSection
+      <Section
         title={t('agentPerformance')}
-        open={performanceOpen}
-        onToggle={() => setPerformanceOpen((v) => !v)}
+        defaultOpen={false}
         testId="section-performance"
       >
         {!!artifactId && (
@@ -497,20 +441,19 @@ export default function AgentPage() {
                 name: m.name,
                 autonomyLevel: m.autonomyLevel,
               }))}
-              onGoToModules={() => setModulesOpen(true)}
+              onGoToModules={() => { if (modulesRef.current) modulesRef.current.open = true; }}
             />
             <div className="mt-4">
               <AgentPerformance artifactId={artifactId} />
             </div>
           </>
         )}
-      </CollapsibleSection>
+      </Section>
 
       {/* Sales Activity — collapsed by default */}
-      <CollapsibleSection
+      <Section
         title={t('agentSalesActivity')}
-        open={salesActivityOpen}
-        onToggle={() => setSalesActivityOpen((v) => !v)}
+        defaultOpen={false}
         testId="section-sales-activity"
       >
         {!!artifactId && (
@@ -529,13 +472,12 @@ export default function AgentPage() {
             </WorkspaceSectionErrorBoundary>
           </div>
         )}
-      </CollapsibleSection>
+      </Section>
 
       {/* Advanced — collapsed by default */}
-      <CollapsibleSection
+      <Section
         title={t('agentAdvanced')}
-        open={advancedOpen}
-        onToggle={() => setAdvancedOpen((v) => !v)}
+        defaultOpen={false}
         testId="section-advanced"
       >
         {!!artifactId && (
@@ -549,7 +491,7 @@ export default function AgentPage() {
             />
           </WorkspaceSectionErrorBoundary>
         )}
-      </CollapsibleSection>
+      </Section>
 
       {/* Advisor co-pilot panel — collapsed by default, renders only when advisor artifact exists */}
       <AdvisorPanel />

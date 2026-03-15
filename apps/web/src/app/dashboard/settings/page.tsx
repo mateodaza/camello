@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { Section } from '@/components/dashboard/section';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -901,25 +902,16 @@ function BillingSection() {
 export default function SettingsPage() {
   const t = useTranslations('settings');
   return (
-    <div className="divide-y divide-charcoal/10">
-      <details open className="group">
-        <summary className="flex cursor-pointer items-center justify-between py-4 font-heading font-semibold text-charcoal select-none">
-          {t('sectionProfile')}
-        </summary>
-        <div className="pb-8"><ProfileSection /></div>
-      </details>
-      <details className="group">
-        <summary className="flex cursor-pointer items-center justify-between py-4 font-heading font-semibold text-charcoal select-none">
-          {t('sectionChannels')}
-        </summary>
-        <div className="pb-8"><ChannelsSection /></div>
-      </details>
-      <details className="group">
-        <summary className="flex cursor-pointer items-center justify-between py-4 font-heading font-semibold text-charcoal select-none">
-          {t('sectionBilling')}
-        </summary>
-        <div className="pb-8"><BillingSection /></div>
-      </details>
+    <div className="flex flex-col gap-3">
+      <Section title={t('sectionProfile')} defaultOpen={true}>
+        <ProfileSection />
+      </Section>
+      <Section title={t('sectionChannels')} defaultOpen={false}>
+        <ChannelsSection />
+      </Section>
+      <Section title={t('sectionBilling')} defaultOpen={false}>
+        <BillingSection />
+      </Section>
     </div>
   );
 }

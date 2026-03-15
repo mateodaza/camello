@@ -1137,7 +1137,8 @@ Clean up old routes and components that are no longer directly rendered.
 
 ---
 
-#### NC-281 [ ] Collapsible section primitive — shared `<Section>` component
+#### NC-281 [x] Collapsible section primitive — shared `<Section>` component
+Created `section.tsx` (forwardRef, autoOpen reactive useEffect, Tailwind group-open chevron, badge). Used in agent page (7 sections, modulesRef) and settings page (3 sections). Tests: section.test.tsx (2), agent-page.test.tsx updated. Type-check passes.
 
 Extract the repeated collapsible section pattern into a reusable primitive used by both the Agent page and Settings page.
 

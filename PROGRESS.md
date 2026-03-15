@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-281 | Collapsible section primitive — shared `<Section>` component | Mar 15 | Created `components/dashboard/section.tsx` (forwardRef, reactive autoOpen useEffect, group-open chevron, badge). Used in `agent/page.tsx` (7 sections, modulesRef for imperative open) + `settings/page.tsx` (3 sections). `section.test.tsx` (2 tests). `agent-page.test.tsx` updated (tests 2, 3, 4). Type-check passes. |
 | NC-280 | Route cleanup — redirects, dead pages, orphaned components | Mar 15 | `analytics/page.tsx` → `redirect('/dashboard/agent')`. `docs/page.tsx` → `notFound()` stub (404). Removed `analytics` + `help` top-level i18n namespaces (en+es) + `sidebar.analytics` + `sidebar.help`. Rewrote `analytics-page.test.tsx` (2 tests). Extended `i18n-orphans.test.ts` NC-280 block. Type-check passes. |
 | NC-279 | Knowledge page cleanup — reduce visual noise | Mar 15 | Ingest form → Dialog modal. Score → inline header subtitle. Learnings section removed (835→630 lines). Doc table: title + scope + overflow menu. 2 i18n keys (en+es). Type-check passes. |
 | NC-278 | One-page Settings — merge Profile + Billing + Channels | Mar 15 | Created `settings/page.tsx` (merged 3-section accordion: ProfileSection, ChannelsSection, BillingSection). Rewrote 3 sub-pages as redirects. Stubbed `settings-nav.tsx`. Updated sidebar href→`/dashboard/settings` + removed special isActive. i18n: 4 new keys, 3 nav keys removed (en+es). 3-test suite `settings-page.test.tsx`. Type-check passes. |
@@ -988,3 +989,4 @@
 - **NC-277** — 2026-03-15 — `df6edb3` — Session: 20260315-020901-camello
 - **NC-278** — 2026-03-15 — `31b0ee0` — Session: 20260315-020901-camello
 - **NC-280** — 2026-03-15 — `c0f3b72` — Session: 20260315-133858-camello
+- **NC-281** — 2026-03-15 — `5e1e7c2` — Session: 20260315-133858-camello

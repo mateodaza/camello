@@ -206,13 +206,23 @@ describe('NC-276 — Single-page agent config (/dashboard/agent)', () => {
 
   it('2 — identity section is expanded by default', () => {
     render(React.createElement(AgentPage));
-    const section = screen.getByTestId('section-identity');
-    // The toggle button has aria-expanded="true" when the section is open
-    const toggle = section.querySelector('[aria-expanded="true"]');
-    expect(toggle).not.toBeNull();
+    expect(screen.getByTestId('section-identity')).toHaveAttribute('open');
   });
 
   it('3 — approvals section auto-expands when pendingExec resolves with items', async () => {
+    // Start with query still loading so autoOpen begins as false (exercises the false→true transition).
+    pendingExecSpy.mockReturnValue({
+      data: undefined,
+      isSuccess: false,
+      isLoading: true,
+    });
+
+    const { rerender } = render(React.createElement(AgentPage));
+
+    // Section must NOT be open before the query resolves.
+    expect(screen.getByTestId('section-approvals')).not.toHaveAttribute('open');
+
+    // Simulate query resolving with data: isSuccess transitions false → true.
     pendingExecSpy.mockReturnValue({
       data: [
         { id: 'exec-1', moduleSlug: 'qualify_lead', createdAt: new Date().toISOString() },
@@ -220,23 +230,18 @@ describe('NC-276 — Single-page agent config (/dashboard/agent)', () => {
       isSuccess: true,
       isLoading: false,
     });
+    rerender(React.createElement(AgentPage));
 
-    render(React.createElement(AgentPage));
-
-    // useEffect fires after mount; waitFor catches the state update
+    // useEffect([autoOpen]) fires when autoOpen transitions false → true; waitFor catches it.
     await waitFor(() => {
-      const section = screen.getByTestId('section-approvals');
-      const toggle = section.querySelector('[aria-expanded="true"]');
-      expect(toggle).not.toBeNull();
+      expect(screen.getByTestId('section-approvals')).toHaveAttribute('open');
     });
   });
 
   it('4 — approvals section stays closed when pendingExec returns empty', () => {
     // pendingExecSpy already returns [] in beforeEach
     render(React.createElement(AgentPage));
-    const section = screen.getByTestId('section-approvals');
-    const toggle = section.querySelector('[aria-expanded="false"]');
-    expect(toggle).not.toBeNull();
+    expect(screen.getByTestId('section-approvals')).not.toHaveAttribute('open');
   });
 
   it('5 — empty state shown when no artifact exists', () => {
