@@ -634,7 +634,11 @@
     "columnScope": "Visible para",
     "scopeGlobalBadge": "Global",
     "labelAssignTo": "Asignar a agente",
-    "assignToAllAgents": "Todos los agentes (global)"
+    "assignToAllAgents": "Todos los agentes (global)",
+    "viewChunks": "Ver fragmentos",
+    "viewChunksDialogTitle": "Fragmentos: {title}",
+    "chunkLabel": "Fragmento {n}",
+    "moreOptions": "Más opciones"
   },
   "analytics": {
     "pageTitle": "Analítica",

@@ -130,18 +130,32 @@ export const knowledgeRouter = router({
     }),
 
   getByTitle: tenantProcedure
-    .input(z.object({ title: z.string().min(1) }))
+    .input(z.object({
+      title: z.string().min(1),
+      // undefined = no scope filter; null = global only (artifactId IS NULL); UUID = agent-scoped only
+      artifactId: z.string().uuid().nullish(),
+    }))
     .query(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
+        const conditions = [
+          eq(knowledgeDocs.tenantId, ctx.tenantId),
+          eq(knowledgeDocs.title, input.title),
+        ];
+        if (input.artifactId === null) {
+          conditions.push(isNull(knowledgeDocs.artifactId));
+        } else if (input.artifactId) {
+          conditions.push(eq(knowledgeDocs.artifactId, input.artifactId));
+        }
         const rows = await db
           .select({
             id: knowledgeDocs.id,
             content: knowledgeDocs.content,
+            artifactId: knowledgeDocs.artifactId,
             sourceType: knowledgeDocs.sourceType,
             chunkIndex: knowledgeDocs.chunkIndex,
           })
           .from(knowledgeDocs)
-          .where(and(eq(knowledgeDocs.tenantId, ctx.tenantId), eq(knowledgeDocs.title, input.title)))
+          .where(and(...conditions))
           .orderBy(asc(knowledgeDocs.chunkIndex));
         return rows;
       });
@@ -160,17 +174,25 @@ export const knowledgeRouter = router({
     }),
 
   deleteByTitle: tenantProcedure
-    .input(z.object({ title: z.string().min(1) }))
+    .input(z.object({
+      title: z.string().min(1),
+      // undefined = delete all scopes; null = global only; UUID = agent-scoped only
+      artifactId: z.string().uuid().nullish(),
+    }))
     .mutation(async ({ ctx, input }) => {
       return ctx.tenantDb.query(async (db) => {
+        const conditions = [
+          eq(knowledgeDocs.title, input.title),
+          eq(knowledgeDocs.tenantId, ctx.tenantId),
+        ];
+        if (input.artifactId === null) {
+          conditions.push(isNull(knowledgeDocs.artifactId));
+        } else if (input.artifactId) {
+          conditions.push(eq(knowledgeDocs.artifactId, input.artifactId));
+        }
         const rows = await db
           .delete(knowledgeDocs)
-          .where(
-            and(
-              eq(knowledgeDocs.title, input.title),
-              eq(knowledgeDocs.tenantId, ctx.tenantId),
-            ),
-          )
+          .where(and(...conditions))
           .returning({ id: knowledgeDocs.id });
         return { deletedCount: rows.length };
       });
