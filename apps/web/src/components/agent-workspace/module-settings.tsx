@@ -29,6 +29,7 @@ interface ModuleLocalState {
 interface ModuleSettingsProps {
   artifactId: string;
   boundModules: BoundModule[];
+  onSaveSuccess?: () => void;
 }
 
 function initState(m: BoundModule): ModuleLocalState {
@@ -45,7 +46,7 @@ function initState(m: BoundModule): ModuleLocalState {
   };
 }
 
-export function ModuleSettings({ artifactId, boundModules }: ModuleSettingsProps) {
+export function ModuleSettings({ artifactId, boundModules, onSaveSuccess }: ModuleSettingsProps) {
   const t = useTranslations('agentWorkspace');
   const { addToast } = useToast();
   const utils = trpc.useUtils();
@@ -90,6 +91,7 @@ export function ModuleSettings({ artifactId, boundModules }: ModuleSettingsProps
           utils.agent.workspace.invalidate({ artifactId });
           addToast(t('settingsSaved'), 'success');
           setSavingId(null);
+          onSaveSuccess?.();
         },
         onError: () => {
           addToast(t('errorLoading'), 'error');
@@ -125,6 +127,7 @@ export function ModuleSettings({ artifactId, boundModules }: ModuleSettingsProps
         onSuccess: () => {
           utils.agent.workspace.invalidate({ artifactId });
           addToast(t('settingsSaved'), 'success');
+          onSaveSuccess?.();
         },
         onError: () => {
           updateState(m.moduleId, { autonomyLevel: prevAutonomy });

@@ -119,7 +119,9 @@
     "salesCardActiveYes": "yes",
     "salesCardActiveNo": "no",
     "advisorDesc": "Your internal business co-pilot — ask it anything about your sales activity",
-    "chatWithAdvisor": "Chat with Advisor"
+    "chatWithAdvisor": "Chat with Advisor",
+    "testChatTitle": "Test your agent",
+    "testChatEmpty": "Chat with your agent to see how it responds. Try asking about your pricing or booking a meeting."
   },
   "agent": {
     "agentHeader": "Sales Agent",
@@ -132,7 +134,9 @@
     "agentAdvanced": "Advanced",
     "agentTestChat": "Test Chat",
     "agentEmpty": "No sales agent yet",
-    "agentCreate": "Create your sales agent"
+    "agentCreate": "Create your sales agent",
+    "testChatReset": "Config saved — starting fresh chat.",
+    "testChatMobileButton": "Test your agent"
   },
   "agentWorkspace": {
     "backToAgents": "Back to agents",

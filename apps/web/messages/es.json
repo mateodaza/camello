@@ -119,7 +119,9 @@
     "salesCardActiveYes": "sí",
     "salesCardActiveNo": "no",
     "advisorDesc": "Tu co-piloto interno de negocio — pregúntale cualquier cosa sobre tu actividad de ventas",
-    "chatWithAdvisor": "Chatear con el Asesor"
+    "chatWithAdvisor": "Chatear con el Asesor",
+    "testChatTitle": "Prueba tu agente",
+    "testChatEmpty": "Chatea con tu agente para ver cómo responde. Intenta preguntar sobre tus precios o agendar una reunión."
   },
   "agent": {
     "agentHeader": "Agente de Ventas",
@@ -132,7 +134,9 @@
     "agentAdvanced": "Avanzado",
     "agentTestChat": "Probar Chat",
     "agentEmpty": "Aún no hay agente de ventas",
-    "agentCreate": "Crear tu agente de ventas"
+    "agentCreate": "Crear tu agente de ventas",
+    "testChatReset": "Configuración guardada — iniciando chat nuevo.",
+    "testChatMobileButton": "Prueba tu agente"
   },
   "agentWorkspace": {
     "backToAgents": "Volver a agentes",

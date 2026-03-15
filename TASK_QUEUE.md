@@ -1334,7 +1334,8 @@ Replace the "Low / Medium / High" risk badge with a subtle hint below the toggle
 
 ## P1 — Test Chat Prominence
 
-#### NC-285 [ ] Test chat split-pane — persistent side panel on Agent page
+#### NC-285 [x] Test chat split-pane — persistent side panel on Agent page
+Split-pane layout on agent page: desktop 65/35 with inline TestChatPanel; mobile sticky bar + full-screen sheet. sessionKey resets chat on any config save. 8 files changed, 5 tests added.
 
 Replace the floating action button test chat with a persistent split-pane on the right side of the Agent page. The test chat should be visible and inviting at all times — not hidden behind a FAB.
 

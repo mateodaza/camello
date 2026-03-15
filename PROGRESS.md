@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-285 | Test chat split-pane — persistent side panel on Agent page | Mar 15 | Desktop 65/35 split-pane with inline `TestChatPanel`; mobile sticky bar + full-screen sheet. `sessionKey` prop resets chat on any config save across 4 surfaces; in-flight `chat.send` guard via `sessionGenRef` prevents stale replies from corrupting the fresh session. 8 files modified/created: `test-chat-panel.tsx` (3 new props + 3 render paths + gen guard), `module-settings.tsx` + `widget-appearance-section.tsx` (onSaveSuccess), `agent/page.tsx` (isDesktop SSR-safe, split-pane), en+es i18n (4 keys each), 2 test files (9 new tests — 4 real component rendering tests in test-chat-panel.test.tsx, 2 layout tests in agent-page-layout.test.tsx). Type-check passes. |
 | NC-284 | Approval mode toggle — replace autonomy dropdown with plain switch | Mar 15 | Replaced `<select>` + risk badge with `<input type="checkbox" role="switch">` toggle in `module-settings.tsx`. Added `handleToggle()` firing `attachModule` immediately on change. 3 new i18n keys (en+es). Created `module-settings-toggle.test.tsx` (3 tests). Updated `a11y-audit.test.tsx` + `terminology-audit.test.ts`. Type-check passes. |
 | NC-283 | User-facing terminology audit — rename developer language to plain English | Mar 15 | 30 values updated in `en.json`+`es.json` (modules→skills, executions→runs, autonomy→approval mode, escalations→handoffs, knowledge gaps→unanswered questions, risk tiers→sensitivity; `configKnowledgeGapsEmpty` + `gapsSelectAgent` also updated). New `terminology-audit.test.ts` (3 JSON+render assertions). `knowledge-page.test.tsx` +4 edits (vi.fn mock, beforeEach reset, new rendered test). `pnpm type-check` + `pnpm build` pass. |
 | NC-282 | Sprint audit — test sweep + i18n cleanup + smoke test | Mar 15 | Removed 6 orphaned `sidebar.*` keys from `en.json`+`es.json`. Added 22 assertions: `i18n-orphans.test.ts` (NC-282 JSON block: 18, source-scan block: 1) + `settings-page.test.tsx` (NC-282 block: 3 — dashboard redirect, billing redirect, channels redirect). Created `SMOKE_TEST_NC282.md`. Type-check passes. |
@@ -996,3 +997,4 @@
 - **NC-282** — 2026-03-15 — `cb22b53` — Session: 20260315-133858-camello
 - **NC-283** — 2026-03-15 — `64521bc` — Session: 20260315-133858-camello
 - **NC-284** — 2026-03-15 — `ebc9d68` — Session: 20260315-133858-camello
+- **NC-285** — 2026-03-15 — `75f796f` — Session: 20260315-133858-camello
