@@ -186,3 +186,52 @@ describe("i18n orphan guard — NC-280 primary JSON assertions", () => {
     });
   }
 });
+
+describe("i18n orphan guard — NC-282 primary JSON assertions", () => {
+  for (const locale of ["en", "es"]) {
+    const parsed = parseJson(join(messagesDir, `${locale}.json`));
+    const sidebar = (parsed as Record<string, Record<string, unknown>>).sidebar;
+
+    describe(`${locale}.json — NC-282 orphaned sidebar keys absent`, () => {
+      it("sidebar.overview is absent", () => {
+        expect(sidebar.overview).toBeUndefined();
+      });
+      it("sidebar.conversations is absent", () => {
+        expect(sidebar.conversations).toBeUndefined();
+      });
+      it("sidebar.agents is absent", () => {
+        expect(sidebar.agents).toBeUndefined();
+      });
+      it("sidebar.billing is absent", () => {
+        expect(sidebar.billing).toBeUndefined();
+      });
+      it("sidebar.profile is absent", () => {
+        expect(sidebar.profile).toBeUndefined();
+      });
+      it("sidebar.home is absent", () => {
+        expect(sidebar.home).toBeUndefined();
+      });
+    });
+
+    describe(`${locale}.json — NC-282 retained sidebar keys present`, () => {
+      it("sidebar.inbox is present", () => {
+        expect(sidebar.inbox).not.toBeUndefined();
+      });
+      it("sidebar.agent is present", () => {
+        expect(sidebar.agent).not.toBeUndefined();
+      });
+      it("sidebar.openMenu is present", () => {
+        expect(sidebar.openMenu).not.toBeUndefined();
+      });
+    });
+  }
+});
+
+describe("i18n orphan guard — NC-282 secondary source-scan assertions", () => {
+  it("sidebar navItems has exactly 4 items", () => {
+    const sidebarPath = resolve(__dirname, "../components/sidebar.tsx");
+    const content = readFileSync(sidebarPath, "utf-8");
+    const matches = content.match(/labelKey:/g);
+    expect(matches).toHaveLength(4);
+  });
+});

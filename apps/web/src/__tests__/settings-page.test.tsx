@@ -6,8 +6,9 @@ import React from 'react';
 // Hoisted spies
 // ---------------------------------------------------------------------------
 
-const { billingPlanSpy } = vi.hoisted(() => ({
+const { billingPlanSpy, replaceSpy } = vi.hoisted(() => ({
   billingPlanSpy: vi.fn(),
+  replaceSpy: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -21,7 +22,7 @@ vi.mock('next-intl', () => ({
 
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
-  useRouter: () => ({ refresh: vi.fn() }),      // REQUIRED: called unconditionally in ProfileSection
+  useRouter: () => ({ refresh: vi.fn(), replace: replaceSpy }),      // REQUIRED: called unconditionally in ProfileSection
 }));
 
 vi.mock('@clerk/nextjs', () => ({
@@ -103,6 +104,7 @@ vi.mock('@camello/shared/constants', () => ({
 // ---------------------------------------------------------------------------
 
 import SettingsPage from '../app/dashboard/settings/page';
+import DashboardRedirect from '../app/dashboard/page';
 
 // ---------------------------------------------------------------------------
 // Setup default billing spy (loading state — safe for Test 1)
@@ -157,6 +159,34 @@ describe('NC-278 — One-page Settings (/dashboard/settings)', () => {
       '../app/dashboard/settings/profile/page'
     );
     ProfilePage();
+    expect(redirect).toHaveBeenCalledWith('/dashboard/settings');
+  });
+
+});
+
+describe('NC-282 — Sprint flow: redirects + dashboard home', () => {
+
+  it('4 — /dashboard redirects to /dashboard/conversations', () => {
+    replaceSpy.mockClear();
+    render(React.createElement(DashboardRedirect));
+    expect(replaceSpy).toHaveBeenCalledWith('/dashboard/conversations');
+  });
+
+  it('5 — /dashboard/settings/billing redirects to /dashboard/settings', async () => {
+    const { redirect } = await import('next/navigation');
+    const { default: BillingPage } = await import(
+      '../app/dashboard/settings/billing/page'
+    );
+    BillingPage();
+    expect(redirect).toHaveBeenCalledWith('/dashboard/settings');
+  });
+
+  it('6 — /dashboard/settings/channels redirects to /dashboard/settings', async () => {
+    const { redirect } = await import('next/navigation');
+    const { default: ChannelsPage } = await import(
+      '../app/dashboard/settings/channels/page'
+    );
+    ChannelsPage();
     expect(redirect).toHaveBeenCalledWith('/dashboard/settings');
   });
 

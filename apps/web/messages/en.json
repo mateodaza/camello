@@ -19,16 +19,10 @@
     "confirm": "Confirm"
   },
   "sidebar": {
-    "overview": "Overview",
-    "conversations": "Conversations",
-    "agents": "Agents",
     "knowledge": "Knowledge",
-    "billing": "Billing",
-    "profile": "Profile",
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
     "openMenu": "Open menu",
-    "home": "Home",
     "inbox": "Inbox",
     "agent": "Agent",
     "settings": "Settings"

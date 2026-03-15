@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-282 | Sprint audit — test sweep + i18n cleanup + smoke test | Mar 15 | Removed 6 orphaned `sidebar.*` keys from `en.json`+`es.json`. Added 22 assertions: `i18n-orphans.test.ts` (NC-282 JSON block: 18, source-scan block: 1) + `settings-page.test.tsx` (NC-282 block: 3 — dashboard redirect, billing redirect, channels redirect). Created `SMOKE_TEST_NC282.md`. Type-check passes. |
 | NC-281 | Collapsible section primitive — shared `<Section>` component | Mar 15 | Created `components/dashboard/section.tsx` (forwardRef, reactive autoOpen useEffect, group-open chevron, badge). Used in `agent/page.tsx` (7 sections, modulesRef for imperative open) + `settings/page.tsx` (3 sections). `section.test.tsx` (2 tests). `agent-page.test.tsx` updated (tests 2, 3, 4). Type-check passes. |
 | NC-280 | Route cleanup — redirects, dead pages, orphaned components | Mar 15 | `analytics/page.tsx` → `redirect('/dashboard/agent')`. `docs/page.tsx` → `notFound()` stub (404). Removed `analytics` + `help` top-level i18n namespaces (en+es) + `sidebar.analytics` + `sidebar.help`. Rewrote `analytics-page.test.tsx` (2 tests). Extended `i18n-orphans.test.ts` NC-280 block. Type-check passes. |
 | NC-279 | Knowledge page cleanup — reduce visual noise | Mar 15 | Ingest form → Dialog modal. Score → inline header subtitle. Learnings section removed (835→630 lines). Doc table: title + scope + overflow menu. 2 i18n keys (en+es). Type-check passes. |
@@ -990,3 +991,4 @@
 - **NC-278** — 2026-03-15 — `31b0ee0` — Session: 20260315-020901-camello
 - **NC-280** — 2026-03-15 — `c0f3b72` — Session: 20260315-133858-camello
 - **NC-281** — 2026-03-15 — `5e1e7c2` — Session: 20260315-133858-camello
+- **NC-282** — 2026-03-15 — `cb22b53` — Session: 20260315-133858-camello

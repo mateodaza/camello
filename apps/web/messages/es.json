@@ -19,16 +19,10 @@
     "confirm": "Confirmar"
   },
   "sidebar": {
-    "overview": "Resumen",
-    "conversations": "Conversaciones",
-    "agents": "Agentes",
     "knowledge": "Conocimiento",
-    "billing": "Facturación",
-    "profile": "Perfil",
     "collapse": "Colapsar barra lateral",
     "expand": "Expandir barra lateral",
     "openMenu": "Abrir menú",
-    "home": "Inicio",
     "inbox": "Bandeja",
     "agent": "Agente",
     "settings": "Configuración"

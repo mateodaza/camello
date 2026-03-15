@@ -1182,7 +1182,8 @@ Extract the repeated collapsible section pattern into a reusable primitive used 
 
 ---
 
-#### NC-282 [ ] Sprint audit — test sweep + i18n cleanup + smoke test
+#### NC-282 [x] Sprint audit — test sweep + i18n cleanup + smoke test
+Removed 6 orphaned sidebar i18n keys (en+es). Added 22 new assertions across i18n-orphans.test.ts (18 JSON + 1 source-scan) and settings-page.test.tsx (3 redirect tests). Created SMOKE_TEST_NC282.md. pnpm type-check passes.
 
 Final audit of the entire sprint. Fix broken tests, remove orphaned i18n keys, verify all redirects work, run full smoke test.
 
