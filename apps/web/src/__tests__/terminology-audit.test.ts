@@ -74,6 +74,32 @@ describe('Terminology audit — en.json values', () => {
   it('knowledge namespace: sectionGaps renamed to Unanswered Questions', () => {
     expect((messages as any).knowledge.sectionGaps).toBe('Unanswered Questions');
   });
+
+  it('knowledge namespace: ingest terminology replaced with add', () => {
+    const k = (messages as any).knowledge;
+    expect(k.ingestKnowledge).toBe('Add Knowledge');
+    expect(k.ingest).toBe('Add');
+    expect(k.ingesting).toBe('Adding...');
+    expect(k.ingestedToast).toBe('Knowledge added');
+  });
+
+  it('billing namespace: modules renamed to skills', () => {
+    expect((messages as any).billing.modules).toBe('skills');
+  });
+
+  it('onboarding namespace: modules renamed to Skills', () => {
+    expect((messages as any).onboarding.modules).toBe('Skills');
+  });
+
+  it('landing.pricing namespace: modules renamed to skills', () => {
+    expect((messages as any).landing.pricing.modules).toBe('skills');
+  });
+
+  it('agentWorkspace namespace: supportNoEscalations uses handoff language', () => {
+    const ws = (messages as any).agentWorkspace;
+    expect(ws.supportNoEscalations).toBe('No handoffs');
+    expect(ws.supportNoEscalationsDesc).toBe('No unresolved handoffs at this time.');
+  });
 });
 
 // ---------------------------------------------------------------------------

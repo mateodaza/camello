@@ -20,8 +20,21 @@ const ARCHETYPE_MODULE_SLUGS: Record<string, readonly string[]> = {
   custom:    [],
 };
 
+const SLUG_TO_LABEL: Record<string, string> = {
+  qualify_lead:     'Qualify Lead',
+  book_meeting:     'Book Meeting',
+  collect_payment:  'Collect Payment',
+  send_quote:       'Send Quote',
+  create_ticket:    'Create Ticket',
+  escalate_to_human:'Escalate to Human',
+  send_followup:    'Send Follow-up',
+  capture_interest: 'Capture Interest',
+  draft_content:    'Draft Content',
+};
+
 export function Step3MeetAgent({ suggestion, onComplete }: Props) {
   const t = useTranslations('onboarding');
+  const tWorkspace = useTranslations('agentWorkspace');
   const [name, setName] = useState(suggestion.agentName);
   const [editing, setEditing] = useState(false);
 
@@ -126,10 +139,10 @@ export function Step3MeetAgent({ suggestion, onComplete }: Props) {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-charcoal">{t('modules')}</p>
+          <p className="text-sm font-medium text-charcoal">{tWorkspace('boundModules')}</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {(ARCHETYPE_MODULE_SLUGS[suggestion.agentType] ?? []).map((slug) => (
-              <Badge key={slug} variant="outline">{slug}</Badge>
+              <Badge key={slug} variant="outline">{SLUG_TO_LABEL[slug] ?? slug}</Badge>
             ))}
           </div>
         </div>

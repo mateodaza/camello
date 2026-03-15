@@ -1552,7 +1552,8 @@ After onboarding completes, show a dismissible checklist card on the inbox page 
 
 ---
 
-#### NC-289 [ ] Experience sprint audit — terminology + tooltip + empty state sweep
+#### NC-289 [x] Experience sprint audit — terminology + tooltip + empty state sweep
+12 i18n value fixes (en+es): knowledge ingest→add, billing/onboarding/landing modules→skills, supportNoEscalations→handoffs. Step3MeetAgent badges now show SLUG_TO_LABEL human-readable labels via agentWorkspace translations. 6 new terminology-audit assertions. All tests updated.
 
 Final audit of the entire experience sprint. Verify all terminology changes are consistent, tooltips are discoverable, empty states are helpful, and the product feels cohesive for a non-technical first-time user.
 
