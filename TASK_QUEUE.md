@@ -995,7 +995,7 @@ If no sales artifact exists for the tenant, show a centered empty state: illustr
 
 ---
 
-#### NC-277 [ ] Advisor panel — move to Agent page
+#### NC-277 [x] Advisor panel — move to Agent page
 
 Move the `AdvisorPanel` component from the old Home page to the bottom of the new Agent page.
 

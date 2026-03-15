@@ -11,11 +11,13 @@ const {
   workspaceSpy,
   dashboardOverviewSpy,
   pendingExecSpy,
+  advisorSnapshotSpy,
 } = vi.hoisted(() => ({
   artifactListSpy: vi.fn(),
   workspaceSpy: vi.fn(),
   dashboardOverviewSpy: vi.fn(),
   pendingExecSpy: vi.fn(),
+  advisorSnapshotSpy: vi.fn(),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -30,6 +32,11 @@ vi.mock('@/lib/trpc', () => ({
     },
     module: {
       pendingExecutions: { useQuery: pendingExecSpy },
+    },
+    advisor: {
+      snapshot: { useQuery: advisorSnapshotSpy },
+      ensureAdvisor: { useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })) },
+      summarizeSession: { useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })) },
     },
     onboarding: {
       setupArtifact: { useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })) },
@@ -96,6 +103,10 @@ vi.mock('@/components/ui/skeleton', () => ({
 vi.mock('lucide-react', () => ({
   ChevronDown: ({ className }: { className?: string }) =>
     React.createElement('svg', { 'data-icon': 'ChevronDown', className }),
+  ChevronRight: ({ className }: { className?: string }) =>
+    React.createElement('svg', { 'data-icon': 'ChevronRight', className }),
+  Loader2: ({ className, 'aria-label': ariaLabel }: { className?: string; 'aria-label'?: string }) =>
+    React.createElement('svg', { 'data-icon': 'Loader2', className, 'aria-label': ariaLabel }),
   Bot: ({ className }: { className?: string }) =>
     React.createElement('svg', { 'data-icon': 'Bot', className }),
   MessageSquare: ({ className }: { className?: string }) =>
@@ -121,6 +132,15 @@ const defaultArtifact = {
   config: {},
 };
 
+const advisorArtifact = {
+  id: 'advisor-artifact-id',
+  name: 'Business Advisor',
+  isActive: true,
+  type: 'advisor',
+  personality: {},
+  config: {},
+};
+
 const defaultWorkspaceData = {
   artifact: defaultArtifact,
   boundModules: [],
@@ -134,10 +154,21 @@ const defaultWorkspaceData = {
 beforeEach(() => {
   vi.clearAllMocks();
 
-  artifactListSpy.mockReturnValue({
-    data: [defaultArtifact],
+  artifactListSpy.mockImplementation(({ type }: { type?: string } = {}) => {
+    if (type === 'advisor') {
+      // Default: no advisor artifact (AdvisorPanel returns null; ensureAdvisor fires but is a no-op mock)
+      return { data: [], isLoading: false, isError: false, isSuccess: true, refetch: vi.fn() };
+    }
+    // Default: sales artifact present (agent page renders normally)
+    return { data: [defaultArtifact], isLoading: false, isError: false, refetch: vi.fn() };
+  });
+
+  advisorSnapshotSpy.mockReturnValue({
+    data: undefined,
     isLoading: false,
+    isFetching: false,
     isError: false,
+    isSuccess: false,
     refetch: vi.fn(),
   });
 
@@ -250,6 +281,31 @@ describe('NC-276 — Single-page agent config (/dashboard/agent)', () => {
     expect(screen.getByTestId('section-performance')).toBeInTheDocument();
     expect(screen.getByTestId('section-sales-activity')).toBeInTheDocument();
     expect(screen.getByTestId('section-advanced')).toBeInTheDocument();
+  });
+
+  it('8a — advisor panel renders on agent page when advisor artifact exists', () => {
+    // Override: artifact.list returns advisor artifact for type='advisor'
+    artifactListSpy.mockImplementation(({ type }: { type?: string } = {}) => {
+      if (type === 'advisor') {
+        return { data: [advisorArtifact], isLoading: false, isError: false, isSuccess: true, refetch: vi.fn() };
+      }
+      return { data: [defaultArtifact], isLoading: false, isError: false, refetch: vi.fn() };
+    });
+
+    render(React.createElement(AgentPage));
+
+    // The real AdvisorPanel renders its collapsed card when advisorArtifact is truthy
+    expect(document.querySelector('[data-testid="advisor-panel"]')).toBeTruthy();
+  });
+
+  it('8b — advisor panel is absent when no advisor artifact exists', () => {
+    // beforeEach default: artifactListSpy returns [] for type='advisor'
+    // AdvisorPanel's null-guard (line 127 of advisor-panel.tsx) returns null
+    render(React.createElement(AgentPage));
+
+    expect(document.querySelector('[data-testid="advisor-panel"]')).toBeNull();
+    // Agent page itself renders normally (sales artifact is still present)
+    expect(screen.getByTestId('agent-header')).toBeInTheDocument();
   });
 
 });

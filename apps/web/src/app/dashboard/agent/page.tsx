@@ -20,6 +20,7 @@ import { FollowupsSection } from '@/components/agent-workspace/sales/followups-s
 import { ModuleSettings } from '@/components/agent-workspace/module-settings';
 import { WidgetAppearanceSection } from '@/components/agent-workspace/widget-appearance-section';
 import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
+import { AdvisorPanel } from '@/components/dashboard/advisor-panel';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -549,6 +550,9 @@ export default function AgentPage() {
           </WorkspaceSectionErrorBoundary>
         )}
       </CollapsibleSection>
+
+      {/* Advisor co-pilot panel — collapsed by default, renders only when advisor artifact exists */}
+      <AdvisorPanel />
 
       {/* Floating test chat panel */}
       <TestChatPanel
