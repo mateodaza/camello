@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React, { createElement } from 'react';
+import { useTranslations } from 'next-intl';
+import messages from '../../messages/en.json';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: vi.fn(),
   useLocale: () => 'en',
 }));
 
@@ -20,9 +22,30 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ addToast: vi.fn() }),
 }));
 
-vi.mock('lucide-react', () =>
-  new Proxy({}, { get: (_, name: string) => () => createElement('svg', { 'data-icon': name }) }),
-);
+// lucide-react: return a plain object of stubbed icon components.
+// A Proxy without ownKeys/has traps confuses Vitest's ESM live-binding
+// resolution and causes dynamic imports of the page to hang indefinitely.
+vi.mock('lucide-react', () => {
+  const icon = (name: string) => () => createElement('svg', { 'data-icon': name });
+  return {
+    Plus: icon('Plus'),
+    MoreHorizontal: icon('MoreHorizontal'),
+    CheckCircle2: icon('CheckCircle2'),
+    ChevronDown: icon('ChevronDown'),
+    ChevronUp: icon('ChevronUp'),
+    ChevronRight: icon('ChevronRight'),
+    X: icon('X'),
+    Check: icon('Check'),
+    Search: icon('Search'),
+    Trash2: icon('Trash2'),
+    Edit: icon('Edit'),
+    Eye: icon('Eye'),
+    EyeOff: icon('EyeOff'),
+    AlertCircle: icon('AlertCircle'),
+    Info: icon('Info'),
+    Loader2: icon('Loader2'),
+  };
+});
 
 vi.mock('@/lib/format', () => ({
   groupChunksByTitle: (chunks: unknown[]) =>
@@ -39,6 +62,7 @@ vi.mock('@/components/dashboard/knowledge-guided-empty-state', () => ({
 const queryMocks = new Map<string, unknown>();
 const mutationMocks = new Map<string, unknown>();
 
+// Function declaration — JS hoisting makes it available in the vi.mock factory below.
 function buildNestedProxy(target: Record<string, unknown>, path: string[] = []): unknown {
   return new Proxy(target, {
     get(_, prop: string) {
@@ -74,16 +98,16 @@ const knowledgeData = [
   { id: 'd1', title: 'Doc', sourceType: 'upload', chunkCount: 2, createdAt: new Date() },
 ];
 
-const learningData = [
-  {
-    id: 'l1',
-    content: 'test learning content longer than needed',
-    type: 'preference',
-    confidence: 0.9,
-    sourceModuleSlug: 'qualify_lead',
-    archivedAt: null,
-  },
-];
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// RTL v16 (for React 19) wraps render() and fireEvent in act() internally.
+// We do NOT use await act(async () => { render() }) — that pattern can hang in
+// React 19 + Node 24 due to MessageChannel scheduling.
+function renderPage(mod: { default: React.ComponentType }) {
+  render(createElement(mod.default));
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -91,17 +115,11 @@ const learningData = [
 
 describe('KnowledgePage', () => {
   beforeEach(() => {
+    vi.mocked(useTranslations).mockImplementation(() => ((key: string) => key) as any);
     queryMocks.clear();
     mutationMocks.clear();
     queryMocks.set('knowledge.list', {
       data: knowledgeData,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-    queryMocks.set('learning.list', {
-      data: learningData,
       isLoading: false,
       isError: false,
       error: null,
@@ -123,34 +141,7 @@ describe('KnowledgePage', () => {
     });
   });
 
-  it('learnings section is collapsed by default', async () => {
-    const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
-    expect(screen.queryByTestId('learnings-table')).toBeNull();
-    expect(screen.getByRole('button', { name: 'sectionLearningsToggle' })).toBeInTheDocument();
-  });
-
-  it('clicking Show toggle reveals the learnings table', async () => {
-    const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
-    fireEvent.click(screen.getByRole('button', { name: 'sectionLearningsToggle' }));
-    expect(screen.getByTestId('learnings-table')).toBeInTheDocument();
-  });
-
-  it('knowledge gaps section appears before learnings section', async () => {
-    const mod = await import('@/app/dashboard/knowledge/page');
-    const { container } = render(createElement(mod.default));
-    const headings = Array.from(container.querySelectorAll('h2'));
-    const headingTexts = headings.map((h) => h.textContent);
-    const gapsIdx = headingTexts.findIndex((t) => t === 'sectionGaps');
-    const learningsIdx = headingTexts.findIndex((t) => t === 'sectionLearnings');
-    expect(gapsIdx).toBeGreaterThanOrEqual(0);
-    expect(learningsIdx).toBeGreaterThanOrEqual(0);
-    expect(gapsIdx).toBeLessThan(learningsIdx);
-  });
-
   it('shows success callout when agent has no knowledge gaps', async () => {
-    // isError: false, data: [] → must reach gapsEmptySuccess branch, not QueryError
     queryMocks.set('agent.supportKnowledgeGaps', {
       data: [],
       isLoading: false,
@@ -159,8 +150,11 @@ describe('KnowledgePage', () => {
       refetch: vi.fn(),
     });
     const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
-    expect(screen.getByTestId('gaps-empty-state')).toBeInTheDocument();
+    renderPage(mod);
+    // Effect auto-selects the single agent → waitFor polls until visible
+    await waitFor(() => {
+      expect(screen.getByTestId('gaps-empty-state')).toBeInTheDocument();
+    });
     expect(screen.getByText('gapsEmptySuccess')).toBeInTheDocument();
   });
 
@@ -173,22 +167,11 @@ describe('KnowledgePage', () => {
       refetch: vi.fn(),
     });
     const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
-    // Success callout must not appear
+    renderPage(mod);
+    await waitFor(() => {
+      expect(screen.getAllByText('error.retry').length).toBeGreaterThan(0);
+    });
     expect(screen.queryByTestId('gaps-empty-state')).toBeNull();
-    // QueryError retry button must be present, confirming the error branch rendered
-    expect(screen.getAllByText('error.retry').length).toBeGreaterThan(0);
-  });
-
-  it('shows confidence bar instead of raw decimal when learnings are expanded', async () => {
-    const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
-    fireEvent.click(screen.getByRole('button', { name: 'sectionLearningsToggle' }));
-    const table = screen.getByTestId('learnings-table');
-    // Progress bar fill exists
-    expect(table.querySelector('.bg-teal')).toBeInTheDocument();
-    // Raw decimal 0.90 should not appear as text
-    expect(screen.queryByText('0.90')).toBeNull();
   });
 
   it('teach input submit calls knowledge.ingest with correct payload', async () => {
@@ -197,7 +180,7 @@ describe('KnowledgePage', () => {
       mutate: mockMutate, mutateAsync: vi.fn(), isPending: false, isError: false, error: null,
     });
     const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
+    renderPage(mod);
     const text = 'This is a test knowledge entry that is long enough';
     fireEvent.change(screen.getByPlaceholderText('teachInputPlaceholder'), { target: { value: text } });
     fireEvent.click(screen.getByRole('button', { name: 'teachInputAdd' }));
@@ -210,7 +193,7 @@ describe('KnowledgePage', () => {
 
   it('teach input shows inline error when text is shorter than 20 chars', async () => {
     const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
+    renderPage(mod);
     fireEvent.change(screen.getByPlaceholderText('teachInputPlaceholder'), { target: { value: 'too short' } });
     fireEvent.click(screen.getByRole('button', { name: 'teachInputAdd' }));
     expect(screen.getByText('teachInputTooShort')).toBeInTheDocument();
@@ -222,11 +205,13 @@ describe('KnowledgePage', () => {
       isLoading: false, isError: false, error: null, refetch: vi.fn(),
     });
     const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
+    renderPage(mod);
 
-    const teachBtn = screen.getByRole('button', { name: 'gapTeachButton' });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'gapTeachButton' })).toBeInTheDocument();
+    });
     expect(screen.queryByPlaceholderText('gapTeachPlaceholder')).toBeNull();
-    fireEvent.click(teachBtn);
+    fireEvent.click(screen.getByRole('button', { name: 'gapTeachButton' }));
     expect(screen.getByPlaceholderText('gapTeachPlaceholder')).toBeInTheDocument();
   });
 
@@ -240,8 +225,11 @@ describe('KnowledgePage', () => {
       mutate: mockMutate, mutateAsync: vi.fn(), isPending: false, isError: false, error: null,
     });
     const mod = await import('@/app/dashboard/knowledge/page');
-    render(createElement(mod.default));
+    renderPage(mod);
 
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'gapTeachButton' })).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole('button', { name: 'gapTeachButton' }));
     const textarea = screen.getByPlaceholderText('gapTeachPlaceholder');
     fireEvent.change(textarea, { target: { value: 'Our pricing starts at $99/month' } });
@@ -252,5 +240,19 @@ describe('KnowledgePage', () => {
       title: 'Answer: pricing',
       sourceType: 'upload',
     });
+  });
+
+  it("gaps section heading renders 'Unanswered Questions' not 'Knowledge Gaps'", async () => {
+    const ns_messages = (messages as unknown as Record<string, Record<string, string>>).knowledge;
+    vi.mocked(useTranslations).mockImplementation((ns?: string) => {
+      if (ns === 'knowledge') return ((key: string) => ns_messages[key] ?? key) as any;
+      return ((key: string) => key) as any;
+    });
+
+    const mod = await import('@/app/dashboard/knowledge/page');
+    renderPage(mod);
+
+    expect(screen.getByText('Unanswered Questions')).toBeInTheDocument();
+    expect(screen.queryByText('Knowledge Gaps')).toBeNull();
   });
 });

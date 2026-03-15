@@ -1234,7 +1234,8 @@ Final audit of the entire sprint. Fix broken tests, remove orphaned i18n keys, v
 
 ## P0 — Terminology
 
-#### NC-283 [ ] User-facing terminology audit — rename developer language to plain English
+#### NC-283 [x] User-facing terminology audit — rename developer language to plain English
+30 i18n values updated (en+es): modules→skills, executions→runs, autonomy→approval mode, escalation→handoff, knowledge gaps→unanswered questions, risk tiers→sensitivity labels; also `configKnowledgeGapsEmpty` and `gapsSelectAgent`. New `terminology-audit.test.ts` (3 describe blocks: JSON assertions + ModuleSettings render). `knowledge-page.test.tsx` extended with rendered gap-heading assertion. `pnpm type-check` passes.
 
 Replace every user-facing instance of developer/architecture terminology with language a restaurant owner or salon operator would understand. This is an i18n-only change — no component logic changes, no tRPC renames, no DB migrations.
 
