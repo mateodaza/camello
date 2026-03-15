@@ -143,4 +143,46 @@ describe("i18n orphan guard — secondary source-scan assertions", () => {
     );
     expect(matches).toHaveLength(0);
   });
+
+  it("no source file uses useTranslations('analytics')", () => {
+    const matches = sourceFiles.filter((f) =>
+      readFileSync(f, "utf-8").includes("useTranslations('analytics')")
+    );
+    expect(matches).toHaveLength(0);
+  });
+
+  it("no source file uses useTranslations('help')", () => {
+    const matches = sourceFiles.filter((f) =>
+      readFileSync(f, "utf-8").includes("useTranslations('help')")
+    );
+    expect(matches).toHaveLength(0);
+  });
+});
+
+describe("i18n orphan guard — NC-280 primary JSON assertions", () => {
+  for (const locale of ["en", "es"]) {
+    const parsed = parseJson(join(messagesDir, `${locale}.json`));
+
+    describe(`${locale}.json — NC-280 orphaned namespaces removed`, () => {
+      it("analytics top-level namespace is absent", () => {
+        expect((parsed as Record<string, unknown>).analytics).toBeUndefined();
+      });
+      it("help top-level namespace is absent", () => {
+        expect((parsed as Record<string, unknown>).help).toBeUndefined();
+      });
+      it("sidebar.analytics key is absent", () => {
+        const sidebar = (parsed as Record<string, Record<string, unknown>>).sidebar;
+        expect(sidebar.analytics).toBeUndefined();
+      });
+      it("sidebar.help key is absent", () => {
+        const sidebar = (parsed as Record<string, Record<string, unknown>>).sidebar;
+        expect(sidebar.help).toBeUndefined();
+      });
+      it("landing.features.analytics is still present (not accidentally deleted)", () => {
+        const landing = (parsed as Record<string, Record<string, Record<string, unknown>>>).landing;
+        const features = landing.features as Record<string, unknown>;
+        expect(features.analytics).toBeDefined();
+      });
+    });
+  }
 });

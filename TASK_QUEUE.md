@@ -1110,7 +1110,8 @@ _Done: Ingest form → Dialog modal (reuses existing `Dialog` component). Knowle
 
 ## P2 — Cleanup + Polish
 
-#### NC-280 [ ] Route cleanup — redirects, dead pages, orphaned components
+#### NC-280 [x] Route cleanup — redirects, dead pages, orphaned components
+analytics/page.tsx → redirect('/dashboard/agent'). docs/page.tsx → notFound() stub (404). Removed analytics+help top-level i18n namespaces (46+19 keys en+es) + sidebar.analytics + sidebar.help. Rewrote analytics-page.test.tsx (2 new tests). Extended i18n-orphans.test.ts with NC-280 block. Type-check passes.
 
 Clean up old routes and components that are no longer directly rendered.
 

@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-280 | Route cleanup — redirects, dead pages, orphaned components | Mar 15 | `analytics/page.tsx` → `redirect('/dashboard/agent')`. `docs/page.tsx` → `notFound()` stub (404). Removed `analytics` + `help` top-level i18n namespaces (en+es) + `sidebar.analytics` + `sidebar.help`. Rewrote `analytics-page.test.tsx` (2 tests). Extended `i18n-orphans.test.ts` NC-280 block. Type-check passes. |
 | NC-279 | Knowledge page cleanup — reduce visual noise | Mar 15 | Ingest form → Dialog modal. Score → inline header subtitle. Learnings section removed (835→630 lines). Doc table: title + scope + overflow menu. 2 i18n keys (en+es). Type-check passes. |
 | NC-278 | One-page Settings — merge Profile + Billing + Channels | Mar 15 | Created `settings/page.tsx` (merged 3-section accordion: ProfileSection, ChannelsSection, BillingSection). Rewrote 3 sub-pages as redirects. Stubbed `settings-nav.tsx`. Updated sidebar href→`/dashboard/settings` + removed special isActive. i18n: 4 new keys, 3 nav keys removed (en+es). 3-test suite `settings-page.test.tsx`. Type-check passes. |
 | NC-275 | Inbox as home — redirect + stat strip | Mar 14 | `/dashboard/page.tsx` → redirect to `/dashboard/conversations`. Sidebar 6→4 items (Inbox, Agent→`/dashboard/artifacts`, Knowledge, Settings→`/dashboard/settings/billing`). Conversations page: stat strip (3 metrics from `dashboardOverview`) + onboarding resume banner. 6 i18n keys (en+es). Type-check passes. |
@@ -986,3 +987,4 @@
 - **NC-276** — 2026-03-15 — `fab1913` — Session: 20260315-001629-camello
 - **NC-277** — 2026-03-15 — `df6edb3` — Session: 20260315-020901-camello
 - **NC-278** — 2026-03-15 — `31b0ee0` — Session: 20260315-020901-camello
+- **NC-280** — 2026-03-15 — `c0f3b72` — Session: 20260315-133858-camello
