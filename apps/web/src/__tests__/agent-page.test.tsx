@@ -12,12 +12,16 @@ const {
   dashboardOverviewSpy,
   pendingExecSpy,
   advisorSnapshotSpy,
+  salesActivityCountsSpy,
+  tenantMeSpy,
 } = vi.hoisted(() => ({
   artifactListSpy: vi.fn(),
   workspaceSpy: vi.fn(),
   dashboardOverviewSpy: vi.fn(),
   pendingExecSpy: vi.fn(),
   advisorSnapshotSpy: vi.fn(),
+  salesActivityCountsSpy: vi.fn(),
+  tenantMeSpy: vi.fn(),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -29,6 +33,10 @@ vi.mock('@/lib/trpc', () => ({
     agent: {
       workspace: { useQuery: workspaceSpy },
       dashboardOverview: { useQuery: dashboardOverviewSpy },
+      salesActivityCounts: { useQuery: salesActivityCountsSpy },
+    },
+    tenant: {
+      me: { useQuery: tenantMeSpy },
     },
     module: {
       pendingExecutions: { useQuery: pendingExecSpy },
@@ -113,6 +121,14 @@ vi.mock('lucide-react', () => ({
     React.createElement('svg', { 'data-icon': 'MessageSquare', className }),
   Info: ({ className }: { className?: string }) =>
     React.createElement('svg', { 'data-icon': 'Info', className }),
+  // Required: approvals empty state renders by default (pendingExec returns [] with isSuccess:true)
+  CheckCircle2: ({ className }: { className?: string }) =>
+    React.createElement('svg', { 'data-icon': 'CheckCircle2', className }),
+  // Required: performance and sales-activity empty states may also render
+  TrendingUp: ({ className }: { className?: string }) =>
+    React.createElement('svg', { 'data-icon': 'TrendingUp', className }),
+  BarChart2: ({ className }: { className?: string }) =>
+    React.createElement('svg', { 'data-icon': 'BarChart2', className }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -201,6 +217,18 @@ beforeEach(() => {
   pendingExecSpy.mockReturnValue({
     data: [],
     isSuccess: true,
+    isLoading: false,
+  });
+
+  // Non-zero total keeps sales-activity content visible (not empty state)
+  salesActivityCountsSpy.mockReturnValue({
+    data: { total: 5 },
+    isSuccess: true,
+  });
+
+  // Slug needed for share link handler
+  tenantMeSpy.mockReturnValue({
+    data: { slug: 'test-slug' },
     isLoading: false,
   });
 });

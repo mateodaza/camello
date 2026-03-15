@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import {
-  Bot, MessageSquare,
+  Bot, MessageSquare, CheckCircle2, TrendingUp, BarChart2,
 } from 'lucide-react';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { trpc } from '@/lib/trpc';
@@ -24,6 +24,7 @@ import { WidgetAppearanceSection } from '@/components/agent-workspace/widget-app
 import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
 import { AdvisorPanel } from '@/components/dashboard/advisor-panel';
 import { Section } from '@/components/dashboard/section';
+import { EmptyState } from '@/components/dashboard/empty-state';
 
 const TONE_PRESETS = [
   { key: 'professional', en: 'Professional, clear, and confident', es: 'Profesional, claro y seguro' },
@@ -46,6 +47,7 @@ export default function AgentPage() {
   const t = useTranslations('agent');
   const ta = useTranslations('artifacts');
   const tt = useTranslations('tooltips');
+  const te = useTranslations('emptyStates');
   const { addToast } = useToast();
   const utils = trpc.useUtils();
 
@@ -68,6 +70,15 @@ export default function AgentPage() {
     { artifactId, limit: 50 },
     { enabled: !!artifactId },
   );
+
+  // Sales activity counts — drives empty state for all 4 sub-sections
+  const salesActivityCounts = trpc.agent.salesActivityCounts.useQuery(
+    { artifactId },
+    { enabled: !!artifactId },
+  );
+
+  // Tenant slug — needed for share link
+  const tenant = trpc.tenant.me.useQuery();
 
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [chatSessionKey, setChatSessionKey] = useState(0);
@@ -174,6 +185,22 @@ export default function AgentPage() {
   const labelClass = 'mb-1 block text-xs font-medium text-charcoal';
   const saveBtnClass =
     'rounded-md bg-teal px-4 py-1.5 text-sm font-medium text-white hover:bg-teal/90 disabled:opacity-50';
+
+  // "First week" guard — empty state only shown for agents created < 7 days ago.
+  // Fallback: if createdAt is absent, isFirstWeek = false → normal panel renders.
+  const artifactCreatedAt = artifact?.createdAt;
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const isFirstWeek = !!artifactCreatedAt &&
+    (Date.now() - (artifactCreatedAt instanceof Date
+      ? artifactCreatedAt.getTime()
+      : new Date(artifactCreatedAt as string).getTime())) < msPerWeek;
+
+  function handleCopyShareLink() {
+    const slug = tenant.data?.slug;
+    if (!slug) return;
+    const url = `https://camello.xyz/chat/${slug}`;
+    void navigator.clipboard.writeText(url).then(() => addToast(te('performanceCta'), 'success'));
+  }
 
   if (artifactList.isLoading) {
     return (
@@ -445,9 +472,18 @@ export default function AgentPage() {
             tooltip={tt('tooltipApprovals')}
           >
             {!!artifactId && (
-              <WorkspaceSectionErrorBoundary key="approvals">
-                <ApprovalsSection artifactId={artifactId} />
-              </WorkspaceSectionErrorBoundary>
+              pendingExec.isSuccess && (pendingExec.data?.length ?? 0) === 0 ? (
+                <EmptyState
+                  data-testid="approvals-empty-state"
+                  icon={CheckCircle2}
+                  title={te('approvalsTitle')}
+                  description={te('approvalsDescription')}
+                />
+              ) : (
+                <WorkspaceSectionErrorBoundary key="approvals">
+                  <ApprovalsSection artifactId={artifactId} />
+                </WorkspaceSectionErrorBoundary>
+              )
             )}
           </Section>
 
@@ -459,21 +495,31 @@ export default function AgentPage() {
             tooltip={tt('tooltipPerformance')}
           >
             {!!artifactId && (
-              <>
-                <TrustGraduationCard
-                  artifactId={artifactId}
-                  boundModules={boundModules.map((m) => ({
-                    moduleId: m.moduleId,
-                    slug: m.slug,
-                    name: m.name,
-                    autonomyLevel: m.autonomyLevel,
-                  }))}
-                  onGoToModules={() => { if (modulesRef.current) modulesRef.current.open = true; }}
+              workspace.isSuccess && isFirstWeek && (metrics?.conversationCount ?? 0) === 0 ? (
+                <EmptyState
+                  data-testid="performance-empty-state"
+                  icon={TrendingUp}
+                  title={te('performanceTitle')}
+                  description={te('performanceDescription')}
+                  action={{ label: te('performanceCta'), onClick: handleCopyShareLink }}
                 />
-                <div className="mt-4">
-                  <AgentPerformance artifactId={artifactId} />
-                </div>
-              </>
+              ) : (
+                <>
+                  <TrustGraduationCard
+                    artifactId={artifactId}
+                    boundModules={boundModules.map((m) => ({
+                      moduleId: m.moduleId,
+                      slug: m.slug,
+                      name: m.name,
+                      autonomyLevel: m.autonomyLevel,
+                    }))}
+                    onGoToModules={() => { if (modulesRef.current) modulesRef.current.open = true; }}
+                  />
+                  <div className="mt-4">
+                    <AgentPerformance artifactId={artifactId} />
+                  </div>
+                </>
+              )
             )}
           </Section>
 
@@ -484,20 +530,29 @@ export default function AgentPage() {
             testId="section-sales-activity"
           >
             {!!artifactId && (
-              <div className="space-y-4">
-                <WorkspaceSectionErrorBoundary key="quotes">
-                  <QuotesSection artifactId={artifactId} />
-                </WorkspaceSectionErrorBoundary>
-                <WorkspaceSectionErrorBoundary key="meetings">
-                  <MeetingsSection artifactId={artifactId} />
-                </WorkspaceSectionErrorBoundary>
-                <WorkspaceSectionErrorBoundary key="payments">
-                  <PaymentsSection artifactId={artifactId} />
-                </WorkspaceSectionErrorBoundary>
-                <WorkspaceSectionErrorBoundary key="followups">
-                  <FollowupsSection artifactId={artifactId} />
-                </WorkspaceSectionErrorBoundary>
-              </div>
+              salesActivityCounts.isSuccess && (salesActivityCounts.data?.total ?? 1) === 0 ? (
+                <EmptyState
+                  data-testid="sales-activity-empty-state"
+                  icon={BarChart2}
+                  title={te('salesActivityTitle')}
+                  description={te('salesActivityDescription')}
+                />
+              ) : (
+                <div className="space-y-4">
+                  <WorkspaceSectionErrorBoundary key="quotes">
+                    <QuotesSection artifactId={artifactId} />
+                  </WorkspaceSectionErrorBoundary>
+                  <WorkspaceSectionErrorBoundary key="meetings">
+                    <MeetingsSection artifactId={artifactId} />
+                  </WorkspaceSectionErrorBoundary>
+                  <WorkspaceSectionErrorBoundary key="payments">
+                    <PaymentsSection artifactId={artifactId} />
+                  </WorkspaceSectionErrorBoundary>
+                  <WorkspaceSectionErrorBoundary key="followups">
+                    <FollowupsSection artifactId={artifactId} />
+                  </WorkspaceSectionErrorBoundary>
+                </div>
+              )
             )}
           </Section>
 

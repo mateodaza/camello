@@ -155,7 +155,7 @@ describe('KnowledgePage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('gaps-empty-state')).toBeInTheDocument();
     });
-    expect(screen.getByText('gapsEmptySuccess')).toBeInTheDocument();
+    expect(screen.getByText('knowledgeGapsTitle')).toBeInTheDocument();
   });
 
   it('shows error state (not success callout) when gaps query fails', async () => {

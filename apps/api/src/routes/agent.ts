@@ -2560,4 +2560,38 @@ export const agentRouter = router({
       });
     }),
 
+  // =========================================================================
+  // salesActivityCounts — total across all 4 sales activity sub-sections
+  // =========================================================================
+
+  salesActivityCounts: tenantProcedure
+    .input(artifactIdInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.tenantDb.query(async (db) => {
+        const [execRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(moduleExecutions)
+          .where(
+            and(
+              eq(moduleExecutions.artifactId, input.artifactId),
+              eq(moduleExecutions.tenantId, ctx.tenantId),
+              // Counts quotes + meetings + follow-ups.
+              // 'collect_payment' excluded: it represents a payment link sent,
+              // not a confirmed payment row, and not displayed in any sub-section.
+              inArray(moduleExecutions.moduleSlug, ['send_quote', 'book_meeting', 'send_followup']),
+            ),
+          );
+        const [paymentRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(payments)
+          .where(
+            and(
+              eq(payments.artifactId, input.artifactId),
+              eq(payments.tenantId, ctx.tenantId),
+            ),
+          );
+        return { total: (execRow?.count ?? 0) + (paymentRow?.count ?? 0) };
+      });
+    }),
+
 });

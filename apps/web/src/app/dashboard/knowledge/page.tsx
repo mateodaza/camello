@@ -13,12 +13,14 @@ import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '
 import { Plus, MoreHorizontal, CheckCircle2 } from 'lucide-react';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { KnowledgeGuidedEmptyState } from '@/components/dashboard/knowledge-guided-empty-state';
+import { EmptyState } from '@/components/dashboard/empty-state';
 import { useToast } from '@/hooks/use-toast';
 
 export default function KnowledgePage() {
   const t = useTranslations('knowledge');
   const tc = useTranslations('common');
   const tt = useTranslations('tooltips');
+  const te = useTranslations('emptyStates');
   const locale = useLocale();
   const utils = trpc.useUtils();
   const { addToast } = useToast();
@@ -491,9 +493,13 @@ export default function KnowledgePage() {
         ) : knowledgeGaps.isError ? (
           <QueryError error={knowledgeGaps.error} onRetry={() => knowledgeGaps.refetch()} />
         ) : (knowledgeGaps.data?.length ?? 0) === 0 ? (
-          <div data-testid="gaps-empty-state" className="flex items-center gap-2 rounded-lg bg-teal/8 px-4 py-3">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-teal" />
-            <p className="text-sm text-teal">{t('gapsEmptySuccess')}</p>
+          <div className="rounded-xl border border-charcoal/8 bg-cream">
+            <EmptyState
+              data-testid="gaps-empty-state"
+              icon={CheckCircle2}
+              title={te('knowledgeGapsTitle')}
+              description={te('knowledgeGapsDescription')}
+            />
           </div>
         ) : (
           <ul data-testid="gaps-list" className="divide-y divide-charcoal/8 rounded-xl border-2 border-charcoal/8 bg-cream">

@@ -1451,7 +1451,7 @@ The current component is basic (CSS hover, fixed position). Extend it:
 
 ## P1 — Empty States
 
-#### NC-287 [ ] Empty state coaching — contextual "what to do next" prompts
+#### NC-287 [x] Empty state coaching — contextual "what to do next" prompts
 
 Add friendly, action-oriented empty states to every page that can be empty. Each empty state tells the user what the page is for and gives them one clear next action.
 
@@ -1497,6 +1497,7 @@ Renders: centered icon (48px, muted), title (Jost 600), description (DM Sans, te
 - `pnpm type-check` passes
 
 **Depends on:** NC-276 (agent page sections), NC-279 (knowledge page structure)
+**Done:** New `empty-state.tsx` reusable component. 6 empty states: inbox (conversation.list empty), approvals (pendingExec empty), performance (isFirstWeek + 0 convos), sales activity (salesActivityCounts.total=0), knowledge gaps (styled). New `salesActivityCounts` tRPC procedure. 12 i18n keys (en+es). 6 tests in `empty-state.test.tsx`. Updated 5 existing test files.
 
 ---
 

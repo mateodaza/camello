@@ -5,18 +5,21 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useOrganization } from '@clerk/nextjs';
 import { useTranslations } from 'next-intl';
+import { MessageSquare } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { InboxLayout, InboxLeftPanel, InboxCenterPanel, InboxRightPanel } from '@/components/inbox/inbox-layout';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { ChatThread } from '@/components/inbox/chat-thread';
 import { CustomerPanel } from '@/components/inbox/customer-panel';
 import { useRealtimeInbox, type NewMessagePayload } from '@/hooks/use-realtime-inbox';
+import { EmptyState } from '@/components/dashboard/empty-state';
 
 export default function ConversationsPage() {
   const searchParams = useSearchParams();
   const router       = useRouter();
   const pathname     = usePathname();
   const t = useTranslations('inbox');
+  const te = useTranslations('emptyStates');
 
   const [selectedId, setSelectedId] = useState<string | null>(
     () => searchParams.get('selected'),
@@ -43,6 +46,10 @@ export default function ConversationsPage() {
   const onboardingStatus = trpc.onboarding.getStatus.useQuery(undefined, {
     enabled: !!organization,
   });
+
+  // Existence check — limit: 1 is a minimal query; ConversationList's own paginated query is unaffected.
+  const conversationList = trpc.conversation.list.useQuery({ limit: 1 });
+  const isInboxEmpty = conversationList.isSuccess && (conversationList.data?.items?.length ?? 0) === 0;
 
   const handleRealtimeMessage = useCallback(
     (payload: NewMessagePayload) => {
@@ -94,28 +101,38 @@ export default function ConversationsPage() {
         <span>{t('statActiveLeads', { count: data?.activeLeadsCount ?? 0 })}</span>
       </div>
 
-      <InboxLayout
-        initialMobilePanel={selectedId ? 'chat' : 'list'}
-        left={
-          <InboxLeftPanel>
-            <ConversationList
-              selectedId={selectedId}
-              onSelect={handleSelect}
-              artifactId={artifactId}
-            />
-          </InboxLeftPanel>
-        }
-        center={
-          <InboxCenterPanel>
-            <ChatThread conversationId={selectedId} />
-          </InboxCenterPanel>
-        }
-        right={
-          <InboxRightPanel>
-            <CustomerPanel conversationId={selectedId} />
-          </InboxRightPanel>
-        }
-      />
+      {isInboxEmpty ? (
+        <EmptyState
+          data-testid="inbox-empty-state"
+          icon={MessageSquare}
+          title={te('inboxTitle')}
+          description={te('inboxDescription')}
+          action={{ label: te('inboxCta'), href: '/dashboard/agent' }}
+        />
+      ) : (
+        <InboxLayout
+          initialMobilePanel={selectedId ? 'chat' : 'list'}
+          left={
+            <InboxLeftPanel>
+              <ConversationList
+                selectedId={selectedId}
+                onSelect={handleSelect}
+                artifactId={artifactId}
+              />
+            </InboxLeftPanel>
+          }
+          center={
+            <InboxCenterPanel>
+              <ChatThread conversationId={selectedId} />
+            </InboxCenterPanel>
+          }
+          right={
+            <InboxRightPanel>
+              <CustomerPanel conversationId={selectedId} />
+            </InboxRightPanel>
+          }
+        />
+      )}
     </>
   );
 }

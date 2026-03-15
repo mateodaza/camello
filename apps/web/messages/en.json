@@ -1063,5 +1063,22 @@
     "tooltipWebhookUrl": "This is the URL you paste into Meta Business Manager so WhatsApp messages reach your agent.",
     "tooltipVerifyToken": "A secret code that confirms the connection between Meta and Camello. Paste it into Meta's webhook configuration.",
     "tooltipPhoneNumberId": "The numeric ID next to your phone number in Meta Business Manager. It looks like 123456789012345 — it's NOT your phone number."
+  },
+  "emptyStates": {
+    "inboxTitle": "No conversations yet",
+    "inboxDescription": "Share your agent's chat link with a customer, or test it yourself to see how it works.",
+    "inboxCta": "Test your agent",
+    "approvalsTitle": "Nothing to approve",
+    "approvalsDescription": "When your agent prepares an action (like a quote or meeting), it'll show up here for your review.",
+    "performanceTitle": "Your agent hasn't had any conversations yet",
+    "performanceDescription": "Share your chat link to start getting leads. Performance data appears after your first conversation.",
+    "performanceCta": "Copy chat link",
+    "salesActivityTitle": "No sales activity yet",
+    "salesActivityDescription": "As your agent qualifies leads, books meetings, and sends quotes, the activity shows up here.",
+    "knowledgeDocsTitle": "Your agent doesn't know anything yet",
+    "knowledgeDocsDescription": "Teach it about your business — paste your FAQ, pricing, product descriptions, or any info customers ask about.",
+    "knowledgeDocsCta": "Add Knowledge",
+    "knowledgeGapsTitle": "No unanswered questions — nice!",
+    "knowledgeGapsDescription": "Your agent has been able to answer everything customers have asked. Keep your knowledge base updated as your business evolves."
   }
 }

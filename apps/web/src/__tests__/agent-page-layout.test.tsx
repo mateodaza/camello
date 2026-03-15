@@ -78,6 +78,12 @@ vi.mock('@/lib/trpc', () => ({
       dashboardOverview: {
         useQuery: () => ({ data: { pendingApprovalsCount: 0, activeLeadsCount: 0 } }),
       },
+      salesActivityCounts: {
+        useQuery: () => ({ data: { total: 5 }, isSuccess: true }),
+      },
+    },
+    tenant: {
+      me: { useQuery: () => ({ data: { slug: 'test-slug' }, isLoading: false }) },
     },
     module: {
       pendingExecutions: { useQuery: () => ({ data: [], isSuccess: true }) },
