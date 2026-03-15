@@ -6,23 +6,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/hooks/use-toast';
 
-const MODULE_RISK_TIER: Record<string, 'low' | 'medium' | 'high'> = {
-  qualify_lead: 'low',
-  book_meeting: 'medium',
-  send_followup: 'medium',
-  capture_interest: 'low',
-  draft_content: 'low',
-  send_quote: 'high',
-  collect_payment: 'high',
-  create_ticket: 'low',
-  escalate_to_human: 'medium',
-};
-
-const RISK_TIER_CLASS: Record<'low' | 'medium' | 'high', string> = {
-  low: 'bg-teal/10 text-teal',
-  medium: 'bg-gold/10 text-gold',
-  high: 'bg-sunset/10 text-sunset',
-};
+const SENSITIVITY_HINT_MODULES = new Set(['send_quote', 'collect_payment']);
 
 interface BoundModule {
   id: string;
@@ -50,7 +34,9 @@ interface ModuleSettingsProps {
 function initState(m: BoundModule): ModuleLocalState {
   const cfg = m.configOverrides as Record<string, unknown>;
   return {
-    autonomyLevel: (m.autonomyLevel as ModuleLocalState['autonomyLevel']) ?? 'draft_and_approve',
+    autonomyLevel: m.autonomyLevel === 'suggest_only'
+      ? 'draft_and_approve'
+      : ((m.autonomyLevel as ModuleLocalState['autonomyLevel']) ?? 'draft_and_approve'),
     calendarUrl: typeof cfg.calendarUrl === 'string' ? cfg.calendarUrl : '',
     paymentUrl: typeof cfg.paymentUrl === 'string' ? cfg.paymentUrl : '',
     currency: typeof cfg.currency === 'string' ? cfg.currency : 'USD',
@@ -113,6 +99,41 @@ export function ModuleSettings({ artifactId, boundModules }: ModuleSettingsProps
     );
   }
 
+  function handleToggle(m: BoundModule, checked: boolean) {
+    const s = states[m.moduleId];
+    if (!s) return;
+
+    const prevAutonomy = s.autonomyLevel;
+    const newAutonomy = checked ? 'fully_autonomous' : 'draft_and_approve';
+    updateState(m.moduleId, { autonomyLevel: newAutonomy });
+
+    const configOverrides: Record<string, unknown> = { ...m.configOverrides };
+    if (m.slug === 'book_meeting') {
+      configOverrides.calendarUrl = s.calendarUrl;
+    } else if (m.slug === 'collect_payment') {
+      configOverrides.paymentUrl = s.paymentUrl;
+    } else if (m.slug === 'send_quote') {
+      configOverrides.currency = s.currency;
+      configOverrides.validDays = s.validDays;
+    } else if (m.slug === 'escalate_to_human') {
+      configOverrides.slaMinutes = s.slaMinutes;
+    }
+
+    attachModule.mutate(
+      { artifactId, moduleId: m.moduleId, autonomyLevel: newAutonomy, configOverrides },
+      {
+        onSuccess: () => {
+          utils.agent.workspace.invalidate({ artifactId });
+          addToast(t('settingsSaved'), 'success');
+        },
+        onError: () => {
+          updateState(m.moduleId, { autonomyLevel: prevAutonomy });
+          addToast(t('errorLoading'), 'error');
+        },
+      },
+    );
+  }
+
   return (
     <div className="rounded-xl border border-charcoal/10 bg-cream">
       <button
@@ -135,44 +156,40 @@ export function ModuleSettings({ artifactId, boundModules }: ModuleSettingsProps
           {boundModules.map((m) => {
             const s = states[m.moduleId];
             if (!s) return null;
-            const tier = MODULE_RISK_TIER[m.slug] ?? 'low';
-            const tierLabel =
-              tier === 'low'
-                ? t('riskTierLow')
-                : tier === 'medium'
-                  ? t('riskTierMedium')
-                  : t('riskTierHigh');
 
             return (
               <div key={m.moduleId} className="space-y-3 px-4 py-4">
-                {/* Module name + risk badge */}
-                <div className="flex flex-wrap items-center gap-2">
+                {/* Module name only */}
+                <div className="flex items-center">
                   <span className="text-sm font-medium text-charcoal">{m.name}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${RISK_TIER_CLASS[tier]}`}
-                  >
-                    {tierLabel}
-                  </span>
                 </div>
 
-                {/* Autonomy level */}
-                <div className="flex flex-col gap-1">
-                  <label htmlFor={`autonomy-${m.moduleId}`} className="text-xs font-medium text-dune">{t('autonomyLevel')}</label>
-                  <select
-                    id={`autonomy-${m.moduleId}`}
-                    value={s.autonomyLevel}
-                    onChange={(e) =>
-                      updateState(m.moduleId, {
-                        autonomyLevel: e.target.value as ModuleLocalState['autonomyLevel'],
-                      })
-                    }
-                    className="rounded-md border border-charcoal/20 bg-white px-2 py-1.5 text-xs text-charcoal"
-                  >
-                    <option value="fully_autonomous">{t('autonomyFullyAutonomous')}</option>
-                    <option value="draft_and_approve">{t('autonomyDraftAndApprove')}</option>
-                    <option value="suggest_only">{t('autonomySuggestOnly')}</option>
-                  </select>
+                {/* Autonomy toggle */}
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor={`toggle-${m.moduleId}`} className="text-sm text-charcoal">
+                    {t('autoToggleLabel')}
+                  </label>
+                  <input
+                    id={`toggle-${m.moduleId}`}
+                    type="checkbox"
+                    role="switch"
+                    checked={s.autonomyLevel === 'fully_autonomous'}
+                    onChange={(e) => handleToggle(m, e.target.checked)}
+                    disabled={savingId === m.moduleId}
+                    className="h-5 w-9 cursor-pointer appearance-none rounded-full bg-charcoal/20 transition-colors checked:bg-teal disabled:opacity-50"
+                    aria-label={t('autoToggleLabel')}
+                  />
                 </div>
+
+                {/* Off-hint: shown when NOT fully_autonomous */}
+                {s.autonomyLevel !== 'fully_autonomous' && (
+                  <p className="text-xs text-dune">{t('autoToggleOffHint')}</p>
+                )}
+
+                {/* Sensitivity hint: send_quote + collect_payment only */}
+                {SENSITIVITY_HINT_MODULES.has(m.slug) && (
+                  <p className="text-xs text-gold">{t('sensitivityHint')}</p>
+                )}
 
                 {/* Slug-specific config fields */}
                 {m.slug === 'book_meeting' && (

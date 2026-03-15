@@ -1285,7 +1285,7 @@ Replace every user-facing instance of developer/architecture terminology with la
 
 ## P0 — Simplify Controls
 
-#### NC-284 [ ] Approval mode toggle — replace autonomy dropdown with plain switch
+#### NC-284 [x] Approval mode toggle — replace autonomy dropdown with plain switch
 
 Replace the 3-option autonomy dropdown per module with a single toggle: "Agent handles this automatically" (on = `fully_autonomous`, off = `draft_and_approve`). Remove `suggest_only` from the UI entirely — it's the least useful mode and adds decision burden.
 
@@ -1325,6 +1325,8 @@ Replace the "Low / Medium / High" risk badge with a subtle hint below the toggle
 - Reuse existing `artifact.attachModule` mutation on toggle change (same procedure used by current dropdown in `module-settings.tsx` line 99). Map toggle ON → `fully_autonomous`, OFF → `draft_and_approve`
 - At least 2 tests: (1) toggle ON maps to `fully_autonomous`, (2) toggle OFF maps to `draft_and_approve`
 - `pnpm type-check` passes
+
+> **Done:** Replaced `<select>` dropdown + risk badge with `<input type="checkbox" role="switch">` toggle. Added `handleToggle()` firing `attachModule` immediately. `suggest_only` normalized to OFF on load. Sensitivity hint for `send_quote`/`collect_payment`. 3 new i18n keys (en+es). Created `module-settings-toggle.test.tsx` (3 tests). Updated `a11y-audit.test.tsx` + `terminology-audit.test.ts`. Type-check passes.
 
 **Depends on:** NC-276 (module settings rendered inside Agent page)
 

@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-284 | Approval mode toggle — replace autonomy dropdown with plain switch | Mar 15 | Replaced `<select>` + risk badge with `<input type="checkbox" role="switch">` toggle in `module-settings.tsx`. Added `handleToggle()` firing `attachModule` immediately on change. 3 new i18n keys (en+es). Created `module-settings-toggle.test.tsx` (3 tests). Updated `a11y-audit.test.tsx` + `terminology-audit.test.ts`. Type-check passes. |
 | NC-283 | User-facing terminology audit — rename developer language to plain English | Mar 15 | 30 values updated in `en.json`+`es.json` (modules→skills, executions→runs, autonomy→approval mode, escalations→handoffs, knowledge gaps→unanswered questions, risk tiers→sensitivity; `configKnowledgeGapsEmpty` + `gapsSelectAgent` also updated). New `terminology-audit.test.ts` (3 JSON+render assertions). `knowledge-page.test.tsx` +4 edits (vi.fn mock, beforeEach reset, new rendered test). `pnpm type-check` + `pnpm build` pass. |
 | NC-282 | Sprint audit — test sweep + i18n cleanup + smoke test | Mar 15 | Removed 6 orphaned `sidebar.*` keys from `en.json`+`es.json`. Added 22 assertions: `i18n-orphans.test.ts` (NC-282 JSON block: 18, source-scan block: 1) + `settings-page.test.tsx` (NC-282 block: 3 — dashboard redirect, billing redirect, channels redirect). Created `SMOKE_TEST_NC282.md`. Type-check passes. |
 | NC-281 | Collapsible section primitive — shared `<Section>` component | Mar 15 | Created `components/dashboard/section.tsx` (forwardRef, reactive autoOpen useEffect, group-open chevron, badge). Used in `agent/page.tsx` (7 sections, modulesRef for imperative open) + `settings/page.tsx` (3 sections). `section.test.tsx` (2 tests). `agent-page.test.tsx` updated (tests 2, 3, 4). Type-check passes. |
@@ -994,3 +995,4 @@
 - **NC-281** — 2026-03-15 — `5e1e7c2` — Session: 20260315-133858-camello
 - **NC-282** — 2026-03-15 — `cb22b53` — Session: 20260315-133858-camello
 - **NC-283** — 2026-03-15 — `64521bc` — Session: 20260315-133858-camello
+- **NC-284** — 2026-03-15 — `ebc9d68` — Session: 20260315-133858-camello

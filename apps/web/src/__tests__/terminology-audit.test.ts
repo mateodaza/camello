@@ -100,7 +100,7 @@ describe('ModuleSettings — Approval Mode label renders', () => {
     });
   });
 
-  it("renders 'Approval Mode' label from t('autonomyLevel')", async () => {
+  it("renders toggle label from t('autoToggleLabel')", async () => {
     const { ModuleSettings } = await import('@/components/agent-workspace/module-settings');
     render(createElement(ModuleSettings as any, {
       artifactId: 'art-1',
@@ -110,6 +110,6 @@ describe('ModuleSettings — Approval Mode label renders', () => {
     // Expand the panel — button now says "Skill Settings" (from real en.json)
     fireEvent.click(screen.getByRole('button', { name: 'Skill Settings' }));
 
-    expect(screen.getByText('Approval Mode')).toBeInTheDocument();
+    expect(screen.getByText('Agent handles this automatically')).toBeInTheDocument();
   });
 });
