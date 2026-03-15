@@ -14,7 +14,6 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
-| NC-279 | Knowledge page — modal ingest, score header, simplified docs | Mar 15 | Created `components/ui/dropdown-menu.tsx` (pure React, no Radix). Rewrote `knowledge/page.tsx` (657 lines, −178): ingest form→Dialog modal, score header as inline subtitle, gaps above docs, learnings removed, doc table→card list with DropdownMenu overflow + view-chunks dialog. Added 4 i18n keys (en+es). Fixed lucide-react Proxy mock → named exports to prevent vitest hang. 9 tests pass. |
 | NC-278 | One-page Settings — merge Profile + Billing + Channels | Mar 15 | Created `settings/page.tsx` (merged 3-section accordion: ProfileSection, ChannelsSection, BillingSection). Rewrote 3 sub-pages as redirects. Stubbed `settings-nav.tsx`. Updated sidebar href→`/dashboard/settings` + removed special isActive. i18n: 4 new keys, 3 nav keys removed (en+es). 3-test suite `settings-page.test.tsx`. Type-check passes. |
 | NC-275 | Inbox as home — redirect + stat strip | Mar 14 | `/dashboard/page.tsx` → redirect to `/dashboard/conversations`. Sidebar 6→4 items (Inbox, Agent→`/dashboard/artifacts`, Knowledge, Settings→`/dashboard/settings/billing`). Conversations page: stat strip (3 metrics from `dashboardOverview`) + onboarding resume banner. 6 i18n keys (en+es). Type-check passes. |
 | NC-274 | Global vs per-agent knowledge split | Mar 14 | Migration 0029 (`artifact_id` on `knowledge_docs`, rewritten `match_knowledge()`). Schema, RAG, message-handler, knowledge route, format.ts, knowledge page UX (scope toggle + Visible-to badge + Assign-to-agent form). 7 i18n keys. Both .env.example files updated. `pnpm type-check` passes. |
@@ -986,4 +985,3 @@
 - **NC-276** — 2026-03-15 — `fab1913` — Session: 20260315-001629-camello
 - **NC-277** — 2026-03-15 — `df6edb3` — Session: 20260315-020901-camello
 - **NC-278** — 2026-03-15 — `31b0ee0` — Session: 20260315-020901-camello
-- **NC-279** — 2026-03-15 — `168fdb4` — Session: 20260315-020901-camello
