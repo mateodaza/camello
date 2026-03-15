@@ -136,7 +136,9 @@
     "agentEmpty": "Aún no hay agente de ventas",
     "agentCreate": "Crear tu agente de ventas",
     "testChatReset": "Configuración guardada — iniciando chat nuevo.",
-    "testChatMobileButton": "Prueba tu agente"
+    "testChatMobileButton": "Prueba tu agente",
+    "agentConstraints": "Restricciones",
+    "agentConstraintsHint": "Reglas que definen lo que tu agente siempre o nunca hará. Configúralas en las Instrucciones de tu agente."
   },
   "agentWorkspace": {
     "backToAgents": "Volver a agentes",
@@ -1045,5 +1047,21 @@
     "advisorOpeningMessage": "Así está tu negocio al {date}: {signals}. ¿Qué quieres explorar?",
     "advisorSnapError": "No se pudo cargar el resumen — reintentar",
     "advisorSessionSaved": "Aprendizajes de la sesión guardados en la base de conocimiento"
+  },
+  "tooltips": {
+    "tooltipSkills": "Las habilidades son acciones que tu agente puede realizar: agendar reuniones, calificar prospectos o enviar cotizaciones.",
+    "tooltipApprovalMode": "En automático, tu agente actúa por su cuenta. Si está desactivado, prepara la acción y espera tu aprobación en la sección de Aprobaciones.",
+    "tooltipApprovals": "Acciones que tu agente preparó pero necesita tu visto bueno antes de enviarlas al cliente.",
+    "tooltipPerformance": "Cómo está rindiendo tu agente: conversaciones atendidas, prospectos calificados y acciones tomadas.",
+    "tooltipTrustGraduation": "A medida que apruebas más acciones, tu agente gana más independencia. Esta tarjeta muestra tu progreso de manual a automático.",
+    "tooltipInstructions": "Dile a tu agente cómo comportarse. Ejemplo: 'Saluda siempre con calidez. Nunca hables de precios de la competencia. Enfócate en agendar demos.'",
+    "tooltipTone": "Define el estilo general de comunicación. Profesional funciona para la mayoría de los negocios. Amigable es ideal para retail y hospitalidad.",
+    "tooltipConstraints": "Reglas que tu agente siempre sigue. 'Nunca hablar de' = temas que el agente se niega a tratar. 'Siempre derivar' = situaciones donde te conecta de inmediato.",
+    "tooltipKnowledgeScore": "Mide qué tan preparado está tu agente. Agrega más temas y responde preguntas sin respuesta para subir tu puntaje.",
+    "tooltipUnansweredQuestions": "Preguntas que tus clientes hicieron y que tu agente no pudo responder desde su base de conocimiento. Enséñale la respuesta y la manejará la próxima vez.",
+    "tooltipKnowledgeScope": "'Todos' muestra todo. 'Global' muestra el conocimiento disponible para todos los agentes. 'Por agente' muestra el conocimiento exclusivo de un agente específico.",
+    "tooltipWebhookUrl": "Esta es la URL que pegas en Meta Business Manager para que los mensajes de WhatsApp lleguen a tu agente.",
+    "tooltipVerifyToken": "Un código secreto que confirma la conexión entre Meta y Camello. Pégalo en la configuración del webhook de Meta.",
+    "tooltipPhoneNumberId": "El ID numérico junto a tu número de teléfono en Meta Business Manager. Se ve como 123456789012345 — NO es tu número de teléfono."
   }
 }

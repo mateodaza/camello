@@ -1396,7 +1396,7 @@ Mobile (<1024px):
 
 ## P1 — Contextual Help
 
-#### NC-286 [ ] Tooltips — add contextual help to key UI concepts
+#### NC-286 [x] Tooltips — add contextual help to key UI concepts
 
 Add tooltips to every UI element where a non-technical user might pause and think "what does this mean?" Use the existing `Tooltip` component (`apps/web/src/components/ui/tooltip.tsx`).
 

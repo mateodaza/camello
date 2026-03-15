@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 vi.mock('lucide-react', () => ({
   ChevronRight: ({ className }: { className?: string }) =>
     React.createElement('svg', { 'data-icon': 'ChevronRight', className }),
+  Info: ({ className }: { className?: string }) =>
+    React.createElement('svg', { 'data-icon': 'Info', className }),
 }));
 
 import { Section } from '../components/dashboard/section';
@@ -30,6 +32,20 @@ describe('NC-281 — Section primitive', () => {
     await waitFor(() => {
       expect(details).toHaveAttribute('open');
     });
+  });
+
+  it('3 — clicking tooltip button inside summary does not toggle section', () => {
+    render(
+      React.createElement(Section, { title: 'Skills', tooltip: 'Help text', defaultOpen: false }, 'content'),
+    );
+    const details = document.querySelector('details')!;
+    expect(details).not.toHaveAttribute('open');
+
+    const button = screen.getByRole('button', { name: /more information/i });
+    fireEvent.click(button);
+
+    // Section must remain closed — e.preventDefault() on <summary> suppressed the toggle
+    expect(details).not.toHaveAttribute('open');
   });
 
 });

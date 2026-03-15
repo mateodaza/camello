@@ -111,6 +111,8 @@ vi.mock('lucide-react', () => ({
     React.createElement('svg', { 'data-icon': 'Bot', className }),
   MessageSquare: ({ className }: { className?: string }) =>
     React.createElement('svg', { 'data-icon': 'MessageSquare', className }),
+  Info: ({ className }: { className?: string }) =>
+    React.createElement('svg', { 'data-icon': 'Info', className }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -153,6 +155,19 @@ const defaultWorkspaceData = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+
+  // jsdom does not implement matchMedia — provide a minimal stub
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 
   artifactListSpy.mockImplementation(({ type }: { type?: string } = {}) => {
     if (type === 'advisor') {
@@ -311,6 +326,12 @@ describe('NC-276 — Single-page agent config (/dashboard/agent)', () => {
     expect(document.querySelector('[data-testid="advisor-panel"]')).toBeNull();
     // Agent page itself renders normally (sales artifact is still present)
     expect(screen.getByTestId('agent-header')).toBeInTheDocument();
+  });
+
+  it('9 — ⓘ icon appears next to Skills section header on Agent page', () => {
+    render(React.createElement(AgentPage));
+    const modulesSection = screen.getByTestId('section-modules');
+    expect(modulesSection.querySelector('[data-icon="Info"]')).toBeInTheDocument();
   });
 
 });

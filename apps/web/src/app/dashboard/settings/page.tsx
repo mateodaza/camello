@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/stat-card';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import { generateQrSvg } from '@/lib/qr-svg';
 import { fmtDate, fmtCost } from '@/lib/format';
 import { PLAN_LIMITS, PLAN_PRICES } from '@camello/shared/constants';
@@ -461,6 +462,7 @@ function ProfileSection() {
 
 function ChannelsSection() {
   const t = useTranslations('channels');
+  const tt = useTranslations('tooltips');
 
   const channelList = trpc.channel.list.useQuery();
   const webhookCfg = trpc.channel.webhookConfig.useQuery();
@@ -556,9 +558,12 @@ function ChannelsSection() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-charcoal">
-              {t('channelWhatsappPhoneNumberId')}
-            </label>
+            <div className="flex items-center gap-1 mb-1">
+              <label className="text-sm font-medium text-charcoal">
+                {t('channelWhatsappPhoneNumberId')}
+              </label>
+              <InfoTooltip label={tt('tooltipPhoneNumberId')} />
+            </div>
             <input
               type="text"
               value={phoneNumberId}
@@ -610,9 +615,12 @@ function ChannelsSection() {
           ) : !webhookCfg.isError && (
             <>
               <div>
-                <label className="mb-1 block text-sm font-medium text-charcoal">
-                  {t('channelWebhookUrl')}
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label className="text-sm font-medium text-charcoal">
+                    {t('channelWebhookUrl')}
+                  </label>
+                  <InfoTooltip label={tt('tooltipWebhookUrl')} />
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -631,9 +639,12 @@ function ChannelsSection() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-charcoal">
-                  {t('channelWebhookVerifyToken')}
-                </label>
+                <div className="flex items-center gap-1 mb-1">
+                  <label className="text-sm font-medium text-charcoal">
+                    {t('channelWebhookVerifyToken')}
+                  </label>
+                  <InfoTooltip label={tt('tooltipVerifyToken')} />
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="text"

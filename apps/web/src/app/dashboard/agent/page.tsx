@@ -5,7 +5,9 @@ import { useTranslations } from 'next-intl';
 import {
   Bot, MessageSquare,
 } from 'lucide-react';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import { trpc } from '@/lib/trpc';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +45,7 @@ function matchTonePreset(tone: string): string {
 export default function AgentPage() {
   const t = useTranslations('agent');
   const ta = useTranslations('artifacts');
+  const tt = useTranslations('tooltips');
   const { addToast } = useToast();
   const utils = trpc.useUtils();
 
@@ -347,7 +350,10 @@ export default function AgentPage() {
           >
             <div className="space-y-3">
               <div>
-                <label className={labelClass}>{ta('instructions')}</label>
+                <label className={cn(labelClass, 'flex items-center gap-1')}>
+                  {ta('instructions')}
+                  <InfoTooltip label={tt('tooltipInstructions')} />
+                </label>
                 <textarea
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
@@ -359,7 +365,10 @@ export default function AgentPage() {
                 <p className="mt-0.5 text-right text-xs text-dune">{instructions.length}/2000</p>
               </div>
               <div>
-                <label className={labelClass}>{ta('tone')}</label>
+                <label className={cn(labelClass, 'flex items-center gap-1')}>
+                  {ta('tone')}
+                  <InfoTooltip label={tt('tooltipTone')} />
+                </label>
                 <select
                   value={tonePreset}
                   onChange={(e) => setTonePreset(e.target.value)}
@@ -406,6 +415,7 @@ export default function AgentPage() {
             defaultOpen={false}
             ref={modulesRef}
             testId="section-modules"
+            tooltip={tt('tooltipSkills')}
           >
             {!!artifactId && (
               <WorkspaceSectionErrorBoundary key="module-settings">
@@ -432,6 +442,7 @@ export default function AgentPage() {
             defaultOpen={false}
             autoOpen={pendingExec.isSuccess && (pendingExec.data?.length ?? 0) > 0}
             testId="section-approvals"
+            tooltip={tt('tooltipApprovals')}
           >
             {!!artifactId && (
               <WorkspaceSectionErrorBoundary key="approvals">
@@ -445,6 +456,7 @@ export default function AgentPage() {
             title={t('agentPerformance')}
             defaultOpen={false}
             testId="section-performance"
+            tooltip={tt('tooltipPerformance')}
           >
             {!!artifactId && (
               <>
@@ -496,16 +508,25 @@ export default function AgentPage() {
             testId="section-advanced"
           >
             {!!artifactId && (
-              <WorkspaceSectionErrorBoundary key="widget-appearance">
-                <WidgetAppearanceSection
-                  artifactId={artifactId}
-                  initialConfig={(workspace.data?.artifact.config as Record<string, unknown>) ?? {}}
-                  initialPersonality={
-                    (workspace.data?.artifact.personality as Record<string, unknown>) ?? {}
-                  }
-                  onSaveSuccess={handleConfigSaveSuccess}
-                />
-              </WorkspaceSectionErrorBoundary>
+              <>
+                <div className="mb-4 pb-4 border-b border-charcoal/8">
+                  <p className="flex items-center gap-1 text-xs font-medium text-charcoal">
+                    {t('agentConstraints')}
+                    <InfoTooltip label={tt('tooltipConstraints')} />
+                  </p>
+                  <p className="mt-0.5 text-xs text-dune">{t('agentConstraintsHint')}</p>
+                </div>
+                <WorkspaceSectionErrorBoundary key="widget-appearance">
+                  <WidgetAppearanceSection
+                    artifactId={artifactId}
+                    initialConfig={(workspace.data?.artifact.config as Record<string, unknown>) ?? {}}
+                    initialPersonality={
+                      (workspace.data?.artifact.personality as Record<string, unknown>) ?? {}
+                    }
+                    onSaveSuccess={handleConfigSaveSuccess}
+                  />
+                </WorkspaceSectionErrorBoundary>
+              </>
             )}
           </Section>
 

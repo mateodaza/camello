@@ -136,7 +136,9 @@
     "agentEmpty": "No sales agent yet",
     "agentCreate": "Create your sales agent",
     "testChatReset": "Config saved — starting fresh chat.",
-    "testChatMobileButton": "Test your agent"
+    "testChatMobileButton": "Test your agent",
+    "agentConstraints": "Constraints",
+    "agentConstraintsHint": "Rules that define what your agent will always or never do. Set these via your agent's Instructions."
   },
   "agentWorkspace": {
     "backToAgents": "Back to agents",
@@ -1045,5 +1047,21 @@
     "advisorOpeningMessage": "Here's your business as of {date}: {signals}. What do you want to dig into?",
     "advisorSnapError": "Could not load snapshot — retry",
     "advisorSessionSaved": "Session insights saved to knowledge base"
+  },
+  "tooltips": {
+    "tooltipSkills": "Skills are actions your agent can perform — like booking meetings, qualifying leads, or sending quotes.",
+    "tooltipApprovalMode": "When automatic, your agent acts on its own. When off, it prepares the action and waits for you to approve in the Approvals section.",
+    "tooltipApprovals": "Actions your agent has prepared but needs your OK to send to the customer.",
+    "tooltipPerformance": "How your agent is doing — conversations handled, leads qualified, and actions taken.",
+    "tooltipTrustGraduation": "As you approve more actions, your agent earns more independence. This card tracks your journey from manual to automatic.",
+    "tooltipInstructions": "Tell your agent how to behave. Example: 'Always greet warmly. Never discuss competitor pricing. Focus on booking demos.'",
+    "tooltipTone": "Sets the overall communication style. Professional works for most businesses. Friendly works well for retail and hospitality.",
+    "tooltipConstraints": "Rules your agent always follows. 'Never discuss' = topics the agent refuses to talk about. 'Always hand off' = situations where it immediately connects you.",
+    "tooltipKnowledgeScore": "Measures how well-prepared your agent is. Add more topics and answer unanswered questions to increase your score.",
+    "tooltipUnansweredQuestions": "Questions your customers asked that your agent couldn't answer from its knowledge base. Teach it the answer and it'll handle them next time.",
+    "tooltipKnowledgeScope": "'All' shows everything. 'Global' shows knowledge available to all agents. 'By agent' shows knowledge only a specific agent can see.",
+    "tooltipWebhookUrl": "This is the URL you paste into Meta Business Manager so WhatsApp messages reach your agent.",
+    "tooltipVerifyToken": "A secret code that confirms the connection between Meta and Camello. Paste it into Meta's webhook configuration.",
+    "tooltipPhoneNumberId": "The numeric ID next to your phone number in Meta Business Manager. It looks like 123456789012345 — it's NOT your phone number."
   }
 }

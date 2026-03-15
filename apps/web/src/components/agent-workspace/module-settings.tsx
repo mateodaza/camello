@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/hooks/use-toast';
 
@@ -48,6 +49,7 @@ function initState(m: BoundModule): ModuleLocalState {
 
 export function ModuleSettings({ artifactId, boundModules, onSaveSuccess }: ModuleSettingsProps) {
   const t = useTranslations('agentWorkspace');
+  const tt = useTranslations('tooltips');
   const { addToast } = useToast();
   const utils = trpc.useUtils();
   const attachModule = trpc.artifact.attachModule.useMutation();
@@ -169,9 +171,12 @@ export function ModuleSettings({ artifactId, boundModules, onSaveSuccess }: Modu
 
                 {/* Autonomy toggle */}
                 <div className="flex items-center justify-between gap-3">
-                  <label htmlFor={`toggle-${m.moduleId}`} className="text-sm text-charcoal">
-                    {t('autoToggleLabel')}
-                  </label>
+                  <div className="flex items-center gap-1">
+                    <label htmlFor={`toggle-${m.moduleId}`} className="text-sm text-charcoal">
+                      {t('autoToggleLabel')}
+                    </label>
+                    <InfoTooltip label={tt('tooltipApprovalMode')} />
+                  </div>
                   <input
                     id={`toggle-${m.moduleId}`}
                     type="checkbox"

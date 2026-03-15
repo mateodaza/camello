@@ -11,12 +11,14 @@ import { QueryError } from '@/components/query-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { Plus, MoreHorizontal, CheckCircle2 } from 'lucide-react';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import { KnowledgeGuidedEmptyState } from '@/components/dashboard/knowledge-guided-empty-state';
 import { useToast } from '@/hooks/use-toast';
 
 export default function KnowledgePage() {
   const t = useTranslations('knowledge');
   const tc = useTranslations('common');
+  const tt = useTranslations('tooltips');
   const locale = useLocale();
   const utils = trpc.useUtils();
   const { addToast } = useToast();
@@ -281,10 +283,11 @@ export default function KnowledgePage() {
       <div className="flex flex-wrap items-baseline gap-3">
         <h1 className="font-heading text-xl font-bold text-charcoal md:text-2xl">{t('pageTitle')}</h1>
         {scoreData && (
-          <span className="text-sm text-dune">
+          <span className="flex items-center gap-1 text-sm text-dune">
             {t('knowledgeScoreInline', { score: scoreData.score })}
             {' — '}
             <span className={`font-medium ${scoreColor}`}>{scoreLabel}</span>
+            <InfoTooltip label={tt('tooltipKnowledgeScore')} />
           </span>
         )}
       </div>
@@ -312,17 +315,20 @@ export default function KnowledgePage() {
           <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionDocuments')}</h2>
           <div className="flex flex-wrap items-center gap-3">
             {/* Scope toggle */}
-            <div className="flex rounded-md border border-charcoal/15 bg-cream text-sm overflow-hidden">
-              {(['all', 'global', 'agent'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => { setFilterScope(s); setOffset(0); setDeleteConfirm(null); setIngestSuccess(null); }}
-                  className={`px-3 py-1.5 font-medium transition-colors ${filterScope === s ? 'bg-teal text-cream' : 'text-charcoal hover:bg-sand'}`}
-                >
-                  {s === 'all' ? t('scopeAll') : s === 'global' ? t('scopeGlobal') : t('scopeAgent')}
-                </button>
-              ))}
+            <div className="flex items-center gap-1">
+              <div className="flex rounded-md border border-charcoal/15 bg-cream text-sm overflow-hidden">
+                {(['all', 'global', 'agent'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => { setFilterScope(s); setOffset(0); setDeleteConfirm(null); setIngestSuccess(null); }}
+                    className={`px-3 py-1.5 font-medium transition-colors ${filterScope === s ? 'bg-teal text-cream' : 'text-charcoal hover:bg-sand'}`}
+                  >
+                    {s === 'all' ? t('scopeAll') : s === 'global' ? t('scopeGlobal') : t('scopeAgent')}
+                  </button>
+                ))}
+              </div>
+              <InfoTooltip label={tt('tooltipKnowledgeScope')} />
             </div>
             {filterScope === 'agent' && (
               <select
@@ -456,7 +462,10 @@ export default function KnowledgePage() {
       {/* ===== SECTION 2: Knowledge Gaps ===== */}
       <div className="space-y-4" data-testid="knowledge-gaps-section">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="font-heading text-lg font-semibold text-charcoal">{t('sectionGaps')}</h2>
+          <h2 className="font-heading text-lg font-semibold text-charcoal flex items-center gap-1">
+            {t('sectionGaps')}
+            <InfoTooltip label={tt('tooltipUnansweredQuestions')} />
+          </h2>
           {(artifacts.data?.length ?? 0) > 1 && (
             <select
               value={selectedArtifactId}

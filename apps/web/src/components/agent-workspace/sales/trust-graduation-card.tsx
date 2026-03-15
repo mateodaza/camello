@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { Award } from 'lucide-react';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import { trpc } from '@/lib/trpc';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,6 +26,7 @@ export function TrustGraduationCard({
   onGoToModules,
 }: TrustGraduationCardProps) {
   const t = useTranslations('agentWorkspace');
+  const tt = useTranslations('tooltips');
 
   const streaksQuery = trpc.agent.moduleStreaks.useQuery({ artifactId });
 
@@ -41,7 +43,10 @@ export function TrustGraduationCard({
   const trustHeader = (
     <span className="flex items-center gap-2">
       <Award className="h-4 w-4 text-teal" />
-      <span className="font-heading text-base font-semibold text-charcoal">{t('trustTitle')}</span>
+      <span className="font-heading text-base font-semibold text-charcoal flex items-center gap-1">
+        {t('trustTitle')}
+        <InfoTooltip label={tt('tooltipTrustGraduation')} />
+      </span>
     </span>
   );
 
