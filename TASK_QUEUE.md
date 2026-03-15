@@ -1016,7 +1016,8 @@ Move the `AdvisorPanel` component from the old Home page to the bottom of the ne
 
 ## P1 — Flatten Settings
 
-#### NC-278 [ ] One-page Settings — merge Profile + Billing + Channels
+#### NC-278 [x] One-page Settings — merge Profile + Billing + Channels
+Created `settings/page.tsx` with ProfileSection, ChannelsSection, BillingSection in `<details>` accordion. Rewrote 3 sub-pages as redirects, stubbed `settings-nav.tsx`, updated sidebar href + isActive logic, updated i18n (en/es), added 3-test suite. Type-check passes.
 
 Replace the 3-page settings sub-navigation with a single scrollable page using collapsible sections. Kill `settings-nav.tsx` and the layout wrapper.
 

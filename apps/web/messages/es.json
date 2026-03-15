@@ -1066,9 +1066,10 @@
     "refund": "Reembolso"
   },
   "settings": {
-    "navProfile": "Perfil",
-    "navBilling": "Facturación",
-    "navChannels": "Canales"
+    "pageTitle": "Configuración",
+    "sectionProfile": "Perfil y Marca",
+    "sectionChannels": "Canales",
+    "sectionBilling": "Facturación"
   },
   "channels": {
     "channelWhatsapp": "WhatsApp",

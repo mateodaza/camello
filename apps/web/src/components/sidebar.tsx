@@ -19,7 +19,7 @@ const navItems = [
   { href: '/dashboard/conversations', labelKey: 'inbox'     as const, icon: MessageSquare, badge: true  },
   { href: '/dashboard/agent',         labelKey: 'agent'     as const, icon: Bot,           badge: false },
   { href: '/dashboard/knowledge',     labelKey: 'knowledge' as const, icon: BookOpen,      badge: false },
-  { href: '/dashboard/settings/billing', labelKey: 'settings' as const, icon: Settings,   badge: false },
+  { href: '/dashboard/settings', labelKey: 'settings' as const, icon: Settings,   badge: false },
 ];
 
 interface SidebarProps {
@@ -105,10 +105,7 @@ function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       {/* Navigation */}
       <nav className={cn('flex-1 space-y-1', collapsed ? 'p-2' : 'p-3')}>
         {navItems.map(({ href, labelKey, icon: Icon, badge }) => {
-          const isActive =
-            href === '/dashboard/settings/billing'
-              ? pathname.startsWith('/dashboard/settings')
-              : pathname.startsWith(href);
+          const isActive = pathname.startsWith(href);
 
           return (
             <Tooltip key={href} label={t(labelKey)} show={collapsed}>

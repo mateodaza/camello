@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-278 | One-page Settings — merge Profile + Billing + Channels | Mar 15 | Created `settings/page.tsx` (merged 3-section accordion: ProfileSection, ChannelsSection, BillingSection). Rewrote 3 sub-pages as redirects. Stubbed `settings-nav.tsx`. Updated sidebar href→`/dashboard/settings` + removed special isActive. i18n: 4 new keys, 3 nav keys removed (en+es). 3-test suite `settings-page.test.tsx`. Type-check passes. |
 | NC-275 | Inbox as home — redirect + stat strip | Mar 14 | `/dashboard/page.tsx` → redirect to `/dashboard/conversations`. Sidebar 6→4 items (Inbox, Agent→`/dashboard/artifacts`, Knowledge, Settings→`/dashboard/settings/billing`). Conversations page: stat strip (3 metrics from `dashboardOverview`) + onboarding resume banner. 6 i18n keys (en+es). Type-check passes. |
 | NC-274 | Global vs per-agent knowledge split | Mar 14 | Migration 0029 (`artifact_id` on `knowledge_docs`, rewritten `match_knowledge()`). Schema, RAG, message-handler, knowledge route, format.ts, knowledge page UX (scope toggle + Visible-to badge + Assign-to-agent form). 7 i18n keys. Both .env.example files updated. `pnpm type-check` passes. |
 | NC-273 | PR audit hardening (NC-270–272) | Mar 14 | 11 fixes + 3 new tests. Critical: `sql` tag removed from advisor-snapshot; `is_active` filter added to internal retry route; `removeChannel` in finally; empty-msgs guard in summarizeSession; onError + visible error state in advisor-panel; servicePool usage-restriction comment; ref pattern in use-realtime-inbox; warn→error in message-handler; secret guard + response body in whatsapp-retry. `pnpm type-check` passes. |
@@ -983,3 +984,4 @@
 - **NC-272** — 2026-03-14 — `25b6fe8` — Session: 20260314-011704-camello — ⚠ Committed after soft review rejections cap; local verification passed.
 - **NC-276** — 2026-03-15 — `fab1913` — Session: 20260315-001629-camello
 - **NC-277** — 2026-03-15 — `df6edb3` — Session: 20260315-020901-camello
+- **NC-278** — 2026-03-15 — `31b0ee0` — Session: 20260315-020901-camello
