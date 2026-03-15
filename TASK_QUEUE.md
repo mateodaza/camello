@@ -1074,8 +1074,7 @@ Replace the 3-page settings sub-navigation with a single scrollable page using c
 
 ## P1 — Knowledge Simplification
 
-#### NC-279 [x] Knowledge page cleanup — reduce visual noise
-Modal ingest dialog, compact score header, learnings section removed, table→card list with dropdown overflow menu, gaps reordered above docs. New dropdown-menu.tsx component (pure React, no Radix). 8 tests pass, type-check clean.
+#### NC-279 [ ] Knowledge page cleanup — reduce visual noise
 
 Simplify the Knowledge page (currently 835 lines, 5 sections) without removing functionality.
 

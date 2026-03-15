@@ -151,8 +151,7 @@ export function groupChunksByTitle(
   >();
 
   for (const row of chunks) {
-    // Composite key: same title with different scope (global vs agent) must produce separate cards
-    const key = `${row.title ?? row.id}|${row.artifactId ?? ''}`;
+    const key = row.title ?? row.id;
     const existing = map.get(key);
     if (existing) {
       existing.chunkCount++;
