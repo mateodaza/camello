@@ -1064,6 +1064,18 @@
     "tooltipVerifyToken": "A secret code that confirms the connection between Meta and Camello. Paste it into Meta's webhook configuration.",
     "tooltipPhoneNumberId": "The numeric ID next to your phone number in Meta Business Manager. It looks like 123456789012345 — it's NOT your phone number."
   },
+  "firstSessionGuide": {
+    "guideTitle": "Your agent is live! Here's what to do next:",
+    "guideSetup": "Set up your agent",
+    "guideTestChat": "Test a conversation",
+    "guideAddKnowledge": "Teach your agent more",
+    "guideShareLink": "Share your chat link",
+    "guideTestChatCta": "Try it",
+    "guideAddKnowledgeCta": "Add knowledge",
+    "guideShareLinkCta": "Copy link",
+    "guideLinkCopied": "Copied!",
+    "guideDismiss": "Dismiss guide"
+  },
   "emptyStates": {
     "inboxTitle": "No conversations yet",
     "inboxDescription": "Share your agent's chat link with a customer, or test it yourself to see how it works.",

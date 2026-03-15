@@ -13,6 +13,7 @@ import { ChatThread } from '@/components/inbox/chat-thread';
 import { CustomerPanel } from '@/components/inbox/customer-panel';
 import { useRealtimeInbox, type NewMessagePayload } from '@/hooks/use-realtime-inbox';
 import { EmptyState } from '@/components/dashboard/empty-state';
+import { FirstSessionGuide } from '@/components/dashboard/first-session-guide';
 
 export default function ConversationsPage() {
   const searchParams = useSearchParams();
@@ -82,6 +83,14 @@ export default function ConversationsPage() {
   const onboardingSettings = onboardingStatus.data?.settings as Record<string, unknown> | null | undefined;
   const showResumeBanner = !onboardingStatus.isLoading && onboardingSettings?.onboardingComplete !== true;
 
+  const guideState = onboardingSettings?.firstSessionGuide as {
+    dismissed?: boolean; testedChat?: boolean; addedKnowledge?: boolean; sharedLink?: boolean;
+  } | null | undefined;
+
+  const showGuide = !onboardingStatus.isLoading
+    && onboardingSettings?.onboardingComplete === true
+    && guideState?.dismissed !== true;
+
   return (
     <>
       {showResumeBanner && (
@@ -91,6 +100,13 @@ export default function ConversationsPage() {
             {t('resumeSetupCta')}
           </Link>
         </div>
+      )}
+
+      {showGuide && (
+        <FirstSessionGuide
+          guideState={guideState}
+          testedChatAuto={!conversationList.isLoading && (conversationList.data?.items?.length ?? 0) > 0}
+        />
       )}
 
       <div className="mb-4 flex items-center gap-4 text-xs text-dune">

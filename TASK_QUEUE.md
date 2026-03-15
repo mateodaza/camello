@@ -1503,7 +1503,7 @@ Renders: centered icon (48px, muted), title (Jost 600), description (DM Sans, te
 
 ## P2 — Polish
 
-#### NC-288 [ ] First-session guide — post-onboarding "what's next" checklist
+#### NC-288 [x] First-session guide — post-onboarding "what's next" checklist
 
 After onboarding completes, show a dismissible checklist card on the inbox page that guides the user through their first productive session.
 
@@ -1547,6 +1547,8 @@ After onboarding completes, show a dismissible checklist card on the inbox page 
 - `pnpm type-check` passes
 
 **Depends on:** NC-275 (inbox is home), NC-276 (agent page), NC-285 (test chat on agent page)
+
+> Done: `tenant.updateGuideStep` tRPC mutation (JSONB merge). `first-session-guide.tsx` (4-item checklist, auto-detect testedChat/addedKnowledge, copy-link, dismiss). `conversations/page.tsx` `showGuide` gate. 10 i18n keys en+es. `first-session-guide.test.tsx` (4 tests). Type-check passes.
 
 ---
 
