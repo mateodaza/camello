@@ -129,6 +129,19 @@
     "advisorDesc": "Your internal business co-pilot — ask it anything about your sales activity",
     "chatWithAdvisor": "Chat with Advisor"
   },
+  "agent": {
+    "agentHeader": "Sales Agent",
+    "agentIdentity": "Identity",
+    "agentPersonality": "Personality",
+    "agentModules": "Modules & Autonomy",
+    "agentApprovals": "Approvals",
+    "agentPerformance": "Performance",
+    "agentSalesActivity": "Sales Activity",
+    "agentAdvanced": "Advanced",
+    "agentTestChat": "Test Chat",
+    "agentEmpty": "No sales agent yet",
+    "agentCreate": "Create your sales agent"
+  },
   "agentWorkspace": {
     "backToAgents": "Back to agents",
     "pageTitle": "Agent Workspace",

@@ -16,10 +16,10 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { trpc } from '@/lib/trpc';
 
 const navItems = [
-  { href: '/dashboard/conversations',    labelKey: 'inbox'     as const, icon: MessageSquare,   badge: true  },
-  { href: '/dashboard/artifacts',        labelKey: 'agent'     as const, icon: Bot,              badge: false },
-  { href: '/dashboard/knowledge',        labelKey: 'knowledge' as const, icon: BookOpen,         badge: false },
-  { href: '/dashboard/settings/billing', labelKey: 'settings'  as const, icon: Settings,         badge: false },
+  { href: '/dashboard/conversations', labelKey: 'inbox'     as const, icon: MessageSquare, badge: true  },
+  { href: '/dashboard/agent',         labelKey: 'agent'     as const, icon: Bot,           badge: false },
+  { href: '/dashboard/knowledge',     labelKey: 'knowledge' as const, icon: BookOpen,      badge: false },
+  { href: '/dashboard/settings/billing', labelKey: 'settings' as const, icon: Settings,   badge: false },
 ];
 
 interface SidebarProps {
@@ -108,8 +108,7 @@ function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           const isActive =
             href === '/dashboard/settings/billing'
               ? pathname.startsWith('/dashboard/settings')
-              : pathname.startsWith(href) ||
-                (href === '/dashboard/artifacts' && pathname.startsWith('/dashboard/agents'));
+              : pathname.startsWith(href);
 
           return (
             <Tooltip key={href} label={t(labelKey)} show={collapsed}>

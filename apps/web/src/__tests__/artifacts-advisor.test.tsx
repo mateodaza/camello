@@ -6,6 +6,10 @@ import React from 'react';
 // Mocks (same pattern as artifacts-hero.test.tsx)
 // ---------------------------------------------------------------------------
 
+const { redirectMock } = vi.hoisted(() => ({
+  redirectMock: vi.fn(),
+}));
+
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }));
@@ -65,38 +69,31 @@ vi.mock('@/lib/trpc', () => ({
   trpc: buildNestedProxy({}, []),
 }));
 
+vi.mock('next/navigation', () => ({
+  redirect: redirectMock,
+}));
+
 import ArtifactsPage from '../app/dashboard/artifacts/page';
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('NC-268 — artifacts page: advisor card', () => {
+// NC-276: /dashboard/artifacts redirects to /dashboard/agent.
+// The advisor card is now rendered inside the /dashboard/agent page.
+describe('NC-276 — artifacts page redirects (advisor flow moved to /dashboard/agent)', () => {
   beforeEach(() => {
     queryMocks.clear();
-    queryMocks.set('artifact.list', mockQueryResult([]));
+    redirectMock.mockReset();
   });
 
-  it('Test 3: advisor card renders when artifact.list returns an advisor artifact', () => {
-    queryMocks.set('artifact.list', mockQueryResult([
-      {
-        id: 'adv1',
-        type: 'advisor',
-        isActive: true,
-        name: 'Acme Advisor',
-        createdAt: new Date(),
-        personality: {},
-      },
-    ]));
-
-    render(React.createElement(ArtifactsPage));
-
-    const advisorCard = document.querySelector('[data-testid="advisor-card"]');
-    expect(advisorCard).toBeTruthy();
-
-    // The translated key 'chatWithAdvisor' should appear in the card
-    expect(screen.getByText('chatWithAdvisor')).toBeInTheDocument();
-    // The advisor name should be shown
-    expect(screen.getByText('Acme Advisor')).toBeInTheDocument();
+  it('artifacts/page.tsx redirects to /dashboard/agent', () => {
+    redirectMock.mockImplementation(() => { throw new Error('redirect'); });
+    try {
+      render(React.createElement(ArtifactsPage as unknown as React.FC));
+    } catch {
+      // redirect() throws — expected
+    }
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agent');
   });
 });

@@ -902,7 +902,7 @@ _Done: `/dashboard/page.tsx` → client redirect to `/dashboard/conversations`. 
 
 ## P0 — Single-Page Agent
 
-#### NC-276 [ ] Single-page agent config — merge artifacts + workspace into `/dashboard/agent`
+#### NC-276 [x] Single-page agent config — merge artifacts + workspace into `/dashboard/agent`
 
 Replace the Agents list page (`/dashboard/artifacts`, 619 lines) and Agent Workspace page (`/dashboard/agents/[id]`, 420 lines) with a single scrollable page at `/dashboard/agent`. Kill the dual-tab (Setup vs Dashboard) pattern. Everything on one page with progressive disclosure.
 

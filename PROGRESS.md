@@ -981,3 +981,4 @@
 - **NC-270** — 2026-03-14 — `7dfd0ae` — Session: 20260314-011704-camello
 - **NC-271** — 2026-03-14 — `0107c00` — Session: 20260314-011704-camello
 - **NC-272** — 2026-03-14 — `25b6fe8` — Session: 20260314-011704-camello — ⚠ Committed after soft review rejections cap; local verification passed.
+- **NC-276** — 2026-03-15 — `fab1913` — Session: 20260315-001629-camello

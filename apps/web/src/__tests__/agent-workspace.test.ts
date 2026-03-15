@@ -16,10 +16,12 @@ vi.mock('next-intl', () => ({
 }));
 
 // next/navigation
+const redirectMock = vi.fn();
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'test-artifact-id' }),
   useRouter: () => ({ push: vi.fn() }),
   usePathname: () => '/dashboard/agents/test-artifact-id',
+  redirect: redirectMock,
 }));
 
 // next/link — render as <a>
@@ -287,62 +289,17 @@ describe('AlertList', () => {
 // Render Tests — Workspace Page
 // ---------------------------------------------------------------------------
 
-describe('AgentWorkspacePage', () => {
-  beforeEach(() => {
-    queryMocks.clear();
-    mutationMocks.clear();
-  });
-
-  it('shows loading skeleton when query is pending', async () => {
-    setQueryMock('agent.workspace', undefined, { isLoading: true });
-
+// NC-276: /dashboard/agents/[id] now redirects to /dashboard/agent
+describe('AgentWorkspacePage redirect (NC-276)', () => {
+  it('redirects /dashboard/agents/[id] to /dashboard/agent', async () => {
+    redirectMock.mockImplementation(() => { throw new Error('redirect'); });
     const mod = await import('@/app/dashboard/agents/[id]/page');
-    const { container } = render(createElement(mod.default));
-
-    const skeletons = container.querySelectorAll('.animate-pulse');
-    expect(skeletons.length).toBeGreaterThanOrEqual(4);
-  });
-
-  it('shows QueryError when primary query fails', async () => {
-    setQueryMock('agent.workspace', undefined, {
-      isLoading: false,
-      isError: true,
-      error: { message: 'Network error', data: { code: 'INTERNAL_SERVER_ERROR' } },
-    });
-
-    const mod = await import('@/app/dashboard/agents/[id]/page');
-    render(createElement(mod.default));
-
-    // QueryError uses the common.error.internalServer key via useTranslations
-    // Our mock returns the key as-is
-    expect(screen.getByText('error.internalServer')).toBeInTheDocument();
-  });
-
-  it('renders workspace content when data loaded', async () => {
-    setQueryMock('agent.workspace', {
-      artifact: {
-        id: 'test-artifact-id',
-        name: 'Test Sales Agent',
-        type: 'sales',
-        isActive: true,
-      },
-      boundModules: [
-        { slug: 'qualify_lead', name: 'Qualify Lead', autonomyLevel: 'fully_autonomous' },
-      ],
-      metrics: {
-        totalExecutions: 42,
-        autonomousExecutions: 38,
-        pendingApprovals: 4,
-        automationScore: 90,
-        conversationCount: 15,
-      },
-    });
-
-    const mod = await import('@/app/dashboard/agents/[id]/page');
-    render(createElement(mod.default));
-
-    expect(screen.getByText('Test Sales Agent')).toBeInTheDocument();
-    expect(screen.getByText('configIdentityTitle')).toBeInTheDocument();
+    try {
+      render(createElement(mod.default as unknown as React.FC));
+    } catch {
+      // redirect() throws — expected in test environment
+    }
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agent');
   });
 });
 

@@ -129,6 +129,19 @@
     "advisorDesc": "Tu co-piloto interno de negocio — pregúntale cualquier cosa sobre tu actividad de ventas",
     "chatWithAdvisor": "Chatear con el Asesor"
   },
+  "agent": {
+    "agentHeader": "Agente de Ventas",
+    "agentIdentity": "Identidad",
+    "agentPersonality": "Personalidad",
+    "agentModules": "Módulos y Autonomía",
+    "agentApprovals": "Aprobaciones",
+    "agentPerformance": "Rendimiento",
+    "agentSalesActivity": "Actividad de Ventas",
+    "agentAdvanced": "Avanzado",
+    "agentTestChat": "Probar Chat",
+    "agentEmpty": "Aún no hay agente de ventas",
+    "agentCreate": "Crear tu agente de ventas"
+  },
   "agentWorkspace": {
     "backToAgents": "Volver a agentes",
     "pageTitle": "Workspace del Agente",
