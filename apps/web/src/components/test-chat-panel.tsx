@@ -211,7 +211,8 @@ export function TestChatPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-dune hover:bg-sand hover:text-charcoal"
+            aria-label={t('close')}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-dune hover:bg-sand hover:text-charcoal"
           >
             <X className="h-5 w-5" />
           </button>
@@ -241,7 +242,8 @@ export function TestChatPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-dune hover:bg-sand hover:text-charcoal"
+            aria-label={t('close')}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-dune hover:bg-sand hover:text-charcoal"
           >
             <X className="h-5 w-5" />
           </button>

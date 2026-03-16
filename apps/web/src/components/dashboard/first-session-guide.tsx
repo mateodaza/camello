@@ -40,11 +40,15 @@ export function FirstSessionGuide({ guideState, testedChatAuto }: FirstSessionGu
     const slug = tenantQuery.data?.slug;
     if (!slug) return;
     const url = `${window.location.origin}/chat/${slug}`;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    if (!sharedLink) {
-      updateStep.mutate({ step: 'sharedLink', value: true });
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      if (!sharedLink) {
+        updateStep.mutate({ step: 'sharedLink', value: true });
+      }
+    } catch {
+      // Clipboard API unavailable (HTTP context or denied permission) — no-op
     }
   }
 

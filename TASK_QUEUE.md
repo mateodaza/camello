@@ -6,7 +6,7 @@
 > After completing a task: mark `[x]`, add summary line, update `PROGRESS.md`, commit together.
 > When starting a new sprint: update the goal below, add new tasks, collapse old completed tasks.
 
-> **Current sprint:** Dashboard UX Simplification (NC-275 → NC-282)
+> **Current sprint:** Multi-Agent + Advisor (NC-290 → NC-301)
 > Radically simplify the dashboard from 12 pages / 6 nav items to 4 pages / 4 nav items. Inspired by Vapi (single-page agent config), Chatwoot/Crisp (inbox-first home), Intercom (inline test chat). Kill navigation depth, merge scattered config surfaces, apply aggressive progressive disclosure.
 
 ---
@@ -1580,9 +1580,376 @@ Final audit of the entire experience sprint. Verify all terminology changes are 
 
 ---
 
-## Post-Sprint (After NC-289)
+## Multi-Agent + Advisor Sprint (NC-290 → NC-301)
 
-After this sprint completes, the product is ready for the first 5-10 real users. Next priorities (to be planned after user feedback):
-1. **Email notifications for pending approvals** — Resend infrastructure is already in place (NC-233). The trigger (fire on `module_executions.status = 'pending'`) and the email template are NOT yet built, so this is still real future work despite the infrastructure existing.
-2. **Meta Embedded Signup** — Replace manual token entry with a proper OAuth flow (1-week Meta App review required).
-3. **Invoice module** — Quote → formatted invoice with shareable link. Integrate Wompi/Nequi for Colombia.
+> **Sprint goal:** Evolve from single-agent dashboard to multi-agent architecture. Sidebar shows "Agents" (plural) linking to an index page with cards for each agent. Sales agent page stays exactly where it is (zero regression risk). Advisor gets its own standalone page with snapshot metrics, chat, session history, and quick prompts. Quick wins: i18n cleanup, test coverage, mobile polish.
+
+### Sprint guardrails
+
+**Zero regression on Sales.** The existing `/dashboard/agent/page.tsx` (641 lines) is NOT moved, renamed, or refactored. It stays in place and continues working. The agents index page links to it directly. The only change is removing the `AdvisorPanel` import (NC-293) since the advisor now has its own page.
+
+**Advisor page reuses existing components.** `AdvisorPanel` (`components/dashboard/advisor-panel.tsx`) already handles artifact lookup, snapshot fetching, two-phase open, session summarization, and `TestChatPanel` integration. The new advisor page composes these pieces — it does NOT rewrite them.
+
+**Existing tRPC routes are sufficient.** `artifact.list` (supports `type` filter), `advisor.snapshot`, `advisor.ensureAdvisor`, `advisor.summarizeSession`, `conversation.list` — all already exist. No new backend procedures needed for this sprint.
+
+**Primitives available.** `MetricsGrid` (`components/agent-workspace/metrics-grid.tsx`), `Section` (`components/dashboard/section.tsx`), `EmptyState` (`components/dashboard/empty-state.tsx`), `TestChatPanel` (`components/test-chat-panel.tsx`), `Skeleton` (`components/ui/skeleton.tsx`). All exist and are tested.
+
+---
+
+## P0 — Multi-Agent Structure
+
+#### NC-290 [ ] Sidebar "Agent" → "Agents" + href update
+
+Change the sidebar nav item label from "Agent" to "Agents" and update the href from `/dashboard/agent` to `/dashboard/agents`.
+
+**Files to modify:**
+- `apps/web/src/components/sidebar.tsx` — change `navItems` entry: `href: '/dashboard/agents'`, `labelKey: 'agents'`
+- `apps/web/messages/en.json` — add `sidebar.agents: "Agents"` (keep `sidebar.agent` for backward compat until NC-293)
+- `apps/web/messages/es.json` — add `sidebar.agents: "Agentes"`
+
+**Acceptance Criteria:**
+- Sidebar shows "Agents" with Bot icon
+- Clicking navigates to `/dashboard/agents`
+- `pnpm type-check` passes
+
+**Depends on:** none
+
+---
+
+#### NC-291 [ ] Agents index page — card grid (Sales + Advisor)
+
+Create a new page at `/dashboard/agents/page.tsx` that shows a card for each tenant artifact. For now, that's always 2 cards: Sales Agent and Advisor.
+
+**Files to create:**
+- `apps/web/src/app/dashboard/agents/page.tsx`
+
+**Files to modify:**
+- `apps/web/messages/en.json` — add `agents` namespace: `pageTitle: "Your Agents"`, `salesCard: "Sales Agent"`, `advisorCard: "Business Advisor"`, `salesDesc: "Handles customer conversations, qualifies leads, and closes deals"`, `advisorDesc: "Your internal co-pilot — ask it anything about your business activity"`, `cardActive: "Active"`, `cardInactive: "Inactive"`, `cardConfigure: "Configure"`, `cardOpen: "Open"`
+- `apps/web/messages/es.json` — matching Spanish
+
+**Page structure:**
+```
+Your Agents                           ← h1, font-heading
+┌─────────────────┐ ┌─────────────────┐
+│ 🤖 Sales Agent  │ │ 🧠 Advisor      │
+│                 │ │                 │
+│ Handles customer│ │ Your internal   │
+│ conversations...│ │ co-pilot...     │
+│                 │ │                 │
+│ ● Active        │ │ ● Active        │
+│                 │ │                 │
+│ [Configure →]   │ │ [Open →]        │
+└─────────────────┘ └─────────────────┘
+```
+
+**Implementation details:**
+- Query: `trpc.artifact.list.useQuery({ activeOnly: false })` — returns all artifacts
+- Card layout: `grid grid-cols-1 sm:grid-cols-2 gap-4`
+- Card style: `rounded-xl border border-charcoal/8 bg-cream p-6` (matches existing card patterns)
+- Icons: use `Bot` for sales type, `BrainCircuit` (from lucide-react) for advisor type
+- Status dot: green circle for `isActive`, gray for inactive
+- Sales card links to `/dashboard/agent` (existing page, NOT moved)
+- Advisor card links to `/dashboard/agents/advisor` (new page, NC-292)
+- Loading: show 2 `Skeleton` cards
+- Error: show `QueryError` component
+- If no artifacts found (edge case): show `EmptyState` with CTA to `/onboarding`
+
+**Acceptance Criteria:**
+- Page renders 2 cards (Sales + Advisor) from real `artifact.list` data
+- Sales card links to `/dashboard/agent`
+- Advisor card links to `/dashboard/agents/advisor`
+- Loading and error states handled
+- `pnpm type-check` passes
+
+**Depends on:** NC-290
+
+---
+
+#### NC-292 [ ] Advisor standalone page — snapshot metrics + chat
+
+Create the advisor's own page at `/dashboard/agents/advisor/page.tsx`. This is the advisor's home — it shows live business metrics from `advisor.snapshot` and a full-height chat powered by the existing `TestChatPanel`.
+
+**Files to create:**
+- `apps/web/src/app/dashboard/agents/advisor/page.tsx`
+
+**Files to modify:**
+- `apps/web/messages/en.json` — add keys under `advisor` namespace: `pageTitle: "Business Advisor"`, `pageDesc: "Your internal co-pilot — ask anything about your sales, leads, or business activity"`, `metricConversations: "Conversations (7d)"`, `metricTrend: "vs prior week"`, `metricPendingPayments: "Pending Payments"`, `metricLeads: "Total Leads"`, `metricApprovals: "Pending Approvals"`, `metricGaps: "Unanswered Questions"`, `chatPlaceholder: "Ask about your business..."`
+- `apps/web/messages/es.json` — matching Spanish
+
+**Page layout (2-column on desktop, stacked on mobile):**
+```
+Business Advisor                                  ← h1
+Your internal co-pilot — ask anything about...    ← subtitle
+
+┌─ Metrics (top strip) ──────────────────────────┐
+│ 12 Conversations (7d) ↑23%  │  3 Pending Pay.  │
+│ 28 Total Leads              │  5 Unanswered Q.  │
+└────────────────────────────────────────────────-┘
+
+┌─ Chat (main area, flex-1) ─────────────────────┐
+│                                                 │
+│  [TestChatPanel inline={true}]                  │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+**Implementation details:**
+- Artifact lookup: `trpc.artifact.list.useQuery({ type: 'advisor', activeOnly: false })`. If none found, call `trpc.advisor.ensureAdvisor.useMutation()` (same pattern as existing `AdvisorPanel`).
+- Snapshot: `trpc.advisor.snapshot.useQuery()` — returns `activeConversations`, `conversationTrend`, `pendingPayments`, `leadsByStage`, `pendingApprovals`, `topGaps`, `recentExecutions`.
+- Metrics: use `MetricsGrid` primitive (`components/agent-workspace/metrics-grid.tsx`). 4 metrics from snapshot data.
+- Chat: `TestChatPanel` with `inline={true}` filling remaining height. Same `initialMessages` pattern as existing `AdvisorPanel` (opening message generated from snapshot).
+- Session summarization: reuse same `handleClose` + `summarizeSession` pattern from `AdvisorPanel`.
+- Loading: `Skeleton` cards for metrics, `Skeleton` for chat area.
+- The page must use `useTranslations('advisor')` — the `advisor` namespace already exists in en.json/es.json with keys like `advisorOpeningMessage`, `advisorConversations`, etc.
+
+**Acceptance Criteria:**
+- Page shows 4 metric cards from snapshot data
+- Chat panel renders inline with opening message from snapshot
+- Session summarization fires on close (≥3 new messages)
+- Loading and error states handled
+- `pnpm type-check` passes
+
+**Depends on:** NC-291
+
+---
+
+#### NC-293 [ ] Remove AdvisorPanel from agent page + redirect cleanup
+
+Now that the advisor has its own page, remove the `AdvisorPanel` from the bottom of the sales agent page. Also update old redirects to point to `/dashboard/agents`.
+
+**Files to modify:**
+- `apps/web/src/app/dashboard/agent/page.tsx` — remove `import { AdvisorPanel }` (line 25) and `<AdvisorPanel />` usage (line 589)
+- `apps/web/src/app/dashboard/analytics/page.tsx` — change redirect from `/dashboard/agent` to `/dashboard/agents`
+- `apps/web/src/app/dashboard/agents/[id]/page.tsx` — change redirect from `/dashboard/agent` to `/dashboard/agents` (if it exists)
+
+**Do NOT modify:**
+- `apps/web/src/components/dashboard/advisor-panel.tsx` — keep the file. It may still be useful as a quick-access overlay elsewhere.
+
+**Acceptance Criteria:**
+- Agent page no longer shows advisor panel at the bottom
+- `/dashboard/analytics` redirects to `/dashboard/agents`
+- Sales agent page still fully functional (all sections, test chat, mobile)
+- `pnpm type-check` passes
+
+**Depends on:** NC-292
+
+---
+
+#### NC-294 [ ] Redirect `/dashboard/agent` backward compat + regression test
+
+Add a guard so `/dashboard/agent` (old URL, bookmarks, links) still works. Create a basic render test for the agents index page.
+
+**Files to create:**
+- `apps/web/src/__tests__/agents-index.test.tsx` — test agents index page renders 2 cards when `artifact.list` returns sales + advisor artifacts
+
+**Files to modify:**
+- `apps/web/src/app/dashboard/agents/page.tsx` — no changes needed if sidebar already links here
+
+**Test structure (agents-index.test.tsx):**
+```
+Mock: trpc.artifact.list → [{ id:'s1', name:'Sales', type:'sales', isActive:true }, { id:'a1', name:'Advisor', type:'advisor', isActive:true }]
+Mock: next-intl, next/link, lucide-react (same pattern as existing tests)
+
+1. Renders 2 agent cards
+2. Sales card links to /dashboard/agent
+3. Advisor card links to /dashboard/agents/advisor
+4. Shows loading skeletons while fetching
+```
+
+**Note:** `/dashboard/agent` (singular) should NOT redirect — it's still the real sales agent config page. Only `/dashboard/analytics`, `/dashboard/artifacts`, etc. redirect to `/dashboard/agents` (plural).
+
+**Acceptance Criteria:**
+- Test file passes
+- `/dashboard/agent` still loads the sales agent config page directly
+- `pnpm type-check` passes
+
+**Depends on:** NC-293
+
+---
+
+## P1 — Advisor Enhancements
+
+#### NC-299 [ ] Advisor page: snapshot metrics detail cards
+
+Enhance the advisor page metrics strip (added in NC-292) with richer detail: leads broken down by stage (from `snap.leadsByStage`), payment totals by currency (from `snap.pendingPayments`), and top unanswered questions list (from `snap.topGaps`).
+
+**Files to modify:**
+- `apps/web/src/app/dashboard/agents/advisor/page.tsx` — expand metrics section with sub-details
+- `apps/web/messages/en.json` — add `advisor.stageBreakdown: "by stage"`, `advisor.topGapsTitle: "Top unanswered questions"`, `advisor.noGaps: "No unanswered questions — great coverage!"`
+- `apps/web/messages/es.json` — matching Spanish
+
+**Implementation details:**
+- Below the 4-metric `MetricsGrid`, add an expandable `Section` (using existing `Section` primitive) for "Lead Breakdown" showing `snap.leadsByStage` as a simple list: `New: 5, Qualified: 3, ...`
+- Add another `Section` for "Unanswered Questions" showing `snap.topGaps` as a list (max 5). Each item shows the question text. If empty, show the `noGaps` message.
+- Use `stageKey()` from `sales/constants.ts` for stage label i18n (already mapped).
+
+**Acceptance Criteria:**
+- Lead breakdown section shows stage counts from snapshot
+- Unanswered questions section shows top gaps
+- Both sections collapse/expand
+- `pnpm type-check` passes
+
+**Depends on:** NC-292
+
+---
+
+#### NC-300 [ ] Advisor page: session history sidebar
+
+Add a left sidebar (desktop) or top section (mobile) showing past advisor conversations so the user can revisit previous insights.
+
+**Files to modify:**
+- `apps/web/src/app/dashboard/agents/advisor/page.tsx` — add session history panel
+- `apps/web/messages/en.json` — add `advisor.sessionHistory: "Past Sessions"`, `advisor.noSessions: "No past sessions yet"`, `advisor.sessionDate: "Session"`, `advisor.newSession: "New Session"`
+- `apps/web/messages/es.json` — matching Spanish
+
+**Implementation details:**
+- Query: `trpc.conversation.list.useQuery({ artifactId: advisorArtifact.id, limit: 10 })` — the `conversation.list` procedure already accepts `artifactId` filter. If it doesn't, use `trpc.conversation.list.useQuery({ limit: 20 })` and filter client-side by matching artifact.
+- Display: vertical list of sessions with date + preview text (first user message or "Advisor session")
+- Click: set the `conversationId` on the `TestChatPanel` to load that conversation's history
+- "New Session" button: clears conversationId and resets chat (increment `sessionKey`)
+- Desktop: left strip (w-64) next to chat. Mobile: collapsed `Section` above chat.
+
+**Note:** Check if `conversation.list` accepts `artifactId` as input. If not, this task includes adding that filter (small tRPC change: add optional `artifactId` to the list input schema + `eq(conversations.artifactId, input.artifactId)` to conditions). The conversations table already has `artifact_id` column.
+
+**Acceptance Criteria:**
+- Past advisor sessions listed with dates
+- Click loads conversation history in chat
+- "New Session" resets chat
+- `pnpm type-check` passes
+
+**Depends on:** NC-292
+
+---
+
+#### NC-301 [ ] Advisor page: "Ask about..." quick prompt buttons
+
+Add 4 pre-built prompt buttons above the chat input that seed common advisor questions. Buttons disappear after the first user message (same pattern as widget quick actions).
+
+**Files to modify:**
+- `apps/web/src/app/dashboard/agents/advisor/page.tsx` — add quick prompt buttons
+- `apps/web/messages/en.json` — add `advisor.quickPromptSales: "How are sales this week?"`, `advisor.quickPromptGaps: "What questions can't my agent answer?"`, `advisor.quickPromptApprovals: "Any pending approvals?"`, `advisor.quickPromptLeads: "Which leads need attention?"`
+- `apps/web/messages/es.json` — matching Spanish
+
+**Implementation details:**
+- 4 buttons in a horizontal flex-wrap row above the chat input area
+- Style: `rounded-full border border-teal/30 px-3 py-1.5 text-xs text-teal hover:bg-teal/5` (pill buttons, matches widget quick actions style)
+- Click: set the input value AND auto-submit (call `handleSend` programmatically). Same UX as widget quick actions.
+- Hide after first user message: track `hasUserSentMessage` state, conditionally render buttons.
+- Touch target: ensure pills are ≥36px height (`min-h-[36px]`)
+
+**Acceptance Criteria:**
+- 4 prompt buttons visible before first message
+- Click sends the prompt text
+- Buttons hidden after first user message
+- Touch targets ≥ 36px
+- `pnpm type-check` passes
+
+**Depends on:** NC-292
+
+---
+
+## P2 — Quick Wins (independent, no deps)
+
+#### NC-295 [ ] Orphaned i18n key sweep
+
+Find and remove i18n keys in `en.json`/`es.json` that are not referenced by any `.tsx` file. These accumulate from previous sprint refactors.
+
+**Files to modify:**
+- `apps/web/messages/en.json`
+- `apps/web/messages/es.json`
+
+**Method:**
+1. Extract all leaf keys from en.json (e.g., `sidebar.inbox`, `agent.agentHeader`)
+2. For each key, grep for the short key (e.g., `'inbox'`, `'agentHeader'`) in `apps/web/src/**/*.tsx`
+3. Keys with zero matches are orphaned — remove from both en.json and es.json
+4. Be careful: some keys are used with dynamic lookups (e.g., `t(stageKey)`) — don't remove keys that match enum values
+
+**Acceptance Criteria:**
+- All removed keys confirmed unreferenced
+- Both en.json and es.json stay in sync
+- `pnpm type-check` passes
+
+**Depends on:** none
+
+---
+
+#### NC-296 [ ] Conversations page render test
+
+Add a basic render test for the conversations page covering the stat strip, onboarding banner, and empty inbox state.
+
+**Files to create:**
+- `apps/web/src/__tests__/conversations-page.test.tsx`
+
+**Test structure:**
+```
+Mock: trpc (dashboardOverview, onboarding.getStatus, conversation.list, useUtils)
+Mock: next-intl, next/navigation, @clerk/nextjs, lucide-react, hooks/use-realtime-inbox
+
+1. Renders stat strip with conversation/approval/lead counts
+2. Shows onboarding resume banner when onboardingComplete = false
+3. Hides banner when onboardingComplete = true
+4. Shows EmptyState when conversation.list returns 0 items
+```
+
+**Follow existing test patterns:** See `knowledge-nudge.test.tsx` for mock structure, `vi.hoisted()` usage, and `React.createElement()` rendering.
+
+**Acceptance Criteria:**
+- 4 tests pass
+- `pnpm type-check` passes
+
+**Depends on:** none
+
+---
+
+#### NC-297 [ ] Stat strip mobile flex-wrap
+
+Ensure the stat strip on the conversations page wraps on narrow screens (375px) instead of overflowing.
+
+**Files to modify:**
+- `apps/web/src/app/dashboard/conversations/page.tsx` — add `flex-wrap` to the stat strip `<div>`
+
+**Current (line 112):**
+```tsx
+<div className="mb-4 flex items-center gap-4 text-xs text-dune">
+```
+
+**Change to:**
+```tsx
+<div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-dune">
+```
+
+**Acceptance Criteria:**
+- Stats wrap to 2 lines on 375px screens
+- No horizontal overflow
+- `pnpm type-check` passes
+
+**Depends on:** none
+
+---
+
+#### NC-298 [ ] Dead import cleanup
+
+Remove unused imports across `apps/web/src/`. TypeScript compiler warnings and ESLint flag these but they accumulate during sprint refactors.
+
+**Method:**
+1. Run `pnpm -F @camello/web exec tsc --noEmit 2>&1 | grep "is declared but"` to find unused locals
+2. Run `pnpm -F @camello/web exec eslint src/ --rule '{"no-unused-vars":"warn"}' 2>&1 | grep "no-unused-vars"` to find unused imports
+3. Remove each unused import
+4. Do NOT change any logic — only remove unused `import` lines
+
+**Acceptance Criteria:**
+- No unused import warnings from tsc
+- No logic changes
+- `pnpm type-check` passes
+
+**Depends on:** none
+
+---
+
+## Post-Sprint (After NC-301)
+
+After this sprint completes, the product has a multi-agent dashboard with a functional business advisor. Next priorities:
+1. **Advisor automated suggestions** — proactive insights pushed to the owner (e.g., "3 leads haven't been contacted in 5 days"). Requires a new cron job + notification system.
+2. **Email notifications for pending approvals** — Resend infrastructure is in place (NC-233). Trigger + template still needed.
+3. **Meta Embedded Signup** — Replace manual token entry with OAuth flow.
+4. **Invoice module** — Quote → formatted invoice with shareable link. Integrate Wompi/Nequi for Colombia.

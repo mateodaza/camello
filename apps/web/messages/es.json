@@ -121,7 +121,8 @@
     "advisorDesc": "Tu co-piloto interno de negocio — pregúntale cualquier cosa sobre tu actividad de ventas",
     "chatWithAdvisor": "Chatear con el Asesor",
     "testChatTitle": "Prueba tu agente",
-    "testChatEmpty": "Chatea con tu agente para ver cómo responde. Intenta preguntar sobre tus precios o agendar una reunión."
+    "testChatEmpty": "Chatea con tu agente para ver cómo responde. Intenta preguntar sobre tus precios o agendar una reunión.",
+    "close": "Cerrar"
   },
   "agent": {
     "agentHeader": "Agente de Ventas",

@@ -36,9 +36,7 @@ interface ModuleSettingsProps {
 function initState(m: BoundModule): ModuleLocalState {
   const cfg = m.configOverrides as Record<string, unknown>;
   return {
-    autonomyLevel: m.autonomyLevel === 'suggest_only'
-      ? 'draft_and_approve'
-      : ((m.autonomyLevel as ModuleLocalState['autonomyLevel']) ?? 'draft_and_approve'),
+    autonomyLevel: (m.autonomyLevel as ModuleLocalState['autonomyLevel']) ?? 'draft_and_approve',
     calendarUrl: typeof cfg.calendarUrl === 'string' ? cfg.calendarUrl : '',
     paymentUrl: typeof cfg.paymentUrl === 'string' ? cfg.paymentUrl : '',
     currency: typeof cfg.currency === 'string' ? cfg.currency : 'USD',

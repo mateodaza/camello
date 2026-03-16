@@ -166,10 +166,10 @@ describe('NC-278 — One-page Settings (/dashboard/settings)', () => {
 
 describe('NC-282 — Sprint flow: redirects + dashboard home', () => {
 
-  it('4 — /dashboard redirects to /dashboard/conversations', () => {
-    replaceSpy.mockClear();
-    render(React.createElement(DashboardRedirect));
-    expect(replaceSpy).toHaveBeenCalledWith('/dashboard/conversations');
+  it('4 — /dashboard redirects to /dashboard/conversations', async () => {
+    const { redirect } = await import('next/navigation');
+    DashboardRedirect();
+    expect(redirect).toHaveBeenCalledWith('/dashboard/conversations');
   });
 
   it('5 — /dashboard/settings/billing redirects to /dashboard/settings', async () => {

@@ -13,12 +13,13 @@ export interface SectionProps {
   autoOpen?: boolean;
   testId?: string;
   tooltip?: string;
+  'aria-label'?: string;
   children?: React.ReactNode;
 }
 
 export const Section = React.forwardRef<HTMLDetailsElement, SectionProps>(
   function Section(
-    { title, icon: Icon, badge, defaultOpen = false, autoOpen, testId, tooltip, children },
+    { title, icon: Icon, badge, defaultOpen = false, autoOpen, testId, tooltip, 'aria-label': ariaLabel, children },
     forwardedRef,
   ) {
     const localRef = useRef<HTMLDetailsElement>(null);
@@ -51,6 +52,7 @@ export const Section = React.forwardRef<HTMLDetailsElement, SectionProps>(
         data-testid={testId}
       >
         <summary
+          aria-label={ariaLabel}
           className="flex cursor-pointer list-none items-center justify-between px-5 py-4 select-none"
           onClick={(e) => {
             if ((e.target as HTMLElement).closest('[data-tooltip-trigger]')) {

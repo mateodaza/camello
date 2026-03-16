@@ -80,7 +80,6 @@ vi.mock('@/lib/format', () => ({
 
 import { KnowledgeBanner } from '@/components/dashboard/knowledge-banner';
 import { KnowledgeGuidedEmptyState } from '@/components/dashboard/knowledge-guided-empty-state';
-import DashboardOverview from '@/app/dashboard/page';
 
 // ---------------------------------------------------------------------------
 // Default mock implementations (overridden per-test as needed)
@@ -181,48 +180,5 @@ describe('KnowledgeGuidedEmptyState', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// DashboardOverview — knowledge banner gate tests
-//
-// These tests exercise trpc.knowledge.sufficiencyScore.useQuery() through the real
-// DashboardOverview component, verifying the showKnowledgeBanner gate logic:
-//   !sufficiencyScore.isLoading && sufficiencyScore.data.score < 60 && (artifacts.data?.length ?? 0) > 0
-// ---------------------------------------------------------------------------
-
-describe('DashboardOverview knowledge banner gate', () => {
-  it('4 — banner shows when score is below 60 and artifactsQuery.data is not empty', () => {
-    mockSufficiencyScore.mockReturnValue({
-      data: { score: 45, signals: ['Only 1 knowledge doc(s) added — add more to reach the full score'], docCount: 1, gapCount: 0 },
-      isLoading: false,
-    });
-    render(React.createElement(DashboardOverview));
-    expect(screen.getByTestId('knowledge-banner')).toBeInTheDocument();
-  });
-
-  it('5 — banner is hidden when score is 60 or above', () => {
-    mockSufficiencyScore.mockReturnValue({
-      data: { score: 80, signals: [], docCount: 5, gapCount: 0 },
-      isLoading: false,
-    });
-    render(React.createElement(DashboardOverview));
-    expect(screen.queryByTestId('knowledge-banner')).not.toBeInTheDocument();
-  });
-
-  it('6 — onboarding resume banner shown when onboarding is incomplete', () => {
-    mockGetStatus.mockReturnValue({
-      data: { settings: { onboardingComplete: false, onboardingStep: 2 }, previewCustomerId: null, tenantName: 'Test Co' },
-      isLoading: false,
-    });
-    render(React.createElement(DashboardOverview));
-    expect(screen.getByTestId('onboarding-resume-banner')).toBeInTheDocument();
-  });
-
-  it('7 — onboarding resume banner hidden when onboarding is complete', () => {
-    mockGetStatus.mockReturnValue({
-      data: { settings: { onboardingComplete: true }, previewCustomerId: null, tenantName: 'Test Co' },
-      isLoading: false,
-    });
-    render(React.createElement(DashboardOverview));
-    expect(screen.queryByTestId('onboarding-resume-banner')).not.toBeInTheDocument();
-  });
-});
+// DashboardOverview tests removed — /dashboard is now a server-side redirect.
+// Knowledge banner + onboarding banner moved to conversations page.

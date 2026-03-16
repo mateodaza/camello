@@ -121,7 +121,8 @@
     "advisorDesc": "Your internal business co-pilot — ask it anything about your sales activity",
     "chatWithAdvisor": "Chat with Advisor",
     "testChatTitle": "Test your agent",
-    "testChatEmpty": "Chat with your agent to see how it responds. Try asking about your pricing or booking a meeting."
+    "testChatEmpty": "Chat with your agent to see how it responds. Try asking about your pricing or booking a meeting.",
+    "close": "Close"
   },
   "agent": {
     "agentHeader": "Sales Agent",
