@@ -88,19 +88,19 @@ beforeEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-// NC-276: /dashboard/artifacts now redirects to /dashboard/agent.
-// The disabled-archetypes grid, sales hero, and advisor card live in the new /dashboard/agent page.
-describe('NC-276 — artifacts page redirects + i18n keys preserved', () => {
+// NC-294: /dashboard/artifacts now redirects to /dashboard/agents (plural).
+// The disabled-archetypes grid, sales hero, and advisor card live in the new /dashboard/agents page.
+describe('NC-276/NC-294 — artifacts page redirects + i18n keys preserved', () => {
 
-  // Test 1: Redirect — artifacts/page.tsx calls redirect('/dashboard/agent')
-  it('artifacts/page.tsx redirects to /dashboard/agent', () => {
+  // Test 1: Redirect — artifacts/page.tsx calls redirect('/dashboard/agents')
+  it('artifacts/page.tsx redirects to /dashboard/agents', () => {
     redirectMock.mockImplementation(() => { throw new Error('redirect'); });
     try {
       render(React.createElement(ArtifactsPage as unknown as React.FC));
     } catch {
       // redirect() throws in Next.js server components — expected
     }
-    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agent');
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agents');
   });
 
   // Test 2: i18n key validation — comingSoon key retained for backward compatibility.

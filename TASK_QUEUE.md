@@ -1741,7 +1741,7 @@ Now that the advisor has its own page, remove the `AdvisorPanel` from the bottom
 
 ---
 
-#### NC-294 [ ] Redirect `/dashboard/agent` backward compat + regression test
+#### NC-294 [x] Redirect `/dashboard/agent` backward compat + regression test
 
 Add a guard so `/dashboard/agent` (old URL, bookmarks, links) still works. Create a basic render test for the agents index page.
 
@@ -1770,6 +1770,7 @@ Mock: next-intl, next/link, lucide-react (same pattern as existing tests)
 - `pnpm type-check` passes
 
 **Depends on:** NC-293
+**Done:** Fixed `artifacts/page.tsx` redirect from `/dashboard/agent` → `/dashboard/agents`; updated 3 test files (artifacts-hero, artifacts-disabled, artifacts-advisor) to assert `/dashboard/agents`; verified `agent/page.tsx` has no redirect; 5 test files (23 tests) pass.
 
 ---
 

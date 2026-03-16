@@ -79,21 +79,21 @@ import ArtifactsPage from '../app/dashboard/artifacts/page';
 // Tests
 // ---------------------------------------------------------------------------
 
-// NC-276: /dashboard/artifacts redirects to /dashboard/agent.
-// The advisor card is now rendered inside the /dashboard/agent page.
-describe('NC-276 — artifacts page redirects (advisor flow moved to /dashboard/agent)', () => {
+// NC-294: /dashboard/artifacts now redirects to /dashboard/agents (plural).
+// The advisor card is now rendered inside the /dashboard/agents page.
+describe('NC-276/NC-294 — artifacts page redirects (advisor flow moved to /dashboard/agents)', () => {
   beforeEach(() => {
     queryMocks.clear();
     redirectMock.mockReset();
   });
 
-  it('artifacts/page.tsx redirects to /dashboard/agent', () => {
+  it('artifacts/page.tsx redirects to /dashboard/agents', () => {
     redirectMock.mockImplementation(() => { throw new Error('redirect'); });
     try {
       render(React.createElement(ArtifactsPage as unknown as React.FC));
     } catch {
       // redirect() throws — expected
     }
-    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agent');
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agents');
   });
 });

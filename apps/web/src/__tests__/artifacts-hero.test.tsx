@@ -77,24 +77,24 @@ import enMessages from '../../messages/en.json';
 // Tests
 // ---------------------------------------------------------------------------
 
-// NC-276: /dashboard/artifacts redirects to /dashboard/agent.
+// NC-294: /dashboard/artifacts now redirects to /dashboard/agents (plural).
 // The hero card and stat strip functionality moved to the single-page agent view.
-describe('NC-276 — artifacts page redirects to /dashboard/agent', () => {
+describe('NC-276/NC-294 — artifacts page redirects to /dashboard/agents', () => {
   beforeEach(() => {
     queryMocks.clear();
     lastQueryArgs.clear();
     redirectMock.mockReset();
   });
 
-  // Test 1 — artifacts/page.tsx redirects to /dashboard/agent
-  it('artifacts/page.tsx calls redirect("/dashboard/agent")', () => {
+  // Test 1 — artifacts/page.tsx redirects to /dashboard/agents
+  it('artifacts/page.tsx calls redirect("/dashboard/agents")', () => {
     redirectMock.mockImplementation(() => { throw new Error('redirect'); });
     try {
       render(React.createElement(ArtifactsPage as unknown as React.FC));
     } catch {
       // redirect() throws — expected
     }
-    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agent');
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agents');
   });
 
   // Test 2 — i18n keys for artifacts.salesName still present for backward compatibility
