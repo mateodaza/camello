@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc';
-import { groupChunksByTitle, fmtDate } from '@/lib/format';
+import { groupChunksByTitle } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QueryError } from '@/components/query-error';

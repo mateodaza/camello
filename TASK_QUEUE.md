@@ -1943,7 +1943,7 @@ _Done: Added `flex-wrap gap-x-4 gap-y-1` to stat strip div in conversations/page
 
 ---
 
-#### NC-298 [ ] Dead import cleanup
+#### NC-298 [x] Dead import cleanup
 
 Remove unused imports across `apps/web/src/`. TypeScript compiler warnings and ESLint flag these but they accumulate during sprint refactors.
 
@@ -1959,6 +1959,7 @@ Remove unused imports across `apps/web/src/`. TypeScript compiler warnings and E
 - `pnpm type-check` passes
 
 **Depends on:** none
+_Done: Removed unused import names from 13 files in apps/web/src/ — testing-library named imports, React default, fmtDate. pnpm type-check passes._
 
 ---
 

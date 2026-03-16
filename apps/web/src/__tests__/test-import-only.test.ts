@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import React, { createElement } from 'react';
 
 vi.mock('next-intl', () => ({ useTranslations: () => (k: string) => k, useLocale: () => 'en' }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => ({ get: () => null }), useRouter: () => ({ push: vi.fn() }) }));

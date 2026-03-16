@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-298 | Dead import cleanup | Mar 16 | Removed unused import names from 13 files in `apps/web/src/` — `screen`/`fireEvent`/`waitFor`/`within` from testing-library, `React` default, `fmtDate` from knowledge page. No logic changes; `pnpm type-check` passes. |
 | NC-297 | Stat strip mobile flex-wrap | Mar 16 | Added `flex-wrap gap-x-4 gap-y-1` to stat strip div in `conversations/page.tsx`. Pure CSS class change; type-check passes. |
 | NC-296 | Conversations page render test | Mar 16 | Created `apps/web/src/__tests__/conversations-page.test.tsx` (4 tests: stat strip counts, banner shown/hidden, EmptyState for 0-item inbox). Type-check passes. |
 | NC-295 | Orphaned i18n key sweep | Mar 16 | Script-confirmed 51 orphan keys removed from `en.json`+`es.json` (dashboard 15, artifacts 28, agent 1, notifications 7). i18n-orphans.test.ts NC-295 block added (114 tests). `agentTestChat` removed from `artifacts-disabled.test.tsx` requiredKeys. Type-check passes. |
@@ -1028,3 +1029,4 @@
 - **NC-295** — 2026-03-16 — `7a7c47d` — Session: 20260316-014155-camello
 - **NC-296** — 2026-03-16 — `0906818` — Session: 20260316-014155-camello
 - **NC-297** — 2026-03-16 — `677fda8` — Session: 20260316-014155-camello
+- **NC-298** — 2026-03-16 — `9775aa2` — Session: 20260316-014155-camello
