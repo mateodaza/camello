@@ -1916,7 +1916,7 @@ Mock: next-intl, next/navigation, @clerk/nextjs, lucide-react, hooks/use-realtim
 
 ---
 
-#### NC-297 [ ] Stat strip mobile flex-wrap
+#### NC-297 [x] Stat strip mobile flex-wrap
 
 Ensure the stat strip on the conversations page wraps on narrow screens (375px) instead of overflowing.
 
@@ -1939,6 +1939,7 @@ Ensure the stat strip on the conversations page wraps on narrow screens (375px) 
 - `pnpm type-check` passes
 
 **Depends on:** none
+_Done: Added `flex-wrap gap-x-4 gap-y-1` to stat strip div in conversations/page.tsx._
 
 ---
 

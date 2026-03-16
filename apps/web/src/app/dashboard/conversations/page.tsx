@@ -109,7 +109,7 @@ export default function ConversationsPage() {
         />
       )}
 
-      <div className="mb-4 flex items-center gap-4 text-xs text-dune">
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-dune">
         <span>{t('statConversationsToday', { count: data?.todayConversations ?? 0 })}</span>
         <span aria-hidden="true" className="text-charcoal/20">&middot;</span>
         <span>{t('statPendingApprovals', { count: data?.pendingApprovalsCount ?? 0 })}</span>
