@@ -29,15 +29,15 @@ beforeEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-// NC-280: /dashboard/analytics redirects to /dashboard/agent
-describe('NC-280 — analytics page redirect', () => {
-  it('calls redirect("/dashboard/agent") on render', () => {
+// NC-293: /dashboard/analytics redirects to /dashboard/agents
+describe('NC-280/NC-293 — analytics page redirect', () => {
+  it('calls redirect("/dashboard/agents") on render', () => {
     try {
       render(React.createElement(AnalyticsPage as unknown as React.FC));
     } catch {
       // redirect() throws internally — expected in test environment
     }
-    expect(redirectSpy).toHaveBeenCalledWith('/dashboard/agent');
+    expect(redirectSpy).toHaveBeenCalledWith('/dashboard/agents');
   });
 });
 

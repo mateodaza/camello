@@ -1718,7 +1718,7 @@ Your internal co-pilot — ask anything about...    ← subtitle
 
 ---
 
-#### NC-293 [ ] Remove AdvisorPanel from agent page + redirect cleanup
+#### NC-293 [x] Remove AdvisorPanel from agent page + redirect cleanup
 
 Now that the advisor has its own page, remove the `AdvisorPanel` from the bottom of the sales agent page. Also update old redirects to point to `/dashboard/agents`.
 
@@ -1737,6 +1737,7 @@ Now that the advisor has its own page, remove the `AdvisorPanel` from the bottom
 - `pnpm type-check` passes
 
 **Depends on:** NC-292
+**Done:** Removed `AdvisorPanel` import + JSX from `agent/page.tsx`; updated `analytics/page.tsx` redirect to `/dashboard/agents`; updated test expectations in `analytics-page.test.tsx` and `agent-page.test.tsx`.
 
 ---
 

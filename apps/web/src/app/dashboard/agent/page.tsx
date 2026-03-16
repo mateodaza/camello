@@ -22,7 +22,6 @@ import { FollowupsSection } from '@/components/agent-workspace/sales/followups-s
 import { ModuleSettings } from '@/components/agent-workspace/module-settings';
 import { WidgetAppearanceSection } from '@/components/agent-workspace/widget-appearance-section';
 import { WorkspaceSectionErrorBoundary } from '@/components/agent-workspace/workspace-section-error-boundary';
-import { AdvisorPanel } from '@/components/dashboard/advisor-panel';
 import { Section } from '@/components/dashboard/section';
 import { EmptyState } from '@/components/dashboard/empty-state';
 
@@ -585,8 +584,6 @@ export default function AgentsPage() {
             )}
           </Section>
 
-          {/* Advisor co-pilot panel — collapsed by default */}
-          <AdvisorPanel />
         </div>
 
         {/* RIGHT COLUMN — inline test chat, desktop only (JS-conditional) */}

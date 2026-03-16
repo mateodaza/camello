@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-293 | Remove AdvisorPanel from agent page + redirect cleanup | Mar 16 | Removed `AdvisorPanel` import + JSX from `agent/page.tsx`. Updated `analytics/page.tsx` redirect to `/dashboard/agents`. Updated `analytics-page.test.tsx` (comment + describe label + assertion). Deleted test 8a from `agent-page.test.tsx`; renamed test 8b to reflect unconditional invariant. Type-check passes. |
 | NC-292 | Advisor standalone page — snapshot metrics + chat | Mar 16 | Created `agents/advisor/page.tsx` (4-metric MetricsGrid, inline TestChatPanel, session summarization on unmount, 3-branch error/loading/ready for both metrics and chat columns). Added `placeholder?` prop to `test-chat-panel.tsx`. 9 i18n keys in `en.json`+`es.json`. Type-check passes. |
 | NC-291 | Agents index page — card grid (Sales + Advisor) | Mar 16 | `agent/page.tsx` populated with full workspace (restores spec-intended route). `agents/page.tsx` replaced with `AgentsIndexPage` card grid (2 cards, skeleton, error, empty state). `agents` i18n namespace (11 keys, en+es). 3 test import paths updated. `agents-index.test.tsx` created (7 tests). `agents/[id]/page.tsx` fixed: `advisor` renders `AdvisorPanel` standalone page (was incorrectly redirecting to sales workspace). Type-check passes. |
 | NC-290 | Sidebar "Agent" → "Agents" + href update | Mar 16 | `sidebar.tsx` href+labelKey updated. `en.json`+`es.json` `sidebar.agents` key added. `/dashboard/agents/page.tsx` placeholder created. `i18n-orphans.test.ts` updated (removed stale absent assertion, added present assertion). Type-check passes. |
@@ -1012,3 +1013,4 @@
 - **NC-290** — 2026-03-16 — `5dbccfe` — Session: 20260316-014155-camello
 - **NC-291** — 2026-03-16 — `d2b50b6` — Session: 20260316-014155-camello — ⚠ Committed after soft review rejections cap; local verification passed.
 - **NC-292** — 2026-03-16 — `f48ca9f` — Session: 20260316-014155-camello
+- **NC-293** — 2026-03-16 — `90f64b5` — Session: 20260316-014155-camello
