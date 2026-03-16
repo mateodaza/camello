@@ -1048,7 +1048,16 @@
     "advisorLeads": "prospectos",
     "advisorOpeningMessage": "Así está tu negocio al {date}: {signals}. ¿Qué quieres explorar?",
     "advisorSnapError": "No se pudo cargar el resumen — reintentar",
-    "advisorSessionSaved": "Aprendizajes de la sesión guardados en la base de conocimiento"
+    "advisorSessionSaved": "Aprendizajes de la sesión guardados en la base de conocimiento",
+    "pageTitle": "Asesor de Negocio",
+    "pageDesc": "Tu copiloto interno — pregúntale cualquier cosa sobre tus ventas, prospectos o actividad de negocio",
+    "metricConversations": "Conversaciones (7d)",
+    "metricTrend": "vs semana anterior",
+    "metricPendingPayments": "Pagos Pendientes",
+    "metricLeads": "Prospectos Totales",
+    "metricApprovals": "Aprobaciones Pendientes",
+    "metricGaps": "Preguntas Sin Respuesta",
+    "chatPlaceholder": "Pregunta sobre tu negocio..."
   },
   "tooltips": {
     "tooltipSkills": "Las habilidades son acciones que tu agente puede realizar: agendar reuniones, calificar prospectos o enviar cotizaciones.",

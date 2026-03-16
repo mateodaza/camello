@@ -28,12 +28,14 @@ interface Props {
   fullscreen?: boolean;
   /** when incremented, resets messages/input/conversationId */
   sessionKey?: number;
+  /** Override the input placeholder. Defaults to t('messagePlaceholder') from the artifacts namespace. */
+  placeholder?: string;
 }
 
 export function TestChatPanel({
   artifactId, artifactName, artifactType, open, onClose,
   initialMessages, onMessagesChange,
-  inline, fullscreen, sessionKey,
+  inline, fullscreen, sessionKey, placeholder,
 }: Props) {
   const t = useTranslations('artifacts');
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
@@ -171,7 +173,7 @@ export function TestChatPanel({
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={t('messagePlaceholder')}
+          placeholder={placeholder ?? t('messagePlaceholder')}
           className="flex-1 rounded-md border border-charcoal/15 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
           disabled={!customerId}
         />

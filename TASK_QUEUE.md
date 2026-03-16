@@ -1669,7 +1669,8 @@ Your Agents                           ← h1, font-heading
 
 ---
 
-#### NC-292 [ ] Advisor standalone page — snapshot metrics + chat
+#### NC-292 [x] Advisor standalone page — snapshot metrics + chat
+Created `/dashboard/agents/advisor/page.tsx` with 4-metric strip + inline TestChatPanel, session summarization on unmount, 3-branch error/loading/ready pattern for both metrics and chat, i18n keys, and `placeholder?` prop on TestChatPanel.
 
 Create the advisor's own page at `/dashboard/agents/advisor/page.tsx`. This is the advisor's home — it shows live business metrics from `advisor.snapshot` and a full-height chat powered by the existing `TestChatPanel`.
 

@@ -1048,7 +1048,16 @@
     "advisorLeads": "leads",
     "advisorOpeningMessage": "Here's your business as of {date}: {signals}. What do you want to dig into?",
     "advisorSnapError": "Could not load snapshot — retry",
-    "advisorSessionSaved": "Session insights saved to knowledge base"
+    "advisorSessionSaved": "Session insights saved to knowledge base",
+    "pageTitle": "Business Advisor",
+    "pageDesc": "Your internal co-pilot — ask anything about your sales, leads, or business activity",
+    "metricConversations": "Conversations (7d)",
+    "metricTrend": "vs prior week",
+    "metricPendingPayments": "Pending Payments",
+    "metricLeads": "Total Leads",
+    "metricApprovals": "Pending Approvals",
+    "metricGaps": "Unanswered Questions",
+    "chatPlaceholder": "Ask about your business..."
   },
   "tooltips": {
     "tooltipSkills": "Skills are actions your agent can perform — like booking meetings, qualifying leads, or sending quotes.",
