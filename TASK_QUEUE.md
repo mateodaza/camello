@@ -1886,9 +1886,11 @@ _Done: Script-confirmed 51 orphan keys removed from dashboard (15), artifacts (2
 
 ---
 
-#### NC-296 [ ] Conversations page render test
+#### NC-296 [x] Conversations page render test
 
 Add a basic render test for the conversations page covering the stat strip, onboarding banner, and empty inbox state.
+
+_Done: Created `apps/web/src/__tests__/conversations-page.test.tsx` with 4 tests: stat strip count rendering, banner shown when onboardingComplete=false, banner hidden when true, EmptyState shown for 0-item inbox. Type-check passes._
 
 **Files to create:**
 - `apps/web/src/__tests__/conversations-page.test.tsx`

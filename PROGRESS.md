@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-296 | Conversations page render test | Mar 16 | Created `apps/web/src/__tests__/conversations-page.test.tsx` (4 tests: stat strip counts, banner shown/hidden, EmptyState for 0-item inbox). Type-check passes. |
 | NC-295 | Orphaned i18n key sweep | Mar 16 | Script-confirmed 51 orphan keys removed from `en.json`+`es.json` (dashboard 15, artifacts 28, agent 1, notifications 7). i18n-orphans.test.ts NC-295 block added (114 tests). `agentTestChat` removed from `artifacts-disabled.test.tsx` requiredKeys. Type-check passes. |
 | NC-301 | Advisor page: "Ask about..." quick prompt buttons | Mar 16 | Added `quickPrompts` prop to `TestChatPanel`, extracted `sendText` helper, pills UI with `hasUserSentMessage` derived guard; advisor page computes 4 i18n prompts and passes `undefined` when viewing a past session; 4 i18n keys en+es; 7 tests in 2 new files (`test-chat-panel-quick-prompts.test.tsx`, `advisor-page-quick-prompts.test.tsx`). Type-check passes. |
 | NC-300 | Advisor page: session history sidebar | Mar 16 | Added `firstUserMessagePreview` subquery to `conversation.list`; `initialConversationId` prop + history-fetch effect to `test-chat-panel.tsx`; desktop sidebar + mobile Section in `advisor/page.tsx`; synchronous ref reset in `handleSelectSession`/`handleNewSession`; 4 i18n keys (en+es); 9 tests in 2 new files. Iter 4 fix: `pendingBaselineReset` guard changed from `msgs.length > 0` to `conversationId !== null` so zero-displayable-message history correctly resets baseline to 0. Type-check passes. |
@@ -1024,3 +1025,4 @@
 - **NC-300** — 2026-03-16 — `5b85c75` — Session: 20260316-014155-camello — ⚠ Committed after soft review rejections cap; local verification passed.
 - **NC-301** — 2026-03-16 — `e0076f7` — Session: 20260316-014155-camello
 - **NC-295** — 2026-03-16 — `7a7c47d` — Session: 20260316-014155-camello
+- **NC-296** — 2026-03-16 — `0906818` — Session: 20260316-014155-camello
