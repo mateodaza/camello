@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-290 | Sidebar "Agent" → "Agents" + href update | Mar 16 | `sidebar.tsx` href+labelKey updated. `en.json`+`es.json` `sidebar.agents` key added. `/dashboard/agents/page.tsx` placeholder created. `i18n-orphans.test.ts` updated (removed stale absent assertion, added present assertion). Type-check passes. |
 | NC-289 | Experience sprint audit — terminology + tooltip + empty state sweep | Mar 15 | 12 i18n value fixes in `en.json`+`es.json` (ingest→add, modules→skills, escalations→handoffs). `Step3MeetAgent.tsx`: `SLUG_TO_LABEL` map + `useTranslations('agentWorkspace')` replaces raw slug badge text. 6 new assertions in `terminology-audit.test.ts`. 3 tests updated in `step3-meet-agent.test.tsx`. Type-check passes. |
 | NC-288 | First-session guide — post-onboarding "what's next" checklist | Mar 15 | `tenant.updateGuideStep` tRPC mutation merges `firstSessionGuide` sub-object into JSONB settings. `first-session-guide.tsx` renders 4-item checklist with auto-detect (testedChat via `testedChatAuto`, addedKnowledge via `docCount`), copy-link handler, and dismiss. `conversations/page.tsx` adds `showGuide` gate. 10 i18n keys en+es. 4 tests in `first-session-guide.test.tsx`. Type-check passes. |
 | NC-287 | Empty state coaching — contextual "what to do next" prompts | Mar 15 | Created `empty-state.tsx` (icon/title/description/action, design-system compliant). New `salesActivityCounts` tRPC procedure (quotes + meetings + follow-ups + payments). 6 empty states across 3 pages (inbox, approvals, performance, sales-activity, knowledge-gaps). `isFirstWeek` guard for performance. 12 i18n keys en+es. `empty-state.test.tsx` (6 tests). Updated `conversations-realtime`, `agent-page`, `agent-page-layout`, `knowledge-page` tests. Type-check passes. |
@@ -1006,3 +1007,4 @@
 - **NC-287** — 2026-03-15 — `8b57061` — Session: 20260315-133858-camello
 - **NC-288** — 2026-03-15 — `604b336` — Session: 20260315-133858-camello
 - **NC-289** — 2026-03-15 — `561add3` — Session: 20260315-133858-camello
+- **NC-290** — 2026-03-16 — `5dbccfe` — Session: 20260316-014155-camello

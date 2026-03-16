@@ -199,9 +199,6 @@ describe("i18n orphan guard — NC-282 primary JSON assertions", () => {
       it("sidebar.conversations is absent", () => {
         expect(sidebar.conversations).toBeUndefined();
       });
-      it("sidebar.agents is absent", () => {
-        expect(sidebar.agents).toBeUndefined();
-      });
       it("sidebar.billing is absent", () => {
         expect(sidebar.billing).toBeUndefined();
       });
@@ -219,6 +216,9 @@ describe("i18n orphan guard — NC-282 primary JSON assertions", () => {
       });
       it("sidebar.agent is present", () => {
         expect(sidebar.agent).not.toBeUndefined();
+      });
+      it("sidebar.agents is present", () => {
+        expect(sidebar.agents).not.toBeUndefined();
       });
       it("sidebar.openMenu is present", () => {
         expect(sidebar.openMenu).not.toBeUndefined();

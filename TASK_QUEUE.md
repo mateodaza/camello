@@ -1598,7 +1598,7 @@ Final audit of the entire experience sprint. Verify all terminology changes are 
 
 ## P0 — Multi-Agent Structure
 
-#### NC-290 [ ] Sidebar "Agent" → "Agents" + href update
+#### NC-290 [x] Sidebar "Agent" → "Agents" + href update
 
 Change the sidebar nav item label from "Agent" to "Agents" and update the href from `/dashboard/agent` to `/dashboard/agents`.
 
@@ -1613,6 +1613,8 @@ Change the sidebar nav item label from "Agent" to "Agents" and update the href f
 - `pnpm type-check` passes
 
 **Depends on:** none
+
+**Summary:** Updated `sidebar.tsx` href→`/dashboard/agents` + `labelKey: 'agents'`. Added `sidebar.agents` key to `en.json`+`es.json`. Created `/dashboard/agents/page.tsx` placeholder (NC-291 replaces). Updated `i18n-orphans.test.ts`: removed stale "agents is absent" assertion, added "agents is present". Type-check passes.
 
 ---
 

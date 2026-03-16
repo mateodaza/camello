@@ -137,7 +137,7 @@ vi.mock('@/components/agent-workspace/workspace-section-error-boundary', () => (
 }));
 
 // ── Tests ────────────────────────────────────────────────────────────────────
-import AgentPage from '@/app/dashboard/agent/page';
+import AgentPage from '@/app/dashboard/agents/page';
 
 describe('AgentPage split-pane layout (NC-285)', () => {
   beforeAll(() => {

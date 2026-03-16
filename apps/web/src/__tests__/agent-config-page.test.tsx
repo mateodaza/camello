@@ -144,15 +144,15 @@ beforeEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-// NC-276: /dashboard/agents/[id] now redirects to /dashboard/agent
-describe('NC-276 — agents/[id] page redirects to /dashboard/agent', () => {
-  it('1 — calls redirect("/dashboard/agent") on render', () => {
+// NC-276: /dashboard/agents/[id] now redirects to /dashboard/agents
+describe('NC-276 — agents/[id] page redirects to /dashboard/agents', () => {
+  it('1 — calls redirect("/dashboard/agents") on render', () => {
     redirectSpy.mockImplementation(() => { throw new Error('redirect'); });
     try {
       render(React.createElement(AgentConfigPage as unknown as React.FC));
     } catch {
       // redirect() throws — expected in test environment
     }
-    expect(redirectSpy).toHaveBeenCalledWith('/dashboard/agent');
+    expect(redirectSpy).toHaveBeenCalledWith('/dashboard/agents');
   });
 });

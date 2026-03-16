@@ -135,7 +135,7 @@ vi.mock('lucide-react', () => ({
 // Import page under test
 // ---------------------------------------------------------------------------
 
-import AgentPage from '../app/dashboard/agent/page';
+import AgentPage from '../app/dashboard/agents/page';
 
 // ---------------------------------------------------------------------------
 // Fixtures

@@ -289,9 +289,9 @@ describe('AlertList', () => {
 // Render Tests — Workspace Page
 // ---------------------------------------------------------------------------
 
-// NC-276: /dashboard/agents/[id] now redirects to /dashboard/agent
+// NC-276: /dashboard/agents/[id] now redirects to /dashboard/agents
 describe('AgentWorkspacePage redirect (NC-276)', () => {
-  it('redirects /dashboard/agents/[id] to /dashboard/agent', async () => {
+  it('redirects /dashboard/agents/[id] to /dashboard/agents', async () => {
     redirectMock.mockImplementation(() => { throw new Error('redirect'); });
     const mod = await import('@/app/dashboard/agents/[id]/page');
     try {
@@ -299,7 +299,7 @@ describe('AgentWorkspacePage redirect (NC-276)', () => {
     } catch {
       // redirect() throws — expected in test environment
     }
-    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agent');
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agents');
   });
 });
 
