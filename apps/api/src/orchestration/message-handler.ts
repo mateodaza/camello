@@ -862,7 +862,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
         `Conversations (7d): ${snap.activeConversations} (${trendStr} vs prior week)`,
         `Payments pending: ${snap.pendingPayments.count}${snap.pendingPayments.byCurrency.length > 0 ? ` totalling ${snap.pendingPayments.byCurrency.map((c) => `${c.currency} ${c.totalAmount.toFixed(2)}`).join(', ')}` : ''}`,
         `Leads: ${leadEntries || 'none'}`,
-        `Top unanswered questions: ${snap.topKnowledgeGaps.join(', ') || 'none yet'}`,
+        `Top unanswered questions: ${snap.topKnowledgeGaps.map((g) => g.sampleQuestion).join(', ') || 'none yet'}`,
         `Pending approvals: ${snap.pendingApprovals}`,
         `==============================================`,
       ].join('\n');

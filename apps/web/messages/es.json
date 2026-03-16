@@ -1057,7 +1057,11 @@
     "metricLeads": "Prospectos Totales",
     "metricApprovals": "Aprobaciones Pendientes",
     "metricGaps": "Preguntas Sin Respuesta",
-    "chatPlaceholder": "Pregunta sobre tu negocio..."
+    "chatPlaceholder": "Pregunta sobre tu negocio...",
+    "leadBreakdownTitle": "Desglose de Prospectos",
+    "stageBreakdown": "por etapa",
+    "topGapsTitle": "Preguntas sin respuesta",
+    "noGaps": "Sin preguntas sin respuesta — ¡excelente cobertura!"
   },
   "tooltips": {
     "tooltipSkills": "Las habilidades son acciones que tu agente puede realizar: agendar reuniones, calificar prospectos o enviar cotizaciones.",

@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-299 | Advisor page: snapshot metrics detail cards | Mar 16 | Extended `topKnowledgeGaps` to `Array<{intentType,sampleQuestion}>` (up to 5) in `advisor-snapshot.ts`. Lead Breakdown + Unanswered Questions `<Section>` blocks added to `advisor/page.tsx`. 4 i18n keys (en+es). 5 test files updated, 1 new (`advisor-page.test.tsx`, 5 tests). Type-check passes. |
 | NC-294 | Redirect `/dashboard/agent` backward compat + regression test | Mar 16 | Fixed `artifacts/page.tsx` redirect target to `/dashboard/agents`. Updated 3 artifact test files (hero, disabled, advisor) to assert new target. Verified `agent/page.tsx` contains no redirect. 5 test files, 23 tests all pass. |
 | NC-293 | Remove AdvisorPanel from agent page + redirect cleanup | Mar 16 | Removed `AdvisorPanel` import + JSX from `agent/page.tsx`. Updated `analytics/page.tsx` redirect to `/dashboard/agents`. Updated `analytics-page.test.tsx` (comment + describe label + assertion). Deleted test 8a from `agent-page.test.tsx`; renamed test 8b to reflect unconditional invariant. Type-check passes. |
 | NC-292 | Advisor standalone page — snapshot metrics + chat | Mar 16 | Created `agents/advisor/page.tsx` (4-metric MetricsGrid, inline TestChatPanel, session summarization on unmount, 3-branch error/loading/ready for both metrics and chat columns). Added `placeholder?` prop to `test-chat-panel.tsx`. 9 i18n keys in `en.json`+`es.json`. Type-check passes. |
@@ -1016,3 +1017,4 @@
 - **NC-292** — 2026-03-16 — `f48ca9f` — Session: 20260316-014155-camello
 - **NC-293** — 2026-03-16 — `90f64b5` — Session: 20260316-014155-camello
 - **NC-294** — 2026-03-16 — `984b9c5` — Session: 20260316-014155-camello
+- **NC-299** — 2026-03-16 — `258a62a` — Session: 20260316-014155-camello

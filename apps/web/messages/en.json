@@ -1057,7 +1057,11 @@
     "metricLeads": "Total Leads",
     "metricApprovals": "Pending Approvals",
     "metricGaps": "Unanswered Questions",
-    "chatPlaceholder": "Ask about your business..."
+    "chatPlaceholder": "Ask about your business...",
+    "leadBreakdownTitle": "Lead Breakdown",
+    "stageBreakdown": "by stage",
+    "topGapsTitle": "Top unanswered questions",
+    "noGaps": "No unanswered questions — great coverage!"
   },
   "tooltips": {
     "tooltipSkills": "Skills are actions your agent can perform — like booking meetings, qualifying leads, or sending quotes.",

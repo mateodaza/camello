@@ -18,7 +18,7 @@ export interface AdvisorSnapshot {
   };
   paidPayments:    { count: number; totalAmount: number };
   leadsByStage: Record<string, number>;
-  topKnowledgeGaps: string[];          // up to 3 intentType strings
+  topKnowledgeGaps: Array<{ intentType: string; sampleQuestion: string }>;  // up to 5
   pendingApprovals: number;
   recentExecutions: { slug: string; count: number }[];
 }
@@ -105,16 +105,25 @@ export async function fetchAdvisorSnapshot(
     }
 
     // Aggregate intentType counts in JS (avoids Drizzle sql`` tag in bundled code).
-    const intentCounts = new Map<string, number>();
+    const intentData = new Map<string, { count: number; sampleQuestion: string }>();
     for (const row of gapRows) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const intentType = (row.metadata as any)?.intentType as string | undefined;
-      if (intentType) intentCounts.set(intentType, (intentCounts.get(intentType) ?? 0) + 1);
+      const meta = row.metadata as { intentType?: string; sampleQuestion?: string } | null;
+      const intentType = meta?.intentType;
+      const sampleQuestion = meta?.sampleQuestion ?? '';
+      if (intentType) {
+        const existing = intentData.get(intentType);
+        if (existing) {
+          existing.count++;
+        } else {
+          intentData.set(intentType, { count: 1, sampleQuestion });
+        }
+      }
     }
-    const topKnowledgeGaps = [...intentCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([intentType]) => intentType);
+    const topKnowledgeGaps = [...intentData.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 5)
+      .map(([intentType, { sampleQuestion }]) => ({ intentType, sampleQuestion }));
 
     const totalPendingCount = pendingByCurrencyRows.reduce((acc, r) => acc + r.count, 0);
 

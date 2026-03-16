@@ -52,8 +52,8 @@ function makeResults(overrides: Record<number, Any[]> = {}): Any[] {
     [{ count: 1, totalAmount: '120.00' }],                       // 3 paidPayRows
     [{ stage: 'new', count: 4 }, { stage: 'qualifying', count: 2 }], // 4 leadRows
     // gapRows: implementation reads row.metadata.intentType and counts in JS
-    Array.from({ length: 5 }, () => ({ metadata: { intentType: 'pricing' } })).concat(
-      Array.from({ length: 3 }, () => ({ metadata: { intentType: 'shipping' } })),
+    Array.from({ length: 5 }, () => ({ metadata: { intentType: 'pricing', sampleQuestion: 'How much does it cost?' } })).concat(
+      Array.from({ length: 3 }, () => ({ metadata: { intentType: 'shipping', sampleQuestion: 'How long does shipping take?' } })),
     ),                                                                             // 5 gapRows
     [{ count: 1 }],                                              // 6 approvalRows
     [{ slug: 'book_meeting', count: 3 }],                        // 7 execRows
@@ -82,8 +82,8 @@ describe('fetchAdvisorSnapshot', () => {
     expect(snap.paidPayments.totalAmount).toBe(120);
     expect(snap.leadsByStage['new']).toBe(4);
     expect(snap.leadsByStage['qualifying']).toBe(2);
-    expect(snap.topKnowledgeGaps[0]).toBe('pricing');
-    expect(snap.topKnowledgeGaps[1]).toBe('shipping');
+    expect(snap.topKnowledgeGaps[0]).toEqual({ intentType: 'pricing', sampleQuestion: 'How much does it cost?' });
+    expect(snap.topKnowledgeGaps[1]).toEqual({ intentType: 'shipping', sampleQuestion: 'How long does shipping take?' });
     expect(snap.pendingApprovals).toBe(1);
     expect(snap.recentExecutions[0]).toEqual({ slug: 'book_meeting', count: 3 });
   });

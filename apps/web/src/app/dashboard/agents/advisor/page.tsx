@@ -1,11 +1,14 @@
 'use client'
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
+import { BarChart2, HelpCircle } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QueryError } from '@/components/query-error'
 import { MetricsGrid } from '@/components/agent-workspace/primitives/metrics-grid'
 import { TestChatPanel } from '@/components/test-chat-panel'
+import { Section } from '@/components/dashboard/section'
+import { stageKey } from '@/components/agent-workspace/sales/constants'
 
 // Mirrors the internal ChatMessage type in test-chat-panel.tsx (not exported from there)
 type ChatMessage = { role: 'user' | 'assistant'; text: string };
@@ -13,6 +16,7 @@ type ChatMessage = { role: 'user' | 'assistant'; text: string };
 export default function AdvisorPage() {
   // Step 1 — translations
   const t = useTranslations('advisor');
+  const tw = useTranslations('agentWorkspace');
 
   // Step 2 — tRPC queries and mutations
   const artifactList = trpc.artifact.list.useQuery({ type: 'advisor', activeOnly: false });
@@ -179,7 +183,61 @@ export default function AdvisorPage() {
           {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
         </div>
       ) : (
-        <MetricsGrid metrics={metrics} />
+        <>
+          <MetricsGrid metrics={metrics} />
+
+          {/* Pending payments by currency — inline compact list */}
+          {snap.data.pendingPayments.byCurrency.length > 0 && (
+            <ul className="flex flex-wrap gap-3">
+              {snap.data.pendingPayments.byCurrency.map(({ currency, totalAmount }) => (
+                <li key={currency} className="text-sm text-dune">
+                  <span className="font-medium text-charcoal">{currency}</span>{' '}
+                  {totalAmount.toLocaleString()}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Lead Breakdown section */}
+          <Section
+            title={t('leadBreakdownTitle')}
+            icon={BarChart2}
+            badge={totalLeads}
+            defaultOpen={false}
+          >
+            <ul className="divide-y divide-charcoal/8">
+              {Object.entries(snap.data.leadsByStage).map(([stage, count]) => (
+                <li key={stage} className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-charcoal">
+                    {tw(`salesStage${stageKey(stage)}` as Parameters<typeof tw>[0])}
+                  </span>
+                  <span className="font-medium text-charcoal">{count}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-xs text-dune">{t('stageBreakdown')}</p>
+          </Section>
+
+          {/* Unanswered Questions section */}
+          <Section
+            title={t('topGapsTitle')}
+            icon={HelpCircle}
+            badge={snap.data.topKnowledgeGaps.length}
+            defaultOpen={false}
+          >
+            {snap.data.topKnowledgeGaps.length === 0 ? (
+              <p className="text-sm text-dune">{t('noGaps')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {snap.data.topKnowledgeGaps.map((gap) => (
+                  <li key={gap.intentType} className="text-sm text-charcoal">
+                    {gap.sampleQuestion}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        </>
       )}
 
       {/* Chat column — 3-branch: error | loading | ready.

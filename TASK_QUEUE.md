@@ -1776,7 +1776,8 @@ Mock: next-intl, next/link, lucide-react (same pattern as existing tests)
 
 ## P1 — Advisor Enhancements
 
-#### NC-299 [ ] Advisor page: snapshot metrics detail cards
+#### NC-299 [x] Advisor page: snapshot metrics detail cards
+Extended `topKnowledgeGaps` type from `string[]` to `Array<{intentType,sampleQuestion}>` (up to 5). Lead Breakdown + Unanswered Questions collapsible Sections added to advisor page. 9 files modified, 1 new test file (5 tests).
 
 Enhance the advisor page metrics strip (added in NC-292) with richer detail: leads broken down by stage (from `snap.leadsByStage`), payment totals by currency (from `snap.pendingPayments`), and top unanswered questions list (from `snap.topGaps`).
 
