@@ -1094,5 +1094,18 @@
     "knowledgeDocsCta": "Agregar conocimiento",
     "knowledgeGapsTitle": "Sin preguntas sin responder — ¡genial!",
     "knowledgeGapsDescription": "Tu agente ha podido responder todo lo que los clientes han preguntado. Mantén tu base de conocimiento actualizada a medida que tu negocio evoluciona."
+  },
+  "agents": {
+    "pageTitle": "Tus Agentes",
+    "salesCard": "Agente de Ventas",
+    "advisorCard": "Asesor de Negocio",
+    "salesDesc": "Gestiona conversaciones con clientes, califica prospectos y cierra ventas",
+    "advisorDesc": "Tu copiloto interno — pregúntale cualquier cosa sobre tu actividad de negocio",
+    "cardActive": "Activo",
+    "cardInactive": "Inactivo",
+    "cardConfigure": "Configurar",
+    "cardOpen": "Abrir",
+    "emptyDesc": "No se encontraron agentes. Completa el proceso de configuración para activar tus agentes.",
+    "emptyAction": "Comenzar"
   }
 }

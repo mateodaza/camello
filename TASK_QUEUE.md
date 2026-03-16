@@ -1618,7 +1618,9 @@ Change the sidebar nav item label from "Agent" to "Agents" and update the href f
 
 ---
 
-#### NC-291 [ ] Agents index page — card grid (Sales + Advisor)
+#### NC-291 [x] Agents index page — card grid (Sales + Advisor)
+
+**Summary:** Wrote workspace content to `agent/page.tsx` (restores spec-intended route). Replaced `agents/page.tsx` with new card grid (`AgentsIndexPage`) — 2 cards (Sales→`/dashboard/agent`, Advisor→`/dashboard/agents/advisor`), loading skeleton, error, and empty state. `agents` i18n namespace (11 keys, en+es). Updated 3 test import paths. Created `agents-index.test.tsx` (7 tests). Fixed `agents/[id]/page.tsx`: `advisor` now renders `AdvisorPanel` standalone (was incorrectly redirecting to sales workspace). Type-check passes.
 
 Create a new page at `/dashboard/agents/page.tsx` that shows a card for each tenant artifact. For now, that's always 2 cards: Sales Agent and Advisor.
 

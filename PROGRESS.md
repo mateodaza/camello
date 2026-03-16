@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-291 | Agents index page — card grid (Sales + Advisor) | Mar 16 | `agent/page.tsx` populated with full workspace (restores spec-intended route). `agents/page.tsx` replaced with `AgentsIndexPage` card grid (2 cards, skeleton, error, empty state). `agents` i18n namespace (11 keys, en+es). 3 test import paths updated. `agents-index.test.tsx` created (7 tests). `agents/[id]/page.tsx` fixed: `advisor` renders `AdvisorPanel` standalone page (was incorrectly redirecting to sales workspace). Type-check passes. |
 | NC-290 | Sidebar "Agent" → "Agents" + href update | Mar 16 | `sidebar.tsx` href+labelKey updated. `en.json`+`es.json` `sidebar.agents` key added. `/dashboard/agents/page.tsx` placeholder created. `i18n-orphans.test.ts` updated (removed stale absent assertion, added present assertion). Type-check passes. |
 | NC-289 | Experience sprint audit — terminology + tooltip + empty state sweep | Mar 15 | 12 i18n value fixes in `en.json`+`es.json` (ingest→add, modules→skills, escalations→handoffs). `Step3MeetAgent.tsx`: `SLUG_TO_LABEL` map + `useTranslations('agentWorkspace')` replaces raw slug badge text. 6 new assertions in `terminology-audit.test.ts`. 3 tests updated in `step3-meet-agent.test.tsx`. Type-check passes. |
 | NC-288 | First-session guide — post-onboarding "what's next" checklist | Mar 15 | `tenant.updateGuideStep` tRPC mutation merges `firstSessionGuide` sub-object into JSONB settings. `first-session-guide.tsx` renders 4-item checklist with auto-detect (testedChat via `testedChatAuto`, addedKnowledge via `docCount`), copy-link handler, and dismiss. `conversations/page.tsx` adds `showGuide` gate. 10 i18n keys en+es. 4 tests in `first-session-guide.test.tsx`. Type-check passes. |
@@ -1008,3 +1009,4 @@
 - **NC-288** — 2026-03-15 — `604b336` — Session: 20260315-133858-camello
 - **NC-289** — 2026-03-15 — `561add3` — Session: 20260315-133858-camello
 - **NC-290** — 2026-03-16 — `5dbccfe` — Session: 20260316-014155-camello
+- **NC-291** — 2026-03-16 — `d2b50b6` — Session: 20260316-014155-camello — ⚠ Committed after soft review rejections cap; local verification passed.

@@ -1094,5 +1094,18 @@
     "knowledgeDocsCta": "Add Knowledge",
     "knowledgeGapsTitle": "No unanswered questions — nice!",
     "knowledgeGapsDescription": "Your agent has been able to answer everything customers have asked. Keep your knowledge base updated as your business evolves."
+  },
+  "agents": {
+    "pageTitle": "Your Agents",
+    "salesCard": "Sales Agent",
+    "advisorCard": "Business Advisor",
+    "salesDesc": "Handles customer conversations, qualifies leads, and closes deals",
+    "advisorDesc": "Your internal co-pilot — ask it anything about your business activity",
+    "cardActive": "Active",
+    "cardInactive": "Inactive",
+    "cardConfigure": "Configure",
+    "cardOpen": "Open",
+    "emptyDesc": "No agents found. Complete onboarding to set up your agents.",
+    "emptyAction": "Get Started"
   }
 }

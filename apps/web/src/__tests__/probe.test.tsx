@@ -8,7 +8,7 @@ vi.mock('lucide-react', () => ({
   MessageSquare: ({ className }: { className?: string }) => React.createElement('svg', { 'data-icon': 'MessageSquare', className }),
 }));
 
-import AgentPage from '../app/dashboard/agents/page';
+import AgentPage from '../app/dashboard/agent/page';
 
 describe('probe', () => {
   it('trivial', () => {
