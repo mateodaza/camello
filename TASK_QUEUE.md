@@ -1801,7 +1801,7 @@ Enhance the advisor page metrics strip (added in NC-292) with richer detail: lea
 
 ---
 
-#### NC-300 [ ] Advisor page: session history sidebar
+#### NC-300 [x] Advisor page: session history sidebar
 
 Add a left sidebar (desktop) or top section (mobile) showing past advisor conversations so the user can revisit previous insights.
 
@@ -1826,6 +1826,8 @@ Add a left sidebar (desktop) or top section (mobile) showing past advisor conver
 - `pnpm type-check` passes
 
 **Depends on:** NC-292
+
+Added `firstUserMessagePreview` subquery to `conversation.list`; `initialConversationId` prop + history-fetch effect to `TestChatPanel`; session history sidebar (desktop left strip + mobile Section) to advisor page; 4 i18n keys (en+es); 9 tests in 2 new test files. Synchronous ref reset in `handleSelectSession`/`handleNewSession` closes race condition.
 
 ---
 

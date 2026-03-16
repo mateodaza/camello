@@ -118,6 +118,14 @@ export const conversationRouter = router({
                 LIMIT 1
               ) t
             )`,
+            firstUserMessagePreview: sql<string | null>`(
+              SELECT LEFT(m.content, 80)
+              FROM messages m
+              WHERE m.conversation_id = ${conversations.id}
+                AND m.role = 'customer'
+              ORDER BY m.created_at ASC, m.id ASC
+              LIMIT 1
+            )`,
           })
           .from(conversations)
           .leftJoin(customers, eq(conversations.customerId, customers.id))
@@ -143,6 +151,7 @@ export const conversationRouter = router({
             lastMessagePreview: lm?.preview ?? null,
             lastMessageRole: lm?.role ?? null,
             lastMessageAt: lm?.at ? new Date(lm.at) : null,
+            firstUserMessagePreview: r.firstUserMessagePreview ?? null,
           };
         });
 

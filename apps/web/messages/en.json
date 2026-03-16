@@ -1061,7 +1061,11 @@
     "leadBreakdownTitle": "Lead Breakdown",
     "stageBreakdown": "by stage",
     "topGapsTitle": "Top unanswered questions",
-    "noGaps": "No unanswered questions — great coverage!"
+    "noGaps": "No unanswered questions — great coverage!",
+    "sessionHistory": "Past Sessions",
+    "noSessions": "No past sessions yet",
+    "sessionDate": "Session",
+    "newSession": "New Session"
   },
   "tooltips": {
     "tooltipSkills": "Skills are actions your agent can perform — like booking meetings, qualifying leads, or sending quotes.",

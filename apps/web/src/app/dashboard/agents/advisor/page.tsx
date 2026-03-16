@@ -32,11 +32,17 @@ export default function AdvisorPage() {
 
   const summarizeSession = trpc.advisor.summarizeSession.useMutation();
 
+  const conversationHistory = trpc.conversation.list.useQuery(
+    { artifactId: advisorArtifact?.id, limit: 10, showSandbox: true },
+    { enabled: !!advisorArtifact?.id },
+  );
+
   // Step 3 — refs
   const liveMessageCountRef = useRef<number>(0);
   const liveConversationIdRef = useRef<string | null>(null);
   const initialMessageCountRef = useRef<number>(0);
   const initialCountSet = useRef(false);
+  const pendingBaselineReset = useRef(false);
 
   // Step 4 — derived values (BEFORE all effects)
   const openingMessage = snap.data
@@ -73,6 +79,10 @@ export default function AdvisorPage() {
       ]
     : [];
 
+  // Session state
+  const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>(undefined);
+  const [sessionKey, setSessionKey] = useState(0);
+
   // Step 5 — callbacks
   const handleClose = useCallback(() => {
     const newMessageCount = liveMessageCountRef.current - initialMessageCountRef.current;
@@ -94,9 +104,41 @@ export default function AdvisorPage() {
     (msgs: ChatMessage[], conversationId: string | null) => {
       liveMessageCountRef.current = msgs.length;
       liveConversationIdRef.current = conversationId;
+      if (pendingBaselineReset.current && conversationId !== null) {
+        initialMessageCountRef.current = msgs.length;
+        pendingBaselineReset.current = false;
+      }
     },
     [],
   );
+
+  const handleSelectSession = useCallback((conversationId: string) => {
+    // No-op if this session is already active — avoids blanking the chat via the
+    // sessionKey reset effect when the history-load effect has no dependency change
+    // to re-fire on (same initialConversationId + same cached historyQuery.data).
+    if (conversationId === selectedConversationId) return;
+    // Summarize the current session before switching (if it qualifies).
+    // handleClose also zeroes liveMessageCountRef and liveConversationIdRef,
+    // closing the unmount-race window without a separate ref-clear step.
+    handleCloseRef.current();
+    setSelectedConversationId(conversationId);
+    setSessionKey((k) => k + 1);
+    pendingBaselineReset.current = true;
+  }, [selectedConversationId]);
+
+  const handleNewSession = useCallback(() => {
+    // Clear any pending baseline reset from a prior handleSelectSession call.
+    // Without this, if the user clicks "New Session" before a past session's
+    // history finishes loading, the flag leaks and corrupts the new session's
+    // initialMessageCountRef on the first onMessagesChange call.
+    pendingBaselineReset.current = false;
+    // Summarize the current session before resetting (if it qualifies).
+    // handleClose also zeroes the live refs, closing the unmount-race window.
+    handleCloseRef.current();
+    setSelectedConversationId(undefined);
+    setSessionKey((k) => k + 1);
+    initialMessageCountRef.current = initialMessages?.length ?? 0;
+  }, [initialMessages]);
 
   // Step 6 — effects (all AFTER initialMessages is in scope — no TDZ risk)
 
@@ -165,6 +207,44 @@ export default function AdvisorPage() {
   if (!advisorArtifact) return null;
 
   // Render — State 5: main render
+  const historyItems = conversationHistory.data?.items ?? [];
+
+  // Session list used in both desktop sidebar and mobile section
+  const sessionListContent = (
+    <>
+      {conversationHistory.isLoading ? (
+        <div className="flex flex-col gap-2 p-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : historyItems.length === 0 ? (
+        <p className="px-4 py-3 text-sm text-dune">{t('noSessions')}</p>
+      ) : (
+        <ul className="overflow-y-auto">
+          {historyItems.map((conv) => (
+            <li key={conv.id}>
+              <button
+                type="button"
+                onClick={() => handleSelectSession(conv.id)}
+                className={`min-h-[36px] w-full text-left px-4 py-3 hover:bg-sand transition-colors ${
+                  selectedConversationId === conv.id ? 'bg-sand' : ''
+                }`}
+              >
+                <p className="text-xs text-dune">
+                  {conv.createdAt.toLocaleDateString()}
+                </p>
+                <p className="text-sm text-charcoal truncate">
+                  {conv.firstUserMessagePreview ?? t('sessionDate')}
+                </p>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+
   return (
     <div className="p-6 flex flex-col gap-6 h-full">
       {/* Header */}
@@ -240,32 +320,64 @@ export default function AdvisorPage() {
         </>
       )}
 
-      {/* Chat column — 3-branch: error | loading | ready.
-          Mirrors the metrics strip exactly so snap.isError never leaves
-          either section stuck on an indefinite skeleton.
+      {/* Mobile session history section */}
+      <div className="md:hidden">
+        <Section
+          title={t('sessionHistory')}
+          defaultOpen={false}
+        >
+          {sessionListContent}
+          <div className="px-4 pb-3">
+            <button
+              type="button"
+              onClick={handleNewSession}
+              className="min-h-[36px] w-full rounded-md border border-charcoal/15 px-3 py-2 text-sm text-charcoal hover:bg-sand transition-colors"
+            >
+              {t('newSession')}
+            </button>
+          </div>
+        </Section>
+      </div>
 
-          inline={true}: renders as flex column filling its container.
-          onClose={handleClose}: passed for semantic correctness and forward-compatibility;
-          the inline path in TestChatPanel never calls it — summarization is
-          triggered exclusively by the unmount cleanup (Effect 3). */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {snap.isError ? (
-          <QueryError error={snap.error} onRetry={() => snap.refetch()} />
-        ) : !snap.data ? (
-          <Skeleton className="flex-1 min-h-[400px]" />
-        ) : (
-          <TestChatPanel
-            artifactId={advisorArtifact.id}
-            artifactName={advisorArtifact.name}
-            artifactType="advisor"
-            open={true}
-            onClose={handleClose}
-            initialMessages={initialMessages}
-            onMessagesChange={handleMessagesChange}
-            inline={true}
-            placeholder={t('chatPlaceholder')}
-          />
-        )}
+      {/* Two-zone layout: sidebar + chat */}
+      <div className="flex-1 min-h-0 flex">
+        {/* Desktop sidebar */}
+        <div className="hidden md:flex w-64 shrink-0 flex-col border-r border-charcoal/8">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-charcoal/8">
+            <span className="text-sm font-medium text-charcoal">{t('sessionHistory')}</span>
+            <button
+              type="button"
+              onClick={handleNewSession}
+              className="min-h-[36px] rounded-md px-3 py-1 text-xs text-teal hover:bg-sand transition-colors"
+            >
+              {t('newSession')}
+            </button>
+          </div>
+          {sessionListContent}
+        </div>
+
+        {/* Chat area */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {snap.isError ? (
+            <QueryError error={snap.error} onRetry={() => snap.refetch()} />
+          ) : !snap.data ? (
+            <Skeleton className="flex-1 min-h-[400px]" />
+          ) : (
+            <TestChatPanel
+              artifactId={advisorArtifact.id}
+              artifactName={advisorArtifact.name}
+              artifactType="advisor"
+              open={true}
+              onClose={handleClose}
+              initialMessages={selectedConversationId ? undefined : initialMessages}
+              initialConversationId={selectedConversationId}
+              onMessagesChange={handleMessagesChange}
+              inline={true}
+              placeholder={t('chatPlaceholder')}
+              sessionKey={sessionKey}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

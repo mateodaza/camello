@@ -1061,7 +1061,11 @@
     "leadBreakdownTitle": "Desglose de Prospectos",
     "stageBreakdown": "por etapa",
     "topGapsTitle": "Preguntas sin respuesta",
-    "noGaps": "Sin preguntas sin respuesta — ¡excelente cobertura!"
+    "noGaps": "Sin preguntas sin respuesta — ¡excelente cobertura!",
+    "sessionHistory": "Sesiones Anteriores",
+    "noSessions": "Sin sesiones anteriores",
+    "sessionDate": "Sesión",
+    "newSession": "Nueva Sesión"
   },
   "tooltips": {
     "tooltipSkills": "Las habilidades son acciones que tu agente puede realizar: agendar reuniones, calificar prospectos o enviar cotizaciones.",

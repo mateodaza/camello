@@ -30,12 +30,14 @@ interface Props {
   sessionKey?: number;
   /** Override the input placeholder. Defaults to t('messagePlaceholder') from the artifacts namespace. */
   placeholder?: string;
+  /** When set, fetches and pre-populates this conversation's message history on mount. */
+  initialConversationId?: string;
 }
 
 export function TestChatPanel({
   artifactId, artifactName, artifactType, open, onClose,
   initialMessages, onMessagesChange,
-  inline, fullscreen, sessionKey, placeholder,
+  inline, fullscreen, sessionKey, placeholder, initialConversationId,
 }: Props) {
   const t = useTranslations('artifacts');
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
@@ -53,6 +55,11 @@ export function TestChatPanel({
   // onSuccess is passed per-call in handleSend (not here) so that the
   // generation check can guard against stale replies from resets.
   const sendMessage = trpc.chat.send.useMutation();
+
+  const historyQuery = trpc.conversation.messages.useQuery(
+    { conversationId: initialConversationId ?? '' },
+    { enabled: !!initialConversationId },
+  );
 
   // Ensure preview customer on first open
   useEffect(() => {
@@ -90,6 +97,22 @@ export function TestChatPanel({
     setConversationId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey]);
+
+  // History load effect — fires when initialConversationId is set and historyQuery.data resolves.
+  // Reverse DESC result to ASC for display, filter to customer/artifact roles only.
+  useEffect(() => {
+    if (!initialConversationId || !historyQuery.data) return;
+    const mapped: ChatMessage[] = [...historyQuery.data]
+      .reverse()
+      .flatMap((m): ChatMessage[] => {
+        if (m.role === 'customer')  return [{ role: 'user',      text: m.content }];
+        if (m.role === 'artifact')  return [{ role: 'assistant', text: m.content }];
+        return [];
+      });
+    setMessages(mapped);
+    setConversationId(initialConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialConversationId, historyQuery.data]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

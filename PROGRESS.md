@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-300 | Advisor page: session history sidebar | Mar 16 | Added `firstUserMessagePreview` subquery to `conversation.list`; `initialConversationId` prop + history-fetch effect to `test-chat-panel.tsx`; desktop sidebar + mobile Section in `advisor/page.tsx`; synchronous ref reset in `handleSelectSession`/`handleNewSession`; 4 i18n keys (en+es); 9 tests in 2 new files. Iter 4 fix: `pendingBaselineReset` guard changed from `msgs.length > 0` to `conversationId !== null` so zero-displayable-message history correctly resets baseline to 0. Type-check passes. |
 | NC-299 | Advisor page: snapshot metrics detail cards | Mar 16 | Extended `topKnowledgeGaps` to `Array<{intentType,sampleQuestion}>` (up to 5) in `advisor-snapshot.ts`. Lead Breakdown + Unanswered Questions `<Section>` blocks added to `advisor/page.tsx`. 4 i18n keys (en+es). 5 test files updated, 1 new (`advisor-page.test.tsx`, 5 tests). Type-check passes. |
 | NC-294 | Redirect `/dashboard/agent` backward compat + regression test | Mar 16 | Fixed `artifacts/page.tsx` redirect target to `/dashboard/agents`. Updated 3 artifact test files (hero, disabled, advisor) to assert new target. Verified `agent/page.tsx` contains no redirect. 5 test files, 23 tests all pass. |
 | NC-293 | Remove AdvisorPanel from agent page + redirect cleanup | Mar 16 | Removed `AdvisorPanel` import + JSX from `agent/page.tsx`. Updated `analytics/page.tsx` redirect to `/dashboard/agents`. Updated `analytics-page.test.tsx` (comment + describe label + assertion). Deleted test 8a from `agent-page.test.tsx`; renamed test 8b to reflect unconditional invariant. Type-check passes. |
@@ -1018,3 +1019,4 @@
 - **NC-293** — 2026-03-16 — `90f64b5` — Session: 20260316-014155-camello
 - **NC-294** — 2026-03-16 — `984b9c5` — Session: 20260316-014155-camello
 - **NC-299** — 2026-03-16 — `258a62a` — Session: 20260316-014155-camello
+- **NC-300** — 2026-03-16 — `5b85c75` — Session: 20260316-014155-camello — ⚠ Committed after soft review rejections cap; local verification passed.
