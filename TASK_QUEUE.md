@@ -1862,7 +1862,7 @@ Added `quickPrompts` prop to `TestChatPanel`, extracted `sendText` helper, pill 
 
 ## P2 — Quick Wins (independent, no deps)
 
-#### NC-295 [ ] Orphaned i18n key sweep
+#### NC-295 [x] Orphaned i18n key sweep
 
 Find and remove i18n keys in `en.json`/`es.json` that are not referenced by any `.tsx` file. These accumulate from previous sprint refactors.
 
@@ -1882,6 +1882,7 @@ Find and remove i18n keys in `en.json`/`es.json` that are not referenced by any 
 - `pnpm type-check` passes
 
 **Depends on:** none
+_Done: Script-confirmed 51 orphan keys removed from dashboard (15), artifacts (28), agent (1), notifications (7) namespaces. All tone* and comingSoon keys protected. i18n-orphans.test.ts NC-295 describe block added (10 absence + 10 presence guards × 2 locales = 114 tests pass). agentTestChat removed from artifacts-disabled.test.tsx requiredKeys (4 tests pass). Type-check passes._
 
 ---
 

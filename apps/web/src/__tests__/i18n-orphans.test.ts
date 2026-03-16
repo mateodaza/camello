@@ -235,3 +235,101 @@ describe("i18n orphan guard — NC-282 secondary source-scan assertions", () => 
     expect(matches).toHaveLength(4);
   });
 });
+
+describe("i18n orphan guard — NC-295 primary JSON assertions", () => {
+  for (const locale of ["en", "es"]) {
+    const parsed = parseJson(join(messagesDir, `${locale}.json`));
+
+    describe(`${locale}.json — NC-295 orphaned keys absent`, () => {
+      const dashboard = (parsed as Record<string, Record<string, unknown>>)
+        .dashboard;
+      const agent = (parsed as Record<string, Record<string, unknown>>).agent;
+      const notifications = (
+        parsed as Record<string, Record<string, unknown>>
+      ).notifications;
+      const artifacts = (parsed as Record<string, Record<string, unknown>>)
+        .artifacts;
+
+      // dashboard — confirmed orphans
+      it("dashboard.openLink is absent", () => {
+        expect(dashboard.openLink).toBeUndefined();
+      });
+      it("dashboard.noAgents is absent", () => {
+        expect(dashboard.noAgents).toBeUndefined();
+      });
+      it("dashboard.event_new_lead is absent", () => {
+        expect(dashboard.event_new_lead).toBeUndefined();
+      });
+      it("dashboard.agentType_sales is absent", () => {
+        expect(dashboard.agentType_sales).toBeUndefined();
+      });
+      it("dashboard.knowledgeBannerText is absent", () => {
+        expect(dashboard.knowledgeBannerText).toBeUndefined();
+      });
+
+      // agent
+      it("agent.agentTestChat is absent", () => {
+        expect(agent.agentTestChat).toBeUndefined();
+      });
+
+      // notifications — type-label keys
+      it("notifications.typeApprovalNeeded is absent", () => {
+        expect(notifications.typeApprovalNeeded).toBeUndefined();
+      });
+      it("notifications.typeHotLead is absent", () => {
+        expect(notifications.typeHotLead).toBeUndefined();
+      });
+      // notifications — allMarkedRead (added in Revision 3)
+      it("notifications.allMarkedRead is absent", () => {
+        expect(notifications.allMarkedRead).toBeUndefined();
+      });
+
+      // artifacts — customNamePlaceholder (added in Revision 3)
+      it("artifacts.customNamePlaceholder is absent", () => {
+        expect(artifacts.customNamePlaceholder).toBeUndefined();
+      });
+    });
+
+    describe(`${locale}.json — NC-295 retained keys still present`, () => {
+      const dashboard = (parsed as Record<string, Record<string, unknown>>)
+        .dashboard;
+      const artifacts = (parsed as Record<string, Record<string, unknown>>)
+        .artifacts;
+      const notifications = (
+        parsed as Record<string, Record<string, unknown>>
+      ).notifications;
+
+      it("dashboard.knowledgeScoreBanner is present", () => {
+        expect(dashboard.knowledgeScoreBanner).not.toBeUndefined();
+      });
+      it("dashboard.knowledgeScoreAddCta is present", () => {
+        expect(dashboard.knowledgeScoreAddCta).not.toBeUndefined();
+      });
+      it("dashboard.resumeSetupBanner is present", () => {
+        expect(dashboard.resumeSetupBanner).not.toBeUndefined();
+      });
+      it("dashboard.shareLink is present", () => {
+        expect(dashboard.shareLink).not.toBeUndefined();
+      });
+      it("artifacts.comingSoon is present", () => {
+        expect(artifacts.comingSoon).not.toBeUndefined();
+      });
+      it("artifacts.salesName is present", () => {
+        expect(artifacts.salesName).not.toBeUndefined();
+      });
+      it("artifacts.salesDesc is present", () => {
+        expect(artifacts.salesDesc).not.toBeUndefined();
+      });
+      it("artifacts.advisorDesc is present", () => {
+        expect(artifacts.advisorDesc).not.toBeUndefined();
+      });
+      it("notifications.panelTitle is present", () => {
+        expect(notifications.panelTitle).not.toBeUndefined();
+      });
+      // markAllRead is a LIVE key (distinct from allMarkedRead which is orphaned)
+      it("notifications.markAllRead is present", () => {
+        expect(notifications.markAllRead).not.toBeUndefined();
+      });
+    });
+  }
+});

@@ -122,7 +122,7 @@ describe('NC-276/NC-294 — artifacts page redirects + i18n keys preserved', () 
     const requiredKeys = [
       'agentHeader', 'agentIdentity', 'agentPersonality', 'agentModules',
       'agentApprovals', 'agentPerformance', 'agentSalesActivity', 'agentAdvanced',
-      'agentTestChat', 'agentEmpty', 'agentCreate',
+      'agentEmpty', 'agentCreate',
     ];
     for (const key of requiredKeys) {
       expect(en['agent'][key]).toBeTruthy();
