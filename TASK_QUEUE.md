@@ -1831,7 +1831,7 @@ Added `firstUserMessagePreview` subquery to `conversation.list`; `initialConvers
 
 ---
 
-#### NC-301 [ ] Advisor page: "Ask about..." quick prompt buttons
+#### NC-301 [x] Advisor page: "Ask about..." quick prompt buttons
 
 Add 4 pre-built prompt buttons above the chat input that seed common advisor questions. Buttons disappear after the first user message (same pattern as widget quick actions).
 
@@ -1853,6 +1853,8 @@ Add 4 pre-built prompt buttons above the chat input that seed common advisor que
 - Buttons hidden after first user message
 - Touch targets ≥ 36px
 - `pnpm type-check` passes
+
+Added `quickPrompts` prop to `TestChatPanel`, extracted `sendText` helper, pill UI with `hasUserSentMessage` guard; advisor page computes 4 i18n prompts and passes them (omitted for past sessions); 7 tests in 2 new files.
 
 **Depends on:** NC-292
 

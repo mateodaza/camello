@@ -1065,7 +1065,11 @@
     "sessionHistory": "Past Sessions",
     "noSessions": "No past sessions yet",
     "sessionDate": "Session",
-    "newSession": "New Session"
+    "newSession": "New Session",
+    "quickPromptSales": "How are sales this week?",
+    "quickPromptGaps": "What questions can't my agent answer?",
+    "quickPromptApprovals": "Any pending approvals?",
+    "quickPromptLeads": "Which leads need attention?"
   },
   "tooltips": {
     "tooltipSkills": "Skills are actions your agent can perform — like booking meetings, qualifying leads, or sending quotes.",

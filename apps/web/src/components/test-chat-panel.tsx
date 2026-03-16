@@ -32,12 +32,14 @@ interface Props {
   placeholder?: string;
   /** When set, fetches and pre-populates this conversation's message history on mount. */
   initialConversationId?: string;
+  /** Quick-prompt pill buttons shown above the input before the first user message. */
+  quickPrompts?: string[];
 }
 
 export function TestChatPanel({
   artifactId, artifactName, artifactType, open, onClose,
   initialMessages, onMessagesChange,
-  inline, fullscreen, sessionKey, placeholder, initialConversationId,
+  inline, fullscreen, sessionKey, placeholder, initialConversationId, quickPrompts,
 }: Props) {
   const t = useTranslations('artifacts');
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
@@ -125,14 +127,10 @@ export function TestChatPanel({
     onMessagesChangeRef.current?.(messages, conversationId);
   }, [messages, conversationId]);
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || !customerId) return;
-
-    const text = input.trim();
-    setMessages((prev) => [...prev, { role: 'user', text }]);
+  const sendText = (text: string) => {
+    if (!text.trim() || !customerId) return;
+    setMessages((prev) => [...prev, { role: 'user', text: text.trim() }]);
     setInput('');
-
     // Capture generation and conversationId at send time. The onSuccess guard
     // ensures a session reset between send and response discards the stale reply.
     const gen = sessionGenRef.current;
@@ -140,7 +138,7 @@ export function TestChatPanel({
     sendMessage.mutate(
       {
         customerId,
-        message: text,
+        message: text.trim(),
         channel: 'webchat',
         sandbox: true,
         artifactId,
@@ -154,6 +152,11 @@ export function TestChatPanel({
         },
       },
     );
+  };
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendText(input.trim());
   };
 
   if (!open && !inline) return null;
@@ -187,8 +190,24 @@ export function TestChatPanel({
     </div>
   );
 
+  const hasUserSentMessage = messages.some(m => m.role === 'user');
+
   const inputContent = (
     <div className="border-t border-charcoal/8 p-4">
+      {quickPrompts && !hasUserSentMessage && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {quickPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => sendText(prompt)}
+              className="min-h-[36px] rounded-full border border-teal/30 px-3 py-1.5 text-xs text-teal hover:bg-teal/5 transition-colors"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      )}
       {sendMessage.isError && (
         <p className="mb-2 text-sm text-error">{sendMessage.error.message}</p>
       )}

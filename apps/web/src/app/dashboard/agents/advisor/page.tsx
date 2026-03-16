@@ -18,6 +18,13 @@ export default function AdvisorPage() {
   const t = useTranslations('advisor');
   const tw = useTranslations('agentWorkspace');
 
+  const quickPrompts = [
+    t('quickPromptSales'),
+    t('quickPromptGaps'),
+    t('quickPromptApprovals'),
+    t('quickPromptLeads'),
+  ];
+
   // Step 2 — tRPC queries and mutations
   const artifactList = trpc.artifact.list.useQuery({ type: 'advisor', activeOnly: false });
   const advisorArtifact = artifactList.data?.[0];
@@ -375,6 +382,7 @@ export default function AdvisorPage() {
               inline={true}
               placeholder={t('chatPlaceholder')}
               sessionKey={sessionKey}
+              quickPrompts={selectedConversationId ? undefined : quickPrompts}
             />
           )}
         </div>
