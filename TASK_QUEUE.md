@@ -373,7 +373,8 @@ Skills that apply across archetypes or complement sales.
 
 ---
 
-#### NC-308 [ ] Trim sales archetype prompt + verify composition
+#### NC-308 [x] Trim sales archetype prompt + verify composition
+Trimmed `sales.ts` prompts.en/es: removed RE-ENGAGEMENT and CONVERSATIONAL CLOSES sections; condensed DISCOVERY, QUALIFICATION, OBJECTION HANDLING, BUSINESS CONTEXT to 1-2 lines each; preserved QUOTE EXECUTION and NEVER DO verbatim. Added `archetype-trim.test.ts` with 4 tests (T1a, T1b, T2, T3). `pnpm type-check` passes.
 
 The sales archetype currently contains ~1000 words of detailed procedures for SPIN selling, objection handling, closing, and re-engagement. Now that these live as skills with more depth and examples, trim the archetype to a condensed overview.
 

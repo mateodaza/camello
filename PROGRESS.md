@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-308 | Trim sales archetype prompt + verify composition | Mar 17 | Trimmed `sales.ts` prompts.en/es: removed RE-ENGAGEMENT and CONVERSATIONAL CLOSES blocks; condensed DISCOVERY, QUALIFICATION, OBJECTION HANDLING, BUSINESS CONTEXT to 1-2 lines each; preserved QUOTE EXECUTION and NEVER DO verbatim. Created `archetype-trim.test.ts` (4 tests: T1a/T1b NEVER DO en+es, T2 pricing composition + token comparison, T3 greeting gating with modules). `pnpm type-check` passes (8/8 tasks). |
 | NC-307 | Write platform general skills (3 files) | Mar 17 | Created `skills/general/out-of-scope-deflection.md` (type general, intent+keyword trigger, priority 9), `skills/general/returning-customer-warmth.md` (type general, always trigger, priority 3), `skills/sales/re-engagement-cold-lead.md` (type sales, keyword trigger, priority 6, requires qualify_lead). Extended `skill-files.test.ts` with T7 (all 3 NC-307 files parse) and T8 (warmth trigger.mode === 'always'). `pnpm type-check` passes. |
 | NC-306 | Write platform sales skills (5 files) | Mar 17 | Created 5 `.md` skill files in `packages/ai/src/skills/sales/` (objection-competitor priority 11, objection-pricing priority 10 with `conflicts_with`, discovery-questions SPIN all-4-stages en+es, closing-techniques keyword mode, upsell-after-booking intent mode). Extended `resolver.ts` `case 'intent'` with keyword fallback (3 lines). `skill-files.test.ts` (6 tests T1–T6) + `skill-resolver.test.ts` T7–T9. `pnpm type-check` passes. |
 | NC-305 | Wire skill resolution into message handler | Mar 17 | Added `resolveSkills` step in `message-handler.ts` after `getIntentProfile` with 3 skip guards (advisor, !includeArchetypeFramework, greeting:regex); passes `resolvedSkills` to `buildSystemPrompt()`; updated 4 existing test mock factories; new `skill-resolution.test.ts` (4 tests). Revision: added `resolveSkills` mock to 6 additional test files (budget-gate-integration, module-tool-calling, pre-ship-smoke, abuse-controls, knowledge-gap-digest, approval-email). `pnpm type-check` + `pnpm build` pass. |
@@ -1042,3 +1043,4 @@
 - **NC-305** — 2026-03-17 — `e137944` — Session: 20260317-025334-camello
 - **NC-306** — 2026-03-17 — `e512bcf` — Session: 20260317-025334-camello
 - **NC-307** — 2026-03-17 — `2288e89` — Session: 20260317-025334-camello
+- **NC-308** — 2026-03-17 — `80609fd` — Session: 20260317-025334-camello
