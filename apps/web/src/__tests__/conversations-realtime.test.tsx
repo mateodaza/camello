@@ -37,6 +37,16 @@ vi.mock('@/lib/trpc', () => ({
         activity: { invalidate: mockActivityInvalidate },
       },
     }),
+    conversation: {
+      // Non-empty items → isInboxEmpty = false → InboxLayout renders → all 4 realtime tests pass unchanged
+      list: { useQuery: vi.fn(() => ({ data: { items: [{}], nextCursor: null }, isSuccess: true })) },
+    },
+    agent: {
+      dashboardOverview: { useQuery: vi.fn(() => ({ data: undefined })) },
+    },
+    onboarding: {
+      getStatus: { useQuery: vi.fn(() => ({ data: undefined, isLoading: false })) },
+    },
   },
 }));
 

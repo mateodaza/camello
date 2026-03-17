@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import React from 'react';
 import enMessages from '../../messages/en.json';
 import esMessages from '../../messages/es.json';
@@ -8,9 +8,10 @@ import esMessages from '../../messages/es.json';
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { createMutateSpy, listQuerySpy } = vi.hoisted(() => ({
+const { createMutateSpy, listQuerySpy, redirectMock } = vi.hoisted(() => ({
   createMutateSpy: vi.fn(),
   listQuerySpy: vi.fn(),
+  redirectMock: vi.fn(),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -66,6 +67,10 @@ vi.mock('@/components/test-chat-panel', () => ({
   TestChatPanel: () => null,
 }));
 
+vi.mock('next/navigation', () => ({
+  redirect: redirectMock,
+}));
+
 import ArtifactsPage from '../app/dashboard/artifacts/page';
 
 // Default: no artifacts; each test that needs artifacts overrides per-test.
@@ -83,77 +88,45 @@ beforeEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('NC-247 — artifacts page: sales-only mode', () => {
+// NC-294: /dashboard/artifacts now redirects to /dashboard/agents (plural).
+// The disabled-archetypes grid, sales hero, and advisor card live in the new /dashboard/agents page.
+describe('NC-276/NC-294 — artifacts page redirects + i18n keys preserved', () => {
 
-  // Test 1: DOM rendering — badge span appears in the DOM for each disabled archetype.
-  it('disabled cards render a "Coming soon" badge for each non-sales archetype', () => {
-    render(React.createElement(ArtifactsPage));
-    // Identity mock: t('comingSoon') → 'comingSoon'.
-    // The badge <span> renders for support, marketing, custom — exactly 3 times.
-    const badges = screen.getAllByText('comingSoon');
-    expect(badges).toHaveLength(3);
+  // Test 1: Redirect — artifacts/page.tsx calls redirect('/dashboard/agents')
+  it('artifacts/page.tsx redirects to /dashboard/agents', () => {
+    redirectMock.mockImplementation(() => { throw new Error('redirect'); });
+    try {
+      render(React.createElement(ArtifactsPage as unknown as React.FC));
+    } catch {
+      // redirect() throws in Next.js server components — expected
+    }
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard/agents');
   });
 
-  // Test 2: i18n key validation — no mocking; reads actual JSON files directly.
-  it('en.json and es.json contain artifacts.comingSoon with correct localized text', () => {
+  // Test 2: i18n key validation — comingSoon key retained for backward compatibility.
+  it('en.json contains artifacts.comingSoon', () => {
     const en = enMessages as unknown as Record<string, Record<string, string>>;
-    const es = esMessages as unknown as Record<string, Record<string, string>>;
-    // Fails if key is missing, misnamed, or has wrong value — directly validates Step 5.
     expect(en['artifacts']['comingSoon']).toBe('Coming soon');
+  });
+
+  // Test 3: i18n key validation — es.json comingSoon key retained.
+  it('es.json contains artifacts.comingSoon', () => {
+    const es = esMessages as unknown as Record<string, Record<string, string>>;
     expect(es['artifacts']['comingSoon']).toBe('Próximamente');
   });
 
-  // Test 3: DOM rendering — disabled cards have no interactive controls at all.
-  // DisabledCard renders no buttons, links, or toggles — purely informational.
-  // This structurally prevents any accidental createArtifact calls from disabled archetypes.
-  it('disabled cards render no interactive controls and cannot trigger createArtifact', () => {
-    render(React.createElement(ArtifactsPage));
-
-    const disabledGrid = document.querySelector('[data-testid="disabled-grid"]')!;
-    expect(disabledGrid).toBeTruthy();
-
-    // No buttons inside the disabled grid — DisabledCard is purely informational.
-    const buttonsInGrid = disabledGrid.querySelectorAll('button');
-    expect(buttonsInGrid).toHaveLength(0);
-
-    // No links inside the disabled grid — no workspace or other navigation.
-    const linksInGrid = disabledGrid.querySelectorAll('a');
-    expect(linksInGrid).toHaveLength(0);
-
-    // createArtifact was never called — the disabled grid cannot trigger mutations.
-    expect(createMutateSpy).not.toHaveBeenCalled();
-  });
-
-  // Test 4: disabled card with existing artifact — action buttons (Personality, Test, Workspace)
-  // must NOT appear in the DOM. Validates the !isDisabled gate on the artifact action block.
-  it('disabled card with an existing artifact renders no action buttons', () => {
-    // Inject a support artifact. Support is disabled: true in ARCHETYPES.
-    listQuerySpy.mockReturnValue({
-      data: [
-        {
-          id: 'support-1',
-          name: 'Support Assistant',
-          type: 'support',
-          isActive: false,
-          createdAt: new Date('2025-01-01'),
-          personality: {},
-        },
-      ],
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    });
-
-    render(React.createElement(ArtifactsPage));
-
-    // Identity mock: t('personalitySection') → 'personalitySection'.
-    // With {artifact && !isDisabled && (...)}, this button must not render for the disabled card.
-    // If the guard were missing, the Personality button would be in the DOM.
-    expect(screen.queryByText('personalitySection')).toBeNull();
-
-    // Belt-and-suspenders: t('test') → 'test'; TestChatPanel trigger button must not appear.
-    // (Workspace link is only shown when isActive=true, so it wouldn't appear anyway;
-    //  but Personality has no isActive guard — this is the critical assertion.)
-    expect(screen.queryByText('test')).toBeNull();
+  // Test 4: i18n key validation — new agent namespace has all required NC-276 keys.
+  it('en.json and es.json contain all required agent namespace keys (NC-276)', () => {
+    const en = enMessages as unknown as Record<string, Record<string, string>>;
+    const es = esMessages as unknown as Record<string, Record<string, string>>;
+    const requiredKeys = [
+      'agentHeader', 'agentIdentity', 'agentPersonality', 'agentModules',
+      'agentApprovals', 'agentPerformance', 'agentSalesActivity', 'agentAdvanced',
+      'agentEmpty', 'agentCreate',
+    ];
+    for (const key of requiredKeys) {
+      expect(en['agent'][key]).toBeTruthy();
+      expect(es['agent'][key]).toBeTruthy();
+    }
   });
 });

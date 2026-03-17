@@ -124,6 +124,28 @@ export const tenantRouter = router({
       return { avatarUrl: publicUrl };
     }),
 
+  /** Update a first-session guide step completion flag. */
+  updateGuideStep: tenantProcedure
+    .input(z.object({
+      step: z.enum(['testedChat', 'addedKnowledge', 'sharedLink', 'dismissed']),
+      value: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.tenantDb.query(async (db) => {
+        await db.update(tenants)
+          .set({
+            settings: sql`COALESCE(settings, '{}'::jsonb) || jsonb_build_object(
+              'firstSessionGuide',
+              COALESCE(settings->'firstSessionGuide', '{}'::jsonb) ||
+              jsonb_build_object(${input.step}, ${input.value})
+            )`,
+            updatedAt: new Date(),
+          })
+          .where(eq(tenants.id, ctx.tenantId));
+      });
+      return { ok: true };
+    }),
+
   /** Session analytics: conversations grouped by day for the last 30 days. */
   sessionAnalytics: tenantProcedure
     .query(async ({ ctx }) => {

@@ -184,7 +184,7 @@ describe('ModuleSettings a11y', () => {
     expect(btn.getAttribute('aria-controls')).toBe('module-settings-panel');
   });
 
-  it('label associates with autonomy select after expand', async () => {
+  it('autonomy toggle is rendered as a checkbox switch', async () => {
     setMutationMock('artifact.attachModule');
     const { ModuleSettings } = await import('@/components/agent-workspace/module-settings');
     render(createElement(ModuleSettings as any, {
@@ -192,8 +192,8 @@ describe('ModuleSettings a11y', () => {
       boundModules: sampleModules,
     }));
     fireEvent.click(screen.getByRole('button', { name: 'moduleSettings' }));
-    const select = screen.getByLabelText('autonomyLevel');
-    expect(select.tagName).toBe('SELECT');
+    const toggle = screen.getByRole('switch');
+    expect(toggle.tagName).toBe('INPUT');
   });
 
   it('save button has type="button"', async () => {

@@ -318,8 +318,24 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     return rows[0];
   });
 
-  // ── 0b. Fetch customer memory (lightweight — one DB query, explicit tenant scope) ──
-  const customerRow = await tenantDb.query(async (db) => {
+  // ── 0a. Early advisor detection (before rate limits) ──
+  // When overrideArtifactId is provided (sandbox mode), check artifact type to skip
+  // customer-facing rate limits. The owner should never be rate-limited by their own system.
+  let isAdvisorEarly = false;
+  if (overrideArtifactId) {
+    const typeRow = await tenantDb.query(async (db) => {
+      const rows = await db
+        .select({ type: artifacts.type })
+        .from(artifacts)
+        .where(eq(artifacts.id, overrideArtifactId))
+        .limit(1);
+      return rows[0];
+    });
+    isAdvisorEarly = typeRow?.type === 'advisor';
+  }
+
+  // ── 0b. Fetch customer memory (skip for advisor — owner is not a customer) ──
+  const customerRow = isAdvisorEarly ? null : await tenantDb.query(async (db) => {
     const rows = await db
       .select({ memory: customers.memory, displayName: customers.displayName, name: customers.name })
       .from(customers)
@@ -327,7 +343,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       .limit(1);
     return rows[0];
   });
-  const customerMemory = parseMemoryFacts(customerRow?.memory);
+  const customerMemory = isAdvisorEarly ? [] : parseMemoryFacts(customerRow?.memory);
   const customerDisplayName = customerRow?.displayName ?? customerRow?.name ?? 'Customer';
 
   // ── 1. Cost budget gate (BEFORE any paid work — intent LLM fallback, RAG embeddings) ──
@@ -361,33 +377,37 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   }
 
   // ── 1b. Daily customer ceiling (100 msgs/day) — before any paid LLM work ──
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-  const dailyCount = await tenantDb.query(async (db) => {
-    const [row] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(messages)
-      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
-      .where(
-        and(
-          eq(conversations.customerId, customerId),
-          eq(conversations.tenantId, tenantId),
-          eq(messages.role, 'customer'),
-          gte(messages.createdAt, todayStart),
-        ),
-      );
-    return row.count;
-  });
-
-  if (dailyCount >= 100) {
-    return handleDailyLimitReached({
-      tenantDb, tenantId, channel, customerId, messageText,
-      existingConversationId, tenant, trace, startTime,
+  // Skip for advisor — the owner should never be rate-limited by their own system.
+  if (!isAdvisorEarly) {
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const dailyCount = await tenantDb.query(async (db) => {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(messages)
+        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+        .where(
+          and(
+            eq(conversations.customerId, customerId),
+            eq(conversations.tenantId, tenantId),
+            eq(messages.role, 'customer'),
+            gte(messages.createdAt, todayStart),
+          ),
+        );
+      return row.count;
     });
+
+    if (dailyCount >= 100) {
+      return handleDailyLimitReached({
+        tenantDb, tenantId, channel, customerId, messageText,
+        existingConversationId, tenant, trace, startTime,
+      });
+    }
   }
 
   // ── 1c. Conversation cap phase A (50 msgs) — when existingConversationId provided ──
-  if (existingConversationId) {
+  // Skip for advisor — same reason as 1b.
+  if (existingConversationId && !isAdvisorEarly) {
     const convMsgCount = await tenantDb.query(async (db) => {
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -503,7 +523,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
 
   // 4b. Conversation cap phase B — for resolver-found conversations (WhatsApp path)
   // Skip if we already checked this conversation in step 1c
-  if (!existingConversationId || conversationId !== existingConversationId) {
+  if (!isAdvisorEarly && (!existingConversationId || conversationId !== existingConversationId)) {
     const convMsgCountB = await tenantDb.query(async (db) => {
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -541,8 +561,13 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     return rows[0];
   });
 
-  // 6b. Fetch artifact module bindings
-  const boundModules: ArtifactModuleBinding[] = await tenantDb.query(async (db) => {
+  // 6a. Advisor flag — the owner is chatting with their own advisor, NOT a customer.
+  // Skip customer-facing pipeline steps: modules, grounding, customer memory extraction,
+  // knowledge gap recording. The advisor uses the business snapshot as ground truth.
+  const isAdvisor = artifact.type === 'advisor';
+
+  // 6b. Fetch artifact module bindings (skip for advisor — no tools)
+  const boundModules: ArtifactModuleBinding[] = isAdvisor ? [] : await tenantDb.query(async (db) => {
     const rows = await db
       .select({
         moduleSlug: modules.slug,
@@ -812,7 +837,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     !ragResult.searchSkipped &&
     ragResult.directContext.length === 0 &&
     (ragResult.proactiveContext ?? []).length === 0;
-  if (isEmptyRag) {
+  if (isEmptyRag && !isAdvisor) {
     const ownerEmail = (tenant?.settings as Record<string, unknown>)?.ownerEmail;
     recordKnowledgeGap(tenantDb, tenantId, resolved.artifactId, intent.type, messageText)
       .then((inserted) => {
@@ -857,14 +882,23 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       const leadEntries = Object.entries(snap.leadsByStage)
         .map(([s, n]) => `${s}: ${n}`)
         .join(' · ');
+      const execEntries = snap.recentExecutions
+        .map((e) => `${e.slug}: ${e.count}`)
+        .join(' · ');
       advisorSnapshotBlock = [
-        `=== Business Snapshot (${formattedDate}) ===`,
-        `Conversations (7d): ${snap.activeConversations} (${trendStr} vs prior week)`,
-        `Payments pending: ${snap.pendingPayments.count}${snap.pendingPayments.byCurrency.length > 0 ? ` totalling ${snap.pendingPayments.byCurrency.map((c) => `${c.currency} ${c.totalAmount.toFixed(2)}`).join(', ')}` : ''}`,
-        `Leads: ${leadEntries || 'none'}`,
-        `Top unanswered questions: ${snap.topKnowledgeGaps.join(', ') || 'none yet'}`,
-        `Pending approvals: ${snap.pendingApprovals}`,
-        `==============================================`,
+        `=== YOUR BUSINESS DATA — use this to answer the owner's questions ===`,
+        `Date: ${formattedDate}`,
+        ``,
+        `CONVERSATIONS (7d): ${snap.activeConversations} (${trendStr} vs prior week)`,
+        `PAYMENTS PENDING: ${snap.pendingPayments.count}${snap.pendingPayments.byCurrency.length > 0 ? ` — ${snap.pendingPayments.byCurrency.map((c) => `${c.currency} ${c.totalAmount.toFixed(2)}`).join(', ')}` : ''}`,
+        `PAYMENTS COMPLETED: ${snap.paidPayments.count}${snap.paidPayments.totalAmount > 0 ? ` — total ${snap.paidPayments.totalAmount.toFixed(2)}` : ''}`,
+        `LEADS BY STAGE: ${leadEntries || 'none'}`,
+        `SKILL USAGE (7d): ${execEntries || 'none'}`,
+        `PENDING APPROVALS: ${snap.pendingApprovals}`,
+        `UNANSWERED QUESTIONS: ${snap.topKnowledgeGaps.map((g) => g.sampleQuestion).join('; ') || 'none'}`,
+        ``,
+        `Use these numbers when the owner asks about their business. If they ask something not covered here, say what data is missing.`,
+        `=====================================================================`,
       ].join('\n');
     } catch (err) {
       // Non-blocking: advisor continues without snapshot if fetch fails
@@ -1055,7 +1089,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   let groundingTokensOut = 0;
 
   const allRagEvidence = flattenRagChunks([...ragResult.directContext, ...(ragResult.proactiveContext ?? [])]);
-  if (shouldCheckGrounding(intent, allRagEvidence)) {
+  if (!isAdvisor && shouldCheckGrounding(intent, allRagEvidence)) {
     try {
       const check = await trace.span('grounding-check', () =>
         checkGroundingWithRetry({
@@ -1094,9 +1128,10 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
   }
 
   // 12c. Parse + strip LLM memory tags from response (before saving)
+  // Skip for advisor — owner is not a customer, don't save "customer memory" about them.
   // Filter out facts that match the agent's own name — the LLM sometimes emits
   // [MEMORY:name=Sofía] from its self-introduction, polluting customer memory.
-  const rawMemoryFacts = parseMemoryTags(responseText, conversationId);
+  const rawMemoryFacts = isAdvisor ? [] : parseMemoryTags(responseText, conversationId);
   const artifactNameLower = artifact.name.toLowerCase().trim();
   const memoryTagFacts = rawMemoryFacts.filter((f) => {
     if (f.key === 'name' && f.value.toLowerCase().trim() === artifactNameLower) return false;

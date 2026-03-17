@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { workspaceQuerySpy } = vi.hoisted(() => ({
+const { workspaceQuerySpy, redirectSpy } = vi.hoisted(() => ({
   workspaceQuerySpy: vi.fn(),
+  redirectSpy: vi.fn(),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -57,6 +58,7 @@ vi.mock('@/hooks/use-toast', () => ({
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'test-id' }),
+  redirect: redirectSpy,
 }));
 
 // Mock all sub-components that make their own tRPC calls
@@ -142,29 +144,15 @@ beforeEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('NC-248 — Agent config page: dashboard tab as default + layout cleanup', () => {
-
-  it('1 — Dashboard tab is the default active tab on mount', () => {
-    render(React.createElement(AgentConfigPage));
-    // The configure-agent-link is only rendered in the dashboard tab
-    expect(screen.getByTestId('configure-agent-link')).toBeInTheDocument();
-    // Setup-only content (configIdentityTitle key) is NOT shown
-    expect(screen.queryByText('configIdentityTitle')).not.toBeInTheDocument();
-  });
-
-  it('2 — clicking "Configure agent" link switches to Setup tab', () => {
-    render(React.createElement(AgentConfigPage));
-    fireEvent.click(screen.getByTestId('configure-agent-link'));
-    // After click: setup content appears
-    expect(screen.getByText('configIdentityTitle')).toBeInTheDocument();
-    // Dashboard content (configure-agent-link) is gone
-    expect(screen.queryByTestId('configure-agent-link')).not.toBeInTheDocument();
-  });
-
-  it('3 — AgentActivity disclosure is collapsed by default', () => {
-    render(React.createElement(AgentConfigPage));
-    const details = screen.getByTestId('activity-log-disclosure');
-    expect(details).toBeInTheDocument();
-    expect(details).not.toHaveAttribute('open');
+// NC-276: /dashboard/agents/[id] now redirects to /dashboard/agents
+describe('NC-276 — agents/[id] page redirects to /dashboard/agents', () => {
+  it('1 — calls redirect("/dashboard/agents") on render', () => {
+    redirectSpy.mockImplementation(() => { throw new Error('redirect'); });
+    try {
+      render(React.createElement(AgentConfigPage as unknown as React.FC));
+    } catch {
+      // redirect() throws — expected in test environment
+    }
+    expect(redirectSpy).toHaveBeenCalledWith('/dashboard/agents');
   });
 });

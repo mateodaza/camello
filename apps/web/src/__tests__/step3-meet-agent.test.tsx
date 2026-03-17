@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import React, { createElement } from 'react';
+import { createElement } from 'react';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -80,27 +80,27 @@ describe('Step3MeetAgent', () => {
   it('renders module badges for sales archetype without network call', () => {
     renderStep3({ agentType: 'sales' });
 
-    expect(screen.getByText('qualify_lead')).toBeInTheDocument();
-    expect(screen.getByText('book_meeting')).toBeInTheDocument();
-    expect(screen.getByText('collect_payment')).toBeInTheDocument();
-    expect(screen.getByText('send_quote')).toBeInTheDocument();
-    expect(screen.queryByText('create_ticket')).not.toBeInTheDocument();
+    expect(screen.getByText('Qualify Lead')).toBeInTheDocument();
+    expect(screen.getByText('Book Meeting')).toBeInTheDocument();
+    expect(screen.getByText('Collect Payment')).toBeInTheDocument();
+    expect(screen.getByText('Send Quote')).toBeInTheDocument();
+    expect(screen.queryByText('Create Ticket')).not.toBeInTheDocument();
   });
 
   it('renders module badges for support archetype', () => {
     renderStep3({ agentType: 'support' });
 
-    expect(screen.getByText('create_ticket')).toBeInTheDocument();
-    expect(screen.getByText('escalate_to_human')).toBeInTheDocument();
-    expect(screen.queryByText('qualify_lead')).not.toBeInTheDocument();
+    expect(screen.getByText('Create Ticket')).toBeInTheDocument();
+    expect(screen.getByText('Escalate to Human')).toBeInTheDocument();
+    expect(screen.queryByText('Qualify Lead')).not.toBeInTheDocument();
   });
 
   it('renders no module badges for custom archetype', () => {
     renderStep3({ agentType: 'custom' });
 
-    expect(screen.queryByText('qualify_lead')).not.toBeInTheDocument();
-    expect(screen.queryByText('create_ticket')).not.toBeInTheDocument();
-    expect(screen.queryByText('send_followup')).not.toBeInTheDocument();
+    expect(screen.queryByText('Qualify Lead')).not.toBeInTheDocument();
+    expect(screen.queryByText('Create Ticket')).not.toBeInTheDocument();
+    expect(screen.queryByText('Send Follow-up')).not.toBeInTheDocument();
   });
 
   it('tagline char counter reflects current length', () => {

@@ -1,10 +1,13 @@
-import { SettingsNav } from './settings-nav';
+import { getTranslations } from 'next-intl/server';
 
-export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
+  const t = await getTranslations('settings');
   return (
-    <div className="flex flex-col gap-6">
-      <SettingsNav />
-      <div className="px-6">{children}</div>
+    <div className="px-6 py-4">
+      <h1 className="font-heading text-xl font-bold text-charcoal pb-4 md:text-2xl">
+        {t('pageTitle')}
+      </h1>
+      {children}
     </div>
   );
 }

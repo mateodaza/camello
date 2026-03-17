@@ -10,12 +10,14 @@ interface WidgetAppearanceSectionProps {
   artifactId: string;
   initialConfig: Record<string, unknown>;
   initialPersonality: Record<string, unknown>;
+  onSaveSuccess?: () => void;
 }
 
 export function WidgetAppearanceSection({
   artifactId,
   initialConfig,
   initialPersonality,
+  onSaveSuccess,
 }: WidgetAppearanceSectionProps) {
   const t = useTranslations('agentWorkspace');
   const { addToast } = useToast();
@@ -37,7 +39,11 @@ export function WidgetAppearanceSection({
         id: artifactId,
         config: { ...initialConfig, widgetPrimaryColor: primaryColor, widgetPosition: position },
       },
-      { onSuccess: () => addToast(t('configWidgetAppearanceSaved'), 'success') },
+      { onSuccess: () => {
+          addToast(t('configWidgetAppearanceSaved'), 'success');
+          onSaveSuccess?.();
+        }
+      },
     );
   }
 

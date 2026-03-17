@@ -23,7 +23,7 @@ export function ConversationList({ selectedId, onSelect, artifactId }: Conversat
   const { goToChat } = useInboxPanel();
 
   const [statusFilter, setStatusFilter] = useState<'active' | 'escalated' | 'resolved' | undefined>(undefined);
-  const [showSandbox, setShowSandbox] = useState(true);
+  const [showSandbox, setShowSandbox] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [focusedIdx, setFocusedIdx] = useState(0);

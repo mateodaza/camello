@@ -127,7 +127,7 @@ const FIXTURE_SNAP = {
   pendingPayments: { count: 2, byCurrency: [{ currency: 'USD', totalAmount: 300 }] },
   paidPayments: { count: 5, totalAmount: 1500 },
   leadsByStage: { new: 4, qualifying: 2 },
-  topKnowledgeGaps: ['pricing'],
+  topKnowledgeGaps: [{ intentType: 'pricing', sampleQuestion: 'How much does it cost?' }],
   pendingApprovals: 1,
   recentExecutions: [],
 };

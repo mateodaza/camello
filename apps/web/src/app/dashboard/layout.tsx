@@ -104,11 +104,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <main
           className={cn(
-            'flex-1 overflow-y-auto bg-sand p-4 md:p-8 lg:p-10',
+            'flex-1 overflow-y-auto bg-sand',
             mobileOpen && 'overflow-y-hidden',
           )}
         >
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-6xl h-full">
             {children}
           </div>
         </main>

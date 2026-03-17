@@ -108,7 +108,10 @@ const FIXTURE_SNAPSHOT = {
   pendingPayments: { count: 2, byCurrency: [{ currency: 'USD', totalAmount: 300 }] },
   paidPayments: { count: 5, totalAmount: 1500 },
   leadsByStage: { new: 4, qualifying: 2 },
-  topKnowledgeGaps: ['pricing', 'shipping'],
+  topKnowledgeGaps: [
+    { intentType: 'pricing', sampleQuestion: 'How much does it cost?' },
+    { intentType: 'shipping', sampleQuestion: 'How long does shipping take?' },
+  ],
   pendingApprovals: 1,
   recentExecutions: [{ slug: 'book_meeting', count: 3 }],
 };
