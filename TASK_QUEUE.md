@@ -265,7 +265,8 @@ Reframe competitor comparisons...
 
 ---
 
-#### NC-305 [ ] Wire skill resolution into message handler
+#### NC-305 [x] Wire skill resolution into message handler
+Added `resolveSkills` import + step 9b in `message-handler.ts` (3 skip guards: advisor, !includeArchetypeFramework, greeting:regex); passed `resolvedSkills` to `buildSystemPrompt()`; updated 4 existing test mocks; new `skill-resolution.test.ts` (4 tests). Revision: added `resolveSkills: vi.fn().mockReturnValue([])` to 6 additional test files that mock `@camello/ai` (budget-gate-integration, module-tool-calling, pre-ship-smoke, abuse-controls, knowledge-gap-digest, approval-email). `pnpm type-check` + `pnpm build` pass.
 
 Add skill resolution as a step in `handleMessage()` and pass resolved skills to `buildSystemPrompt()`.
 

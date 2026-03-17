@@ -52,6 +52,7 @@ vi.mock('@camello/ai', () => ({
   parseMemoryTags: vi.fn(() => []),
   stripMemoryTags: vi.fn((text: string) => text),
   mergeMemoryFacts: vi.fn((existing: unknown[], incoming: unknown[]) => [...(existing ?? []), ...incoming]),
+  resolveSkills: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));

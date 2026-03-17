@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-305 | Wire skill resolution into message handler | Mar 17 | Added `resolveSkills` step in `message-handler.ts` after `getIntentProfile` with 3 skip guards (advisor, !includeArchetypeFramework, greeting:regex); passes `resolvedSkills` to `buildSystemPrompt()`; updated 4 existing test mock factories; new `skill-resolution.test.ts` (4 tests). Revision: added `resolveSkills` mock to 6 additional test files (budget-gate-integration, module-tool-calling, pre-ship-smoke, abuse-controls, knowledge-gap-digest, approval-email). `pnpm type-check` + `pnpm build` pass. |
 | NC-304 | Prompt builder integration | Mar 17 | Extended `PromptContext` with `resolvedSkills?: ResolvedSkill[]` in `prompt-builder.ts`; added `--- ACTIVE SKILLS ---` injection block after archetype framework, before personality; new `skill-prompt-injection.test.ts` (4 tests: no-section guard, exact tag/body/ordering format, multi-skill ordering with closing-tag non-interleave). `pnpm type-check` passes. |
 | NC-303 | Skill registry + resolver | Mar 17 | Updated `skills/types.ts` (new `SkillResolutionContext`/`ResolvedSkill`). Created `skills/index.ts` (registry, load/get/clear helpers) and `skills/resolver.ts` (5-step algorithm with intent/keyword/conflict/token-budget). Test fixture `fixtures/skills/test-skill.md` + `skill-resolver.test.ts` (6 tests). `pnpm type-check` passes. |
 | NC-302 | Skill types + frontmatter parser | Mar 17 | Created `packages/ai/src/skills/types.ts` (SkillDefinition, ResolvedSkill, SkillResolutionContext, SkillTrigger types) and `packages/ai/src/skills/parser.ts` (parseSkillFile, filterLocale, estimateTokens — no yaml dep, custom line-by-line parser). 4 tests in `skill-parser.test.ts`. `pnpm type-check` passes. |
@@ -1036,3 +1037,4 @@
 - **NC-302** — 2026-03-17 — `cce67ce` — Session: 20260317-025334-camello
 - **NC-303** — 2026-03-17 — `b5886ce` — Session: 20260317-025334-camello
 - **NC-304** — 2026-03-17 — `ea03b73` — Session: 20260317-025334-camello
+- **NC-305** — 2026-03-17 — `e137944` — Session: 20260317-025334-camello
