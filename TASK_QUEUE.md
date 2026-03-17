@@ -105,7 +105,8 @@ Lower similarity merge threshold from 0.9 → 0.75, faster decay (-0.1/month ins
 
 ## P0 — Skill Infrastructure
 
-#### NC-302 [ ] Skill types + frontmatter parser
+#### NC-302 [x] Skill types + frontmatter parser
+Created `packages/ai/src/skills/types.ts` (SkillDefinition, ResolvedSkill, SkillResolutionContext types) and `packages/ai/src/skills/parser.ts` (parseSkillFile, filterLocale, estimateTokens). 4 tests in `skill-parser.test.ts`. `pnpm type-check` passes.
 
 Define the `SkillDefinition` type and a parser that reads markdown files with YAML frontmatter into typed skill objects.
 
