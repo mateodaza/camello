@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const SALES_DIR = join(__dirname, '..', 'skills', 'sales');
+const GENERAL_DIR = join(__dirname, '..', 'skills', 'general');
 
 const SKILL_FILES = [
   'objection-competitor.md',
@@ -75,5 +76,49 @@ describe('skill-files', () => {
     const skill = loadSkill('upsell-after-booking.md');
     expect(skill.trigger.mode).toBe('intent');
     expect(skill.trigger.intents).toContain('booking_request');
+  });
+
+  // T7: All 3 NC-307 skill files parse without error
+  it('all 3 NC-307 skill files parse without error', () => {
+    const generalFiles = [
+      { dir: GENERAL_DIR, file: 'out-of-scope-deflection.md' },
+      { dir: GENERAL_DIR, file: 'returning-customer-warmth.md' },
+      { dir: SALES_DIR, file: 're-engagement-cold-lead.md' },
+    ];
+    for (const { dir, file } of generalFiles) {
+      const filePath = join(dir, file);
+      const content = readFileSync(filePath, 'utf-8');
+      expect(() => parseSkillFile(filePath, content)).not.toThrow();
+    }
+  });
+
+  // T8: returning-customer-warmth has trigger.mode === 'always'
+  it('returning-customer-warmth has trigger.mode === always', () => {
+    const filePath = join(GENERAL_DIR, 'returning-customer-warmth.md');
+    const content = readFileSync(filePath, 'utf-8');
+    const skill = parseSkillFile(filePath, content);
+    expect(skill.trigger.mode).toBe('always');
+  });
+
+  // T9: NC-307 files body content after locale filtering fits within token_budget
+  it('NC-307 files body content after locale filtering is within token_budget', () => {
+    const nc307Files = [
+      { dir: GENERAL_DIR, file: 'out-of-scope-deflection.md' },
+      { dir: GENERAL_DIR, file: 'returning-customer-warmth.md' },
+      { dir: SALES_DIR, file: 're-engagement-cold-lead.md' },
+    ];
+    for (const { dir, file } of nc307Files) {
+      const filePath = join(dir, file);
+      const content = readFileSync(filePath, 'utf-8');
+      const skill = parseSkillFile(filePath, content);
+      for (const locale of ['en', 'es']) {
+        const filtered = filterLocale(skill.body, locale);
+        const tokens = estimateTokens(filtered);
+        expect(
+          tokens,
+          `${skill.slug} [${locale}] is ${tokens} tokens, exceeds budget of ${skill.token_budget}`,
+        ).toBeLessThanOrEqual(skill.token_budget);
+      }
+    }
   });
 });

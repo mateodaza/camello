@@ -343,7 +343,8 @@ Write the first batch of sales skills as `.md` files. These encode the deep proc
 
 ---
 
-#### NC-307 [ ] Write platform general skills (3 files)
+#### NC-307 [x] Write platform general skills (3 files)
+Created `skills/general/out-of-scope-deflection.md`, `skills/general/returning-customer-warmth.md`, `skills/sales/re-engagement-cold-lead.md`. Extended `skill-files.test.ts` with T7 (all 3 files parse) and T8 (warmth trigger mode is always). `pnpm type-check` passes.
 
 Skills that apply across archetypes or complement sales.
 

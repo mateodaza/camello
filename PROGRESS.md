@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-307 | Write platform general skills (3 files) | Mar 17 | Created `skills/general/out-of-scope-deflection.md` (type general, intent+keyword trigger, priority 9), `skills/general/returning-customer-warmth.md` (type general, always trigger, priority 3), `skills/sales/re-engagement-cold-lead.md` (type sales, keyword trigger, priority 6, requires qualify_lead). Extended `skill-files.test.ts` with T7 (all 3 NC-307 files parse) and T8 (warmth trigger.mode === 'always'). `pnpm type-check` passes. |
 | NC-306 | Write platform sales skills (5 files) | Mar 17 | Created 5 `.md` skill files in `packages/ai/src/skills/sales/` (objection-competitor priority 11, objection-pricing priority 10 with `conflicts_with`, discovery-questions SPIN all-4-stages en+es, closing-techniques keyword mode, upsell-after-booking intent mode). Extended `resolver.ts` `case 'intent'` with keyword fallback (3 lines). `skill-files.test.ts` (6 tests T1–T6) + `skill-resolver.test.ts` T7–T9. `pnpm type-check` passes. |
 | NC-305 | Wire skill resolution into message handler | Mar 17 | Added `resolveSkills` step in `message-handler.ts` after `getIntentProfile` with 3 skip guards (advisor, !includeArchetypeFramework, greeting:regex); passes `resolvedSkills` to `buildSystemPrompt()`; updated 4 existing test mock factories; new `skill-resolution.test.ts` (4 tests). Revision: added `resolveSkills` mock to 6 additional test files (budget-gate-integration, module-tool-calling, pre-ship-smoke, abuse-controls, knowledge-gap-digest, approval-email). `pnpm type-check` + `pnpm build` pass. |
 | NC-304 | Prompt builder integration | Mar 17 | Extended `PromptContext` with `resolvedSkills?: ResolvedSkill[]` in `prompt-builder.ts`; added `--- ACTIVE SKILLS ---` injection block after archetype framework, before personality; new `skill-prompt-injection.test.ts` (4 tests: no-section guard, exact tag/body/ordering format, multi-skill ordering with closing-tag non-interleave). `pnpm type-check` passes. |
@@ -1040,3 +1041,4 @@
 - **NC-304** — 2026-03-17 — `ea03b73` — Session: 20260317-025334-camello
 - **NC-305** — 2026-03-17 — `e137944` — Session: 20260317-025334-camello
 - **NC-306** — 2026-03-17 — `e512bcf` — Session: 20260317-025334-camello
+- **NC-307** — 2026-03-17 — `2288e89` — Session: 20260317-025334-camello
