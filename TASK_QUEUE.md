@@ -418,7 +418,7 @@ The sales archetype currently contains ~1000 words of detailed procedures for SP
 
 ## P3 — Classifier + Module Fixes
 
-#### NC-309 [ ] Intent classifier: relax regex + add missing intent types
+#### NC-309 [x] Intent classifier: relax regex + add missing intent types
 
 The regex patterns are too strict (miss common variations) and the intent taxonomy is missing types that skills need to trigger correctly.
 
@@ -482,6 +482,8 @@ Add to LLM prompt taxonomy, Zod enum, and intent profiles:
 - `pnpm type-check` passes
 
 **Depends on:** — (no dependency, but should land before NC-311 smoke test)
+
+> Done: Replaced single-pattern REGEX_INTENTS with 3-pattern arrays per intent (P1/P2/P3); excluded `?` from allowed punctuation so question forms fall to LLM; added `objection`, `comparison`, `open_discovery` to IntentType union, Zod enum, LLM prompt taxonomy, and intent-profiles; updated regex-intents.test.ts (moved "hi?" to negatives, added extended greeting/farewell blocks); created intent-classifier-nc309.test.ts (9 tests). pnpm type-check passes (8/8).
 
 ---
 

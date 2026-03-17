@@ -180,6 +180,34 @@ const PROFILES: Record<string, IntentProfile> = {
     maxSentences: 6,
     skipGrounding: false,
   },
+
+  // --- New intent types (NC-309) ---
+  objection: {
+    includeArchetypeFramework: true,
+    includeModules: true,
+    allowedModuleSlugs: ['qualify_lead', 'send_quote', 'book_meeting'],
+    maxSteps: 3,
+    maxResponseTokens: 390 + MEMORY_TAG_BUFFER,
+    maxSentences: 5,
+    skipGrounding: false,
+  },
+  comparison: {
+    includeArchetypeFramework: true,
+    includeModules: true,
+    allowedModuleSlugs: ['qualify_lead'],
+    maxSteps: 3,
+    maxResponseTokens: 390 + MEMORY_TAG_BUFFER,
+    maxSentences: 5,
+    skipGrounding: false,
+  },
+  open_discovery: {
+    includeArchetypeFramework: true,
+    includeModules: true,
+    maxSteps: 5,
+    maxResponseTokens: 440 + MEMORY_TAG_BUFFER,
+    maxSentences: 6,
+    skipGrounding: false,
+  },
 };
 
 // Fallback for any unknown intent type
