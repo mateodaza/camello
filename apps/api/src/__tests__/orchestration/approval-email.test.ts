@@ -53,6 +53,7 @@ vi.mock('@camello/ai', () => ({
   stripMemoryTags: vi.fn(),
   sanitizeFactValue: vi.fn(),
   MAX_INJECTED_FACTS: 10,
+  resolveSkills: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock('@camello/shared/constants', () => ({

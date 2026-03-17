@@ -9,6 +9,7 @@ export const intentSchema = z.object({
     'complaint', 'booking_request', 'followup', 'negotiation',
     'technical_support', 'general_inquiry', 'escalation_request',
     'simple_question', 'farewell', 'thanks',
+    'objection', 'comparison', 'open_discovery',
   ]),
   confidence: z.number().min(0).max(1),
   complexity: z.enum(['simple', 'medium', 'complex']),

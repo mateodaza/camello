@@ -1,4 +1,5 @@
 import type { AutonomyLevel, Channel, Intent, RagChunk } from '@camello/shared/types';
+import type { ResolvedSkill } from './skills/types.js';
 import type { PromptTemplates } from './prompts/types.js';
 import { en } from './prompts/en.js';
 import { es } from './prompts/es.js';
@@ -39,6 +40,8 @@ interface PromptContext {
   customerMemory?: Array<{ key: string; value: string }>;
   /** Classified intent — drives context curation (prompt trimming, length rules). */
   intent?: Intent;
+  /** Resolved skills for this message — injected after archetype framework, before personality. */
+  resolvedSkills?: ResolvedSkill[];
 }
 
 /** Per-channel overrides from artifact config YAML */
@@ -91,6 +94,14 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     if (archetypePrompt) {
       const framework = archetypePrompt.en;
       parts.push(t.archetypeFramework(framework));
+    }
+  }
+
+  // Active skills — situational guidelines (after archetype, before personality)
+  if (ctx.resolvedSkills && ctx.resolvedSkills.length > 0) {
+    parts.push('--- ACTIVE SKILLS ---\nFollow these situational guidelines when they apply to the current message:');
+    for (const skill of ctx.resolvedSkills) {
+      parts.push(`\n[SKILL: ${skill.slug}]\n${skill.body}\n[/SKILL: ${skill.slug}]`);
     }
   }
 

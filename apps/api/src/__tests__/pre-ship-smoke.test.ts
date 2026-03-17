@@ -54,6 +54,7 @@ vi.mock('@camello/ai', () => ({
     marketing: { en: 'Enthusiastic, casual, and engaging', es: 'Entusiasta, casual' },
     custom: { en: '', es: '' },
   },
+  resolveSkills: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock('ai', () => ({

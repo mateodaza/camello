@@ -88,7 +88,10 @@ export type IntentType =
   | 'escalation_request'
   | 'simple_question'
   | 'farewell'
-  | 'thanks';
+  | 'thanks'
+  | 'objection'
+  | 'comparison'
+  | 'open_discovery';
 
 // === Module System ===
 

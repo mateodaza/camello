@@ -14,6 +14,14 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-309 | Intent classifier: relax regex + add missing intent types | Mar 17 | Replaced single-pattern REGEX_INTENTS with 3-pattern arrays (P1/P2/P3) for greeting and farewell; excluded `?` from allowed punctuation so question forms fall to LLM; added `objection`, `comparison`, `open_discovery` to IntentType, Zod enum, LLM prompt, and intent-profiles.ts; updated regex-intents.test.ts + created intent-classifier-nc309.test.ts (9 tests). pnpm type-check passes. |
+| NC-308 | Trim sales archetype prompt + verify composition | Mar 17 | Trimmed `sales.ts` prompts.en/es: removed RE-ENGAGEMENT and CONVERSATIONAL CLOSES blocks; condensed DISCOVERY, QUALIFICATION, OBJECTION HANDLING, BUSINESS CONTEXT to 1-2 lines each; preserved QUOTE EXECUTION and NEVER DO verbatim. Created `archetype-trim.test.ts` (4 tests: T1a/T1b NEVER DO en+es, T2 pricing composition + token comparison, T3 greeting gating with modules). `pnpm type-check` passes (8/8 tasks). |
+| NC-307 | Write platform general skills (3 files) | Mar 17 | Created `skills/general/out-of-scope-deflection.md` (type general, intent+keyword trigger, priority 9), `skills/general/returning-customer-warmth.md` (type general, always trigger, priority 3), `skills/sales/re-engagement-cold-lead.md` (type sales, keyword trigger, priority 6, requires qualify_lead). Extended `skill-files.test.ts` with T7 (all 3 NC-307 files parse) and T8 (warmth trigger.mode === 'always'). `pnpm type-check` passes. |
+| NC-306 | Write platform sales skills (5 files) | Mar 17 | Created 5 `.md` skill files in `packages/ai/src/skills/sales/` (objection-competitor priority 11, objection-pricing priority 10 with `conflicts_with`, discovery-questions SPIN all-4-stages en+es, closing-techniques keyword mode, upsell-after-booking intent mode). Extended `resolver.ts` `case 'intent'` with keyword fallback (3 lines). `skill-files.test.ts` (6 tests T1–T6) + `skill-resolver.test.ts` T7–T9. `pnpm type-check` passes. |
+| NC-305 | Wire skill resolution into message handler | Mar 17 | Added `resolveSkills` step in `message-handler.ts` after `getIntentProfile` with 3 skip guards (advisor, !includeArchetypeFramework, greeting:regex); passes `resolvedSkills` to `buildSystemPrompt()`; updated 4 existing test mock factories; new `skill-resolution.test.ts` (4 tests). Revision: added `resolveSkills` mock to 6 additional test files (budget-gate-integration, module-tool-calling, pre-ship-smoke, abuse-controls, knowledge-gap-digest, approval-email). `pnpm type-check` + `pnpm build` pass. |
+| NC-304 | Prompt builder integration | Mar 17 | Extended `PromptContext` with `resolvedSkills?: ResolvedSkill[]` in `prompt-builder.ts`; added `--- ACTIVE SKILLS ---` injection block after archetype framework, before personality; new `skill-prompt-injection.test.ts` (4 tests: no-section guard, exact tag/body/ordering format, multi-skill ordering with closing-tag non-interleave). `pnpm type-check` passes. |
+| NC-303 | Skill registry + resolver | Mar 17 | Updated `skills/types.ts` (new `SkillResolutionContext`/`ResolvedSkill`). Created `skills/index.ts` (registry, load/get/clear helpers) and `skills/resolver.ts` (5-step algorithm with intent/keyword/conflict/token-budget). Test fixture `fixtures/skills/test-skill.md` + `skill-resolver.test.ts` (6 tests). `pnpm type-check` passes. |
+| NC-302 | Skill types + frontmatter parser | Mar 17 | Created `packages/ai/src/skills/types.ts` (SkillDefinition, ResolvedSkill, SkillResolutionContext, SkillTrigger types) and `packages/ai/src/skills/parser.ts` (parseSkillFile, filterLocale, estimateTokens — no yaml dep, custom line-by-line parser). 4 tests in `skill-parser.test.ts`. `pnpm type-check` passes. |
 | NC-298 | Dead import cleanup | Mar 16 | Removed unused import names from 13 files in `apps/web/src/` — `screen`/`fireEvent`/`waitFor`/`within` from testing-library, `React` default, `fmtDate` from knowledge page. No logic changes; `pnpm type-check` passes. |
 | NC-297 | Stat strip mobile flex-wrap | Mar 16 | Added `flex-wrap gap-x-4 gap-y-1` to stat strip div in `conversations/page.tsx`. Pure CSS class change; type-check passes. |
 | NC-296 | Conversations page render test | Mar 16 | Created `apps/web/src/__tests__/conversations-page.test.tsx` (4 tests: stat strip counts, banner shown/hidden, EmptyState for 0-item inbox). Type-check passes. |
@@ -1030,3 +1038,11 @@
 - **NC-296** — 2026-03-16 — `0906818` — Session: 20260316-014155-camello
 - **NC-297** — 2026-03-16 — `677fda8` — Session: 20260316-014155-camello
 - **NC-298** — 2026-03-16 — `9775aa2` — Session: 20260316-014155-camello
+- **NC-302** — 2026-03-17 — `cce67ce` — Session: 20260317-025334-camello
+- **NC-303** — 2026-03-17 — `b5886ce` — Session: 20260317-025334-camello
+- **NC-304** — 2026-03-17 — `ea03b73` — Session: 20260317-025334-camello
+- **NC-305** — 2026-03-17 — `e137944` — Session: 20260317-025334-camello
+- **NC-306** — 2026-03-17 — `e512bcf` — Session: 20260317-025334-camello
+- **NC-307** — 2026-03-17 — `2288e89` — Session: 20260317-025334-camello
+- **NC-308** — 2026-03-17 — `80609fd` — Session: 20260317-025334-camello
+- **NC-309** — 2026-03-17 — `b2fa65e` — Session: 20260317-025334-camello

@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
 const mocks = vi.hoisted(() => ({
+  // tenantDb
   queryFn: vi.fn(),
   transactionFn: vi.fn(),
   recordKnowledgeGap: vi.fn(),
+  // @camello/ai
   classifyIntent: vi.fn(),
   selectModel: vi.fn(),
   buildSystemPrompt: vi.fn(),
@@ -14,11 +20,17 @@ const mocks = vi.hoisted(() => ({
   buildToolsFromBindings: vi.fn(),
   shouldCheckGrounding: vi.fn(),
   getIntentProfile: vi.fn(),
-  generateText: vi.fn(),
-  createTrace: vi.fn(),
-  createClient: vi.fn(),
-  getUtcMonthWindow: vi.fn(),
   fetchAdvisorSnapshot: vi.fn(),
+  // ai SDK
+  generateText: vi.fn(),
+  // langfuse
+  createTrace: vi.fn(),
+  // supabase
+  createClient: vi.fn(),
+  // date-utils
+  getUtcMonthWindow: vi.fn(),
+  // skills
+  resolveSkills: vi.fn(),
 }));
 
 vi.mock('../../orchestration/knowledge-gap.js', () => ({
@@ -53,7 +65,7 @@ vi.mock('@camello/ai', () => ({
   sanitizeFactValue: (v: string) => v,
   MAX_INJECTED_FACTS: 6,
   SAFE_FALLBACKS: {},
-  resolveSkills: vi.fn().mockReturnValue([]),
+  resolveSkills: mocks.resolveSkills,
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));
@@ -81,12 +93,6 @@ vi.mock('../../lib/date-utils.js', () => ({
 vi.mock('../../lib/email.js', () => ({
   sendEmail: vi.fn(),
   renderBaseEmail: vi.fn(),
-  renderQuoteEmail: vi.fn(),
-  quoteEmailSubject: vi.fn(),
-}));
-
-vi.mock('../../lib/insert-payment-for-quote.js', () => ({
-  insertPaymentForQuote: vi.fn(),
 }));
 
 vi.mock('../../lib/advisor-snapshot.js', () => ({
@@ -109,12 +115,9 @@ const FIXTURE_SNAPSHOT = {
   pendingPayments: { count: 2, byCurrency: [{ currency: 'USD', totalAmount: 300 }] },
   paidPayments: { count: 5, totalAmount: 1500 },
   leadsByStage: { new: 4, qualifying: 2 },
-  topKnowledgeGaps: [
-    { intentType: 'pricing', sampleQuestion: 'How much does it cost?' },
-    { intentType: 'shipping', sampleQuestion: 'How long does shipping take?' },
-  ],
-  pendingApprovals: 1,
-  recentExecutions: [{ slug: 'book_meeting', count: 3 }],
+  topKnowledgeGaps: [],
+  pendingApprovals: 0,
+  recentExecutions: [],
 };
 
 function makeTenantDb() {
@@ -131,24 +134,6 @@ function makeTraceContext() {
   };
 }
 
-const PRODUCT_INTENT = {
-  type: 'product_inquiry',
-  confidence: 0.92,
-  complexity: 'complex' as const,
-  requires_knowledge_base: true,
-  sentiment: 'neutral' as const,
-  source: 'llm' as const,
-};
-
-const DEFAULT_INTENT_PROFILE = {
-  includeArchetypeFramework: true,
-  includeModules: true,
-  maxSteps: 3,
-  maxResponseTokens: 340,
-  maxSentences: 5,
-  skipGrounding: false,
-};
-
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('SUPABASE_URL', 'http://localhost:54321');
@@ -158,11 +143,8 @@ beforeEach(() => {
     monthStart: new Date('2026-01-01'),
     nextMonthStart: new Date('2026-02-01'),
   });
-
-  mocks.getIntentProfile.mockReturnValue(DEFAULT_INTENT_PROFILE);
   mocks.shouldCheckGrounding.mockReturnValue(false);
   mocks.createTrace.mockReturnValue(makeTraceContext());
-  mocks.classifyIntent.mockResolvedValue(PRODUCT_INTENT);
   mocks.selectModel.mockReturnValue({ tier: 'balanced', model: 'openai/gpt-4o-mini' });
   mocks.buildSystemPrompt.mockReturnValue('You are Test Agent...');
   mocks.createLLMClient.mockReturnValue((m: string) => ({ modelId: m }));
@@ -176,16 +158,7 @@ beforeEach(() => {
     channel: () => ({ send: vi.fn().mockResolvedValue(undefined) }),
   });
   mocks.recordKnowledgeGap.mockResolvedValue(undefined);
-
-  mocks.createArtifactResolver.mockReturnValue({
-    resolve: vi.fn().mockResolvedValue({
-      artifactId: ARTIFACT_ID,
-      artifactName: 'Test Advisor',
-      artifactType: 'advisor',
-      source: 'override',
-      isNewConversation: true,
-    }),
-  });
+  mocks.resolveSkills.mockReturnValue([]);
 
   mocks.searchKnowledge.mockResolvedValue({
     directContext: [],
@@ -194,12 +167,80 @@ beforeEach(() => {
     totalTokensUsed: 0,
     docsRetrieved: 0,
   });
+
+  mocks.createArtifactResolver.mockReturnValue({
+    resolve: vi.fn().mockResolvedValue({
+      artifactId: ARTIFACT_ID,
+      artifactName: 'Sales Agent',
+      artifactType: 'sales',
+      source: 'override',
+      isNewConversation: true,
+    }),
+  });
 });
 
-/**
- * Setup pipeline for advisor artifact.
- * 14 sequential tenantDb.query/transaction calls mirroring the message-handler flow.
- */
+/** 14-call DB sequence yielding a 'sales' artifact */
+function setupSalesPipeline() {
+  // #1: tenant fetch
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ where: () => ({ limit: () => [{ name: 'Acme Corp', planTier: 'starter', monthlyCostBudgetUsd: null, defaultArtifactId: null, settings: {} }] }) }) }) })
+  );
+  // #2: customer memory
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ where: () => ({ limit: () => [{ memory: null, displayName: 'Customer', name: 'Customer' }] }) }) }) })
+  );
+  // #3: budget check
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ where: () => [{ totalCost: '1.00' }] }) }) })
+  );
+  // #4: daily ceiling count
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [{ count: 5 }] }) }) }) })
+  );
+  // #5: create conversation + assignment — TRANSACTION
+  mocks.transactionFn.mockImplementationOnce(async (fn: Any) => {
+    const mockTx = { insert: () => ({ values: () => ({ returning: () => [{ id: CONVERSATION_ID }] }) }) };
+    return fn(mockTx);
+  });
+  // #6: phase B cap check
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ where: () => [{ count: 5 }] }) }) })
+  );
+  // #7: insert customer message
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ insert: () => ({ values: () => ({ returning: () => [{ id: MESSAGE_ID }] }) }) })
+  );
+  // #8: sales artifact
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ where: () => ({ limit: () => [{ id: ARTIFACT_ID, name: 'Sales Agent', type: 'sales', personality: {}, constraints: {}, config: {} }] }) }) }) })
+  );
+  // #9: module bindings
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [] }) }) }) })
+  );
+  // #10: learnings fetch
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: () => [] }) }) }) }) })
+  );
+  // #11: history fetch
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: () => [] }) }) }) }) })
+  );
+  // #12: save response message
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ insert: () => ({ values: () => ({}) }) })
+  );
+  // #13: log telemetry
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ insert: () => ({ values: () => ({}) }) })
+  );
+  // #14: update conversation timestamp
+  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
+    fn({ update: () => ({ set: () => ({ where: () => ({}) }) }) })
+  );
+}
+
+/** 14-call DB sequence yielding an 'advisor' artifact */
 function setupAdvisorPipeline() {
   // #1: tenant fetch
   mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
@@ -230,11 +271,11 @@ function setupAdvisorPipeline() {
   mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
     fn({ insert: () => ({ values: () => ({ returning: () => [{ id: MESSAGE_ID }] }) }) })
   );
-  // #8: load artifact config — advisor type
+  // #8: advisor artifact
   mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
     fn({ select: () => ({ from: () => ({ where: () => ({ limit: () => [{ id: ARTIFACT_ID, name: 'Test Advisor', type: 'advisor', personality: {}, constraints: {}, config: {} }] }) }) }) })
   );
-  // #9: module bindings
+  // #9: module bindings (skipped for advisor — empty)
   mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
     fn({ select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [] }) }) }) })
   );
@@ -261,57 +302,78 @@ function setupAdvisorPipeline() {
   );
 }
 
-function setupSalesPipeline() {
-  // Same as advisor pipeline but artifact type is 'sales'
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ where: () => ({ limit: () => [{ name: 'Acme Corp', planTier: 'starter', monthlyCostBudgetUsd: null, defaultArtifactId: null, settings: {} }] }) }) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ where: () => ({ limit: () => [{ memory: null, displayName: 'Customer', name: 'Customer' }] }) }) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ where: () => [{ totalCost: '1.00' }] }) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [{ count: 5 }] }) }) }) })
-  );
-  mocks.transactionFn.mockImplementationOnce(async (fn: Any) => {
-    const mockTx = { insert: () => ({ values: () => ({ returning: () => [{ id: CONVERSATION_ID }] }) }) };
-    return fn(mockTx);
-  });
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ where: () => [{ count: 5 }] }) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ insert: () => ({ values: () => ({ returning: () => [{ id: MESSAGE_ID }] }) }) })
-  );
-  // #8: sales artifact
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ where: () => ({ limit: () => [{ id: ARTIFACT_ID, name: 'Sales Agent', type: 'sales', personality: {}, constraints: {}, config: {} }] }) }) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ innerJoin: () => ({ where: () => [] }) }) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: () => [] }) }) }) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: () => [] }) }) }) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ insert: () => ({ values: () => ({}) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ insert: () => ({ values: () => ({}) }) })
-  );
-  mocks.queryFn.mockImplementationOnce(async (fn: Any) =>
-    fn({ update: () => ({ set: () => ({ where: () => ({}) }) }) })
-  );
-}
+describe('skill resolution in message-handler (NC-305)', () => {
+  it('Test 1 — resolveSkills called and passed to buildSystemPrompt for pricing intent', async () => {
+    setupSalesPipeline();
+    mocks.classifyIntent.mockResolvedValue({
+      type: 'pricing',
+      source: 'llm',
+      confidence: 0.95,
+      complexity: 'simple' as const,
+      requires_knowledge_base: false,
+      sentiment: 'neutral' as const,
+    });
+    mocks.getIntentProfile.mockReturnValue({
+      includeArchetypeFramework: true,
+      includeModules: true,
+      maxSteps: 3,
+      maxResponseTokens: 340,
+      maxSentences: 5,
+      skipGrounding: false,
+    });
+    mocks.resolveSkills.mockReturnValue([
+      { slug: 'objection-pricing', name: 'Objection: Pricing', body: 'Handle price objections...', priority: 10, source: 'platform' },
+    ]);
 
-describe('advisor context injection in message-handler', () => {
-  it('2a — injects snapshot block when artifact.type === "advisor"', async () => {
+    await handleMessage({
+      tenantDb: makeTenantDb(),
+      tenantId: TENANT_ID,
+      channel: 'webchat',
+      customerId: CUSTOMER_ID,
+      messageText: 'Your price is too high.',
+      artifactId: ARTIFACT_ID,
+    });
+
+    expect(mocks.resolveSkills).toHaveBeenCalledOnce();
+    expect(mocks.resolveSkills).toHaveBeenCalledWith(expect.objectContaining({
+      intent: expect.objectContaining({ type: 'pricing' }),
+      messageText: expect.any(String),
+      artifactType: 'sales',
+      activeModuleSlugs: expect.any(Array),
+      locale: 'en',
+    }));
+    expect(mocks.buildSystemPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      resolvedSkills: [expect.objectContaining({ slug: 'objection-pricing' })],
+    }));
+  });
+
+  it('Test 2 — resolveSkills skipped for advisor artifact', async () => {
     setupAdvisorPipeline();
+    mocks.createArtifactResolver.mockReturnValue({
+      resolve: vi.fn().mockResolvedValue({
+        artifactId: ARTIFACT_ID,
+        artifactName: 'Test Advisor',
+        artifactType: 'advisor',
+        source: 'override',
+        isNewConversation: true,
+      }),
+    });
+    mocks.classifyIntent.mockResolvedValue({
+      type: 'product_question',
+      source: 'llm' as const,
+      confidence: 0.9,
+      complexity: 'simple' as const,
+      requires_knowledge_base: false,
+      sentiment: 'neutral' as const,
+    });
+    mocks.getIntentProfile.mockReturnValue({
+      includeArchetypeFramework: true,
+      includeModules: true,
+      maxSteps: 3,
+      maxResponseTokens: 340,
+      maxSentences: 5,
+      skipGrounding: false,
+    });
     mocks.fetchAdvisorSnapshot.mockResolvedValue(FIXTURE_SNAPSHOT);
 
     await handleMessage({
@@ -319,26 +381,33 @@ describe('advisor context injection in message-handler', () => {
       tenantId: TENANT_ID,
       channel: 'webchat',
       customerId: CUSTOMER_ID,
-      messageText: 'How is the business doing?',
+      messageText: 'How is my business doing?',
       artifactId: ARTIFACT_ID,
     });
 
-    expect(mocks.generateText).toHaveBeenCalledOnce();
-    const callArgs = mocks.generateText.mock.calls[0][0];
-    expect(callArgs.system).toContain('Business Snapshot');
-    expect(callArgs.system).toContain('Conversations (7d):');
+    expect(mocks.resolveSkills).not.toHaveBeenCalled();
+    expect(mocks.buildSystemPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      resolvedSkills: [],
+    }));
   });
 
-  it('2b — does NOT inject snapshot when artifact.type !== "advisor"', async () => {
+  it('Test 3 — resolveSkills skipped for farewell intent (includeArchetypeFramework: false)', async () => {
     setupSalesPipeline();
-    mocks.createArtifactResolver.mockReturnValue({
-      resolve: vi.fn().mockResolvedValue({
-        artifactId: ARTIFACT_ID,
-        artifactName: 'Sales Agent',
-        artifactType: 'sales',
-        source: 'override',
-        isNewConversation: true,
-      }),
+    mocks.classifyIntent.mockResolvedValue({
+      type: 'farewell',
+      source: 'regex' as const,
+      confidence: 1,
+      complexity: 'simple' as const,
+      requires_knowledge_base: false,
+      sentiment: 'neutral' as const,
+    });
+    mocks.getIntentProfile.mockReturnValue({
+      includeArchetypeFramework: false,
+      includeModules: false,
+      maxSteps: 1,
+      maxResponseTokens: 180,
+      maxSentences: 2,
+      skipGrounding: true,
     });
 
     await handleMessage({
@@ -346,33 +415,47 @@ describe('advisor context injection in message-handler', () => {
       tenantId: TENANT_ID,
       channel: 'webchat',
       customerId: CUSTOMER_ID,
-      messageText: 'What is your price?',
+      messageText: 'Goodbye!',
       artifactId: ARTIFACT_ID,
     });
 
-    expect(mocks.generateText).toHaveBeenCalledOnce();
-    const callArgs = mocks.generateText.mock.calls[0][0];
-    expect(callArgs.system).not.toContain('Business Snapshot');
-    expect(mocks.fetchAdvisorSnapshot).not.toHaveBeenCalled();
+    expect(mocks.resolveSkills).not.toHaveBeenCalled();
+    expect(mocks.buildSystemPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      resolvedSkills: [],
+    }));
   });
 
-  it('2c — continues gracefully when snapshot fetch fails', async () => {
-    setupAdvisorPipeline();
-    mocks.fetchAdvisorSnapshot.mockRejectedValue(new Error('DB timeout'));
+  it('Test 4 — resolveSkills skipped for greeting:regex (explicit guard; includeArchetypeFramework: true)', async () => {
+    setupSalesPipeline();
+    mocks.classifyIntent.mockResolvedValue({
+      type: 'greeting',
+      source: 'regex' as const,
+      confidence: 1,
+      complexity: 'simple' as const,
+      requires_knowledge_base: false,
+      sentiment: 'neutral' as const,
+    });
+    mocks.getIntentProfile.mockReturnValue({
+      includeArchetypeFramework: true,
+      includeModules: false,
+      maxSteps: 1,
+      maxResponseTokens: 200,
+      maxSentences: 2,
+      skipGrounding: true,
+    });
 
-    await expect(
-      handleMessage({
-        tenantDb: makeTenantDb(),
-        tenantId: TENANT_ID,
-        channel: 'webchat',
-        customerId: CUSTOMER_ID,
-        messageText: 'How is sales going?',
-        artifactId: ARTIFACT_ID,
-      }),
-    ).resolves.toBeDefined();
+    await handleMessage({
+      tenantDb: makeTenantDb(),
+      tenantId: TENANT_ID,
+      channel: 'webchat',
+      customerId: CUSTOMER_ID,
+      messageText: 'Hi!',
+      artifactId: ARTIFACT_ID,
+    });
 
-    expect(mocks.generateText).toHaveBeenCalledOnce();
-    const callArgs = mocks.generateText.mock.calls[0][0];
-    expect(callArgs.system).not.toContain('Business Snapshot');
+    expect(mocks.resolveSkills).not.toHaveBeenCalled();
+    expect(mocks.buildSystemPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      resolvedSkills: [],
+    }));
   });
 });

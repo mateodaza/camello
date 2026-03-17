@@ -57,11 +57,17 @@ Intent types:
 - escalation_request: asking to speak to a human or manager
 - technical_support: reporting a bug or technical issue
 - followup: following up on a previous interaction
+- objection: Customer pushes back on price, timing, competitor preference, or general resistance. Examples: "that's too expensive", "we already use X", "not sure this is right for us", "I need to think about it"
+- comparison: Customer explicitly compares to another product or asks how you differ. Examples: "how are you different from X?", "why should I choose you over Y?", "what makes you better?"
+- open_discovery: Customer is exploring or in early research. Examples: "tell me more", "what do you offer?", "how does this work?", "I'm looking for solutions". Distinct from product_question (specific feature) — this is wide-open exploration
 
 Key distinctions:
 - "Send me a quote / cotización / presupuesto" → pricing (NOT booking_request)
 - "Schedule a meeting / agendar una reunión" → booking_request (NOT availability)
 - "How much does X cost?" → pricing
+- "We already use X" / "X is cheaper" → objection (NOT negotiation — objection is pre-interest resistance, negotiation is post-interest price discussion)
+- "How are you different from X?" → comparison (NOT product_question)
+- "Tell me more" / "What do you offer?" → open_discovery (NOT general_inquiry)
 
 Message: "${message}"`,
   });

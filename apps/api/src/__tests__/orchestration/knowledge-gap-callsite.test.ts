@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   createTrace: vi.fn(),
   createClient: vi.fn(),
   getUtcMonthWindow: vi.fn(),
+  resolveSkills: vi.fn(),
 }));
 
 vi.mock('../../orchestration/knowledge-gap.js', () => ({
@@ -52,6 +53,7 @@ vi.mock('@camello/ai', () => ({
   sanitizeFactValue: (v: string) => v,
   MAX_INJECTED_FACTS: 6,
   SAFE_FALLBACKS: {},
+  resolveSkills: mocks.resolveSkills,
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));
@@ -150,6 +152,7 @@ beforeEach(() => {
     channel: () => ({ send: vi.fn().mockResolvedValue(undefined) }),
   });
   mocks.recordKnowledgeGap.mockResolvedValue(undefined);
+  mocks.resolveSkills.mockReturnValue([]);
 
   mocks.createArtifactResolver.mockReturnValue({
     resolve: vi.fn().mockResolvedValue({

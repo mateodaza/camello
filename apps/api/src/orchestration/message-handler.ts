@@ -40,6 +40,7 @@ import {
   stripMemoryTags,
   sanitizeFactValue,
   MAX_INJECTED_FACTS,
+  resolveSkills,
 } from '@camello/ai';
 import type { MatchKnowledgeFn, EmbedFn } from '@camello/ai';
 import type { ArtifactModuleBinding, Channel, Intent, ModuleDbCallbacks, PlanTier } from '@camello/shared/types';
@@ -916,6 +917,26 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
     ((artifact.personality as Record<string, unknown>)?.language as string | undefined)
     ?? ((tenant?.settings as Record<string, unknown>)?.preferredLocale as string | undefined);
   const intentProfile = getIntentProfile(intent);
+
+  // 9b. Resolve skills — skipped for:
+  //   (a) advisor: uses snapshot injection instead of skills
+  //   (b) profiles where includeArchetypeFramework is false (farewell, thanks,
+  //       booking_request, availability) — no sales procedures needed for these
+  //   (c) greeting:regex: explicitly skipped even though its profile has
+  //       includeArchetypeFramework: true — a bare "hi" doesn't need situational
+  //       skill injection. (greeting:llm, which may contain embedded questions, is NOT skipped.)
+  const isGreetingRegex = intent.type === 'greeting' && intent.source === 'regex';
+  const resolvedSkills =
+    isAdvisor || !intentProfile.includeArchetypeFramework || isGreetingRegex
+      ? []
+      : resolveSkills({
+          intent,
+          messageText,
+          artifactType: artifact.type,
+          activeModuleSlugs: enrichedModules.map((b) => b.moduleSlug),
+          locale: artifactLocale ?? 'en',
+        });
+
   const systemPrompt = buildSystemPrompt({
     artifact: {
       name: artifact.name,
@@ -943,6 +964,7 @@ export async function handleMessage(input: HandleMessageInput): Promise<HandleMe
       value: sanitizeFactValue(f.value),
     })),
     intent,
+    resolvedSkills,
   });
 
   // Apply advisor snapshot prefix when applicable

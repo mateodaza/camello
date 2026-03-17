@@ -65,9 +65,28 @@ export const MODULE_TIMEOUT_MS = 10_000;
 // === Intent Classification ===
 
 export const REGEX_INTENTS: Record<string, RegExp[]> = {
-  // Only exact-match patterns — safe, zero false-positives
-  greeting: [/^(hi|hello|hey|hola)\s*[!?.,]*\s*$/i],
-  farewell: [/^(bye|goodbye|see you|thanks|thank you)\s*[!?.,]*\s*$/i],
+  greeting: [
+    // P1: Bare greeting word + non-question punctuation only
+    // "hi", "hello!", "hola." — but NOT "hi?" (? excluded from [!.,])
+    /^(hi|hello|hey|hola)\s*[!.,]*\s*$/i,
+    // P2: Greeting + specific safe follow-on words (exact enumeration)
+    // "hello there", "hi team", "hey everyone" — but NOT "hi, can you help?"
+    /^(hi|hello|hey|hola)\s+(there|everyone|team|guys)\s*[!.,]*\s*$/i,
+    // P3: Multi-word time-based greetings (exact full-phrase match)
+    // "buenos días", "good morning", "buenas tardes"
+    /^(buenos días|buenas tardes|buenas noches|good morning|good afternoon|good evening)\s*[!.,]*\s*$/i,
+  ],
+  farewell: [
+    // P1: Bare farewell word + non-question punctuation (Spanish terms added)
+    // "bye", "gracias!", "adiós." — but NOT "bye?" (? excluded)
+    /^(bye|goodbye|see you|thanks|thank you|gracias|chao|adiós)\s*[!.,]*\s*$/i,
+    // P2: Multi-word Spanish farewell phrase (exact match)
+    // "hasta luego"
+    /^(hasta luego)\s*[!.,]*\s*$/i,
+    // P3: Thanks/gracias + specific polite closer (exact enumerated follow-on phrases only)
+    // "thanks for your help", "thanks so much" — but NOT "thanks for your help with everything"
+    /^(thanks|thank you|gracias)\s+(so much|a lot|mucho|for your help|por tu ayuda)\s*[!.,]*\s*$/i,
+  ],
 };
 
 // === RAG ===
