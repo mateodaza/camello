@@ -21,7 +21,7 @@ function StatusDot({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className={cn('h-2 w-2 rounded-full', isActive ? 'bg-green-500' : 'bg-charcoal/30')} />
+      <span className={cn('h-2 w-2 rounded-full', isActive ? 'bg-teal' : 'bg-charcoal/30')} />
       <span className="text-xs text-dune">{isActive ? activeLabel : inactiveLabel}</span>
     </div>
   );

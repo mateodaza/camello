@@ -55,6 +55,8 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   // instruction (injected right after safety) controls response language.
   const t = getTemplates('en');
 
+  const isAdvisor = artifact.type === 'advisor';
+
   // Resolve intent profile for context curation decisions
   const profile: IntentProfile | undefined = ctx.intent
     ? getIntentProfile(ctx.intent)
@@ -65,9 +67,13 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 
   const parts: string[] = [];
 
-  // Identity
-  parts.push(t.identity(artifact.name, artifact.role, artifact.companyName));
-  parts.push(t.noOtherCompanies);
+  // Identity — advisor gets a tailored framing instead of the customer-facing one
+  if (isAdvisor) {
+    parts.push(`You are ${artifact.name}, the internal business advisor for ${artifact.companyName}. You are speaking to the business owner, NOT a customer.`);
+  } else {
+    parts.push(t.identity(artifact.name, artifact.role, artifact.companyName));
+    parts.push(t.noOtherCompanies);
+  }
 
   // Safety
   parts.push(t.safety);
@@ -171,8 +177,8 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     parts.push(t.learningsEnd);
   }
 
-  // Customer memory — untrusted, user-reported facts
-  if (ctx.customerMemory && ctx.customerMemory.length > 0) {
+  // Customer memory — untrusted, user-reported facts (skip for advisor — owner is not a customer)
+  if (!isAdvisor && ctx.customerMemory && ctx.customerMemory.length > 0) {
     // Filter out facts that match the agent's own name (the LLM sometimes emits
     // [MEMORY:name=Sofía] from its own self-introduction, polluting customer memory).
     const agentNameLower = artifact.name.toLowerCase().trim();
@@ -227,8 +233,10 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     parts.push(t.responseLengthRule(profile.maxSentences));
   }
 
-  // Memory extraction — piggyback on the existing LLM call
-  parts.push(t.memoryExtraction);
+  // Memory extraction — piggyback on the existing LLM call (skip for advisor)
+  if (!isAdvisor) {
+    parts.push(t.memoryExtraction);
+  }
 
   return parts.join('\n');
 }

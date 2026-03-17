@@ -52,8 +52,8 @@ export function InfoTooltip({ label, position = 'top' }: InfoTooltipProps) {
 
   const positionClasses = {
     right: 'left-full top-1/2 ml-2 -translate-y-1/2',
-    top: 'bottom-full left-1/2 mb-2 -translate-x-1/2',
-    bottom: 'top-full left-1/2 mt-2 -translate-x-1/2',
+    top: 'bottom-full left-0 mb-2',
+    bottom: 'top-full left-0 mt-2',
   }[position];
 
   return (
@@ -76,7 +76,7 @@ export function InfoTooltip({ label, position = 'top' }: InfoTooltipProps) {
         className={cn(
           'pointer-events-none absolute z-50 rounded-md bg-charcoal px-2.5 py-1.5',
           'font-heading text-xs font-medium text-cream',
-          'max-w-[240px] whitespace-normal',
+          'w-[240px] whitespace-normal',
           'transition-opacity duration-150',
           positionClasses,
           hovered || tapped ? 'opacity-100' : 'opacity-0',

@@ -24,7 +24,9 @@ export const conversationRouter = router({
         artifactId: z.string().uuid().optional(),
         limit: z.number().int().min(1).max(100).default(50),
         cursor: z.string().uuid().optional(),
-        showSandbox: z.boolean().default(true),
+        showSandbox: z.boolean().default(false),
+        /** When true, skip the default active+escalated filter and return all statuses. */
+        includeResolved: z.boolean().default(false),
       }).default({}),
     )
     .query(async ({ ctx, input }) => {
@@ -37,8 +39,10 @@ export const conversationRouter = router({
         ];
         if (input.status) {
           conditions.push(eq(conversations.status, input.status));
+        } else if (input.includeResolved) {
+          conditions.push(sql`${conversations.status} IN ('active', 'escalated', 'resolved')`);
         } else {
-          // "All" tab: show active + escalated (actionable). Resolved has its own tab.
+          // Default: show active + escalated (actionable). Resolved has its own tab.
           conditions.push(sql`${conversations.status} IN ('active', 'escalated')`);
         }
         if (input.channel) {

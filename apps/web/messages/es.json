@@ -80,7 +80,8 @@
     "advisorDesc": "Tu co-piloto interno de negocio — pregúntale cualquier cosa sobre tu actividad de ventas",
     "testChatTitle": "Prueba tu agente",
     "testChatEmpty": "Chatea con tu agente para ver cómo responde. Intenta preguntar sobre tus precios o agendar una reunión.",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "retry": "Reintentar"
   },
   "agent": {
     "agentHeader": "Agente de Ventas",
@@ -1000,17 +1001,8 @@
     "advisorSessionSaved": "Aprendizajes de la sesión guardados en la base de conocimiento",
     "pageTitle": "Asesor de Negocio",
     "pageDesc": "Tu copiloto interno — pregúntale cualquier cosa sobre tus ventas, prospectos o actividad de negocio",
-    "metricConversations": "Conversaciones (7d)",
-    "metricTrend": "vs semana anterior",
-    "metricPendingPayments": "Pagos Pendientes",
-    "metricLeads": "Prospectos Totales",
-    "metricApprovals": "Aprobaciones Pendientes",
-    "metricGaps": "Preguntas Sin Respuesta",
+    "chatTitle": "Pregunta lo que sea",
     "chatPlaceholder": "Pregunta sobre tu negocio...",
-    "leadBreakdownTitle": "Desglose de Prospectos",
-    "stageBreakdown": "por etapa",
-    "topGapsTitle": "Preguntas sin respuesta",
-    "noGaps": "Sin preguntas sin respuesta — ¡excelente cobertura!",
     "sessionHistory": "Sesiones Anteriores",
     "noSessions": "Sin sesiones anteriores",
     "sessionDate": "Sesión",

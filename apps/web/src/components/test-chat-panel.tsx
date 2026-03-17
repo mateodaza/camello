@@ -34,12 +34,14 @@ interface Props {
   initialConversationId?: string;
   /** Quick-prompt pill buttons shown above the input before the first user message. */
   quickPrompts?: string[];
+  /** Override the inline header title. Defaults to t('testChatTitle'). */
+  title?: string;
 }
 
 export function TestChatPanel({
   artifactId, artifactName, artifactType, open, onClose,
   initialMessages, onMessagesChange,
-  inline, fullscreen, sessionKey, placeholder, initialConversationId, quickPrompts,
+  inline, fullscreen, sessionKey, placeholder, initialConversationId, quickPrompts, title,
 }: Props) {
   const t = useTranslations('artifacts');
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
@@ -164,7 +166,19 @@ export function TestChatPanel({
   // Shared inner content (messages list + input form)
   const messagesContent = (
     <div className="flex-1 overflow-y-auto p-4">
-      {messages.length === 0 && (
+      {historyQuery.isError && (
+        <p className="mb-2 text-sm text-error">
+          {historyQuery.error.message}{' '}
+          <button
+            type="button"
+            onClick={() => historyQuery.refetch()}
+            className="min-h-[36px] underline hover:text-charcoal"
+          >
+            {t('retry')}
+          </button>
+        </p>
+      )}
+      {messages.length === 0 && !historyQuery.isError && (
         <div className="text-center">
           <p className="text-sm text-dune">{t('testChatEmpty')}</p>
         </div>
@@ -208,6 +222,20 @@ export function TestChatPanel({
           ))}
         </div>
       )}
+      {ensureCustomer.isError && (
+        <p className="mb-2 text-sm text-error">
+          {ensureCustomer.error.message}{' '}
+          <button
+            type="button"
+            onClick={() => ensureCustomer.mutate(undefined, {
+              onSuccess: (data) => setCustomerId(data.customerId),
+            })}
+            className="min-h-[36px] underline hover:text-charcoal"
+          >
+            {t('retry')}
+          </button>
+        </p>
+      )}
       {sendMessage.isError && (
         <p className="mb-2 text-sm text-error">{sendMessage.error.message}</p>
       )}
@@ -229,10 +257,10 @@ export function TestChatPanel({
   // Path 1 — inline (desktop right column)
   if (inline) {
     return (
-      <div className="flex h-full flex-col bg-cream">
+      <div className="flex h-full flex-col overflow-hidden bg-cream">
         <div className="flex items-center justify-between border-b border-charcoal/8 px-4 py-3">
           <h2 className="font-heading text-lg font-semibold text-charcoal">
-            {t('testChatTitle')}
+            {title ?? t('testChatTitle')}
           </h2>
         </div>
         {messagesContent}

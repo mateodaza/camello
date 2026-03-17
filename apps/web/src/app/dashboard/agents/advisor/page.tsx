@@ -1,14 +1,11 @@
 'use client'
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
-import { BarChart2, HelpCircle } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QueryError } from '@/components/query-error'
-import { MetricsGrid } from '@/components/agent-workspace/primitives/metrics-grid'
 import { TestChatPanel } from '@/components/test-chat-panel'
 import { Section } from '@/components/dashboard/section'
-import { stageKey } from '@/components/agent-workspace/sales/constants'
 
 // Mirrors the internal ChatMessage type in test-chat-panel.tsx (not exported from there)
 type ChatMessage = { role: 'user' | 'assistant'; text: string };
@@ -16,7 +13,6 @@ type ChatMessage = { role: 'user' | 'assistant'; text: string };
 export default function AdvisorPage() {
   // Step 1 — translations
   const t = useTranslations('advisor');
-  const tw = useTranslations('agentWorkspace');
 
   const quickPrompts = [
     t('quickPromptSales'),
@@ -40,7 +36,7 @@ export default function AdvisorPage() {
   const summarizeSession = trpc.advisor.summarizeSession.useMutation();
 
   const conversationHistory = trpc.conversation.list.useQuery(
-    { artifactId: advisorArtifact?.id, limit: 10, showSandbox: true },
+    { artifactId: advisorArtifact?.id, limit: 10, showSandbox: true, includeResolved: true },
     { enabled: !!advisorArtifact?.id },
   );
 
@@ -66,25 +62,6 @@ export default function AdvisorPage() {
     () => (openingMessage ? [{ role: 'assistant', text: openingMessage }] : undefined),
     [openingMessage],
   );
-
-  const totalLeads = snap.data
-    ? Object.values(snap.data.leadsByStage).reduce((a, b) => a + b, 0)
-    : 0;
-
-  const conversationValue: string | number = snap.data
-    ? snap.data.conversationTrend !== 0
-      ? `${snap.data.activeConversations} (${snap.data.conversationTrend > 0 ? '+' : ''}${snap.data.conversationTrend}%)`
-      : String(snap.data.activeConversations)
-    : 0;
-
-  const metrics = snap.data
-    ? [
-        { label: t('metricConversations'), value: conversationValue },
-        { label: t('metricPendingPayments'), value: snap.data.pendingPayments.count },
-        { label: t('metricLeads'), value: totalLeads },
-        { label: t('metricGaps'), value: snap.data.topKnowledgeGaps.length },
-      ]
-    : [];
 
   // Session state
   const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>(undefined);
@@ -173,13 +150,10 @@ export default function AdvisorPage() {
   // Render — State 1: loading
   if (artifactList.isLoading || ensureAdvisor.isPending) {
     return (
-      <div className="p-6 flex flex-col gap-6 h-full">
+      <div className="p-6 flex flex-col gap-6 h-full overflow-hidden">
         <div>
           <Skeleton className="h-8 w-48 mb-2" />
           <Skeleton className="h-4 w-96" />
-        </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
         </div>
         <Skeleton className="flex-1 min-h-[400px]" />
       </div>
@@ -225,6 +199,10 @@ export default function AdvisorPage() {
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
         </div>
+      ) : conversationHistory.isError ? (
+        <div className="p-4">
+          <QueryError error={conversationHistory.error} onRetry={() => conversationHistory.refetch()} />
+        </div>
       ) : historyItems.length === 0 ? (
         <p className="px-4 py-3 text-sm text-dune">{t('noSessions')}</p>
       ) : (
@@ -253,7 +231,7 @@ export default function AdvisorPage() {
   );
 
   return (
-    <div className="p-6 flex flex-col gap-6 h-full">
+    <div className="p-6 flex flex-col gap-6 h-full overflow-hidden">
       {/* Header */}
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal">
@@ -262,69 +240,9 @@ export default function AdvisorPage() {
         <p className="text-sm text-dune mt-1">{t('pageDesc')}</p>
       </div>
 
-      {/* Metrics strip — 3-branch: error | loading | ready */}
-      {snap.isError ? (
+      {/* Snapshot error — blocks chat below */}
+      {snap.isError && (
         <QueryError error={snap.error} onRetry={() => snap.refetch()} />
-      ) : !snap.data ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
-        </div>
-      ) : (
-        <>
-          <MetricsGrid metrics={metrics} />
-
-          {/* Pending payments by currency — inline compact list */}
-          {snap.data.pendingPayments.byCurrency.length > 0 && (
-            <ul className="flex flex-wrap gap-3">
-              {snap.data.pendingPayments.byCurrency.map(({ currency, totalAmount }) => (
-                <li key={currency} className="text-sm text-dune">
-                  <span className="font-medium text-charcoal">{currency}</span>{' '}
-                  {totalAmount.toLocaleString()}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Lead Breakdown section */}
-          <Section
-            title={t('leadBreakdownTitle')}
-            icon={BarChart2}
-            badge={totalLeads}
-            defaultOpen={false}
-          >
-            <ul className="divide-y divide-charcoal/8">
-              {Object.entries(snap.data.leadsByStage).map(([stage, count]) => (
-                <li key={stage} className="flex items-center justify-between py-2 text-sm">
-                  <span className="text-charcoal">
-                    {tw(`salesStage${stageKey(stage)}` as Parameters<typeof tw>[0])}
-                  </span>
-                  <span className="font-medium text-charcoal">{count}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-1 text-xs text-dune">{t('stageBreakdown')}</p>
-          </Section>
-
-          {/* Unanswered Questions section */}
-          <Section
-            title={t('topGapsTitle')}
-            icon={HelpCircle}
-            badge={snap.data.topKnowledgeGaps.length}
-            defaultOpen={false}
-          >
-            {snap.data.topKnowledgeGaps.length === 0 ? (
-              <p className="text-sm text-dune">{t('noGaps')}</p>
-            ) : (
-              <ul className="space-y-2">
-                {snap.data.topKnowledgeGaps.map((gap) => (
-                  <li key={gap.intentType} className="text-sm text-charcoal">
-                    {gap.sampleQuestion}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-        </>
       )}
 
       {/* Mobile session history section */}
@@ -347,7 +265,7 @@ export default function AdvisorPage() {
       </div>
 
       {/* Two-zone layout: sidebar + chat */}
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* Desktop sidebar */}
         <div className="hidden md:flex w-64 shrink-0 flex-col border-r border-charcoal/8">
           <div className="flex items-center justify-between px-4 py-3 border-b border-charcoal/8">
@@ -364,10 +282,8 @@ export default function AdvisorPage() {
         </div>
 
         {/* Chat area */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          {snap.isError ? (
-            <QueryError error={snap.error} onRetry={() => snap.refetch()} />
-          ) : !snap.data ? (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {!snap.data ? (
             <Skeleton className="flex-1 min-h-[400px]" />
           ) : (
             <TestChatPanel
@@ -381,6 +297,7 @@ export default function AdvisorPage() {
               onMessagesChange={handleMessagesChange}
               inline={true}
               placeholder={t('chatPlaceholder')}
+              title={t('chatTitle')}
               sessionKey={sessionKey}
               quickPrompts={selectedConversationId ? undefined : quickPrompts}
             />

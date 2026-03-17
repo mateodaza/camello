@@ -80,7 +80,8 @@
     "advisorDesc": "Your internal business co-pilot — ask it anything about your sales activity",
     "testChatTitle": "Test your agent",
     "testChatEmpty": "Chat with your agent to see how it responds. Try asking about your pricing or booking a meeting.",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Retry"
   },
   "agent": {
     "agentHeader": "Sales Agent",
@@ -1000,17 +1001,8 @@
     "advisorSessionSaved": "Session insights saved to knowledge base",
     "pageTitle": "Business Advisor",
     "pageDesc": "Your internal co-pilot — ask anything about your sales, leads, or business activity",
-    "metricConversations": "Conversations (7d)",
-    "metricTrend": "vs prior week",
-    "metricPendingPayments": "Pending Payments",
-    "metricLeads": "Total Leads",
-    "metricApprovals": "Pending Approvals",
-    "metricGaps": "Unanswered Questions",
+    "chatTitle": "Ask anything",
     "chatPlaceholder": "Ask about your business...",
-    "leadBreakdownTitle": "Lead Breakdown",
-    "stageBreakdown": "by stage",
-    "topGapsTitle": "Top unanswered questions",
-    "noGaps": "No unanswered questions — great coverage!",
     "sessionHistory": "Past Sessions",
     "noSessions": "No past sessions yet",
     "sessionDate": "Session",
