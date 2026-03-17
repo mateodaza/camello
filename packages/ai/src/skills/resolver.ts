@@ -15,8 +15,12 @@ export function resolveSkills(ctx: SkillResolutionContext): ResolvedSkill[] {
     switch (s.trigger.mode) {
       case 'always':
         return true;
-      case 'intent':
-        return (s.trigger.intents ?? []).includes(ctx.intent.type);
+      case 'intent': {
+        if ((s.trigger.intents ?? []).includes(ctx.intent.type)) return true;
+        // Keyword fallback: fires if any keyword appears in message (spec §3.1 "fallback keyword scan")
+        const lowerText = ctx.messageText.toLowerCase();
+        return (s.trigger.keywords ?? []).some((kw) => lowerText.includes(kw.toLowerCase()));
+      }
       case 'keyword': {
         const lowerText = ctx.messageText.toLowerCase();
         return (s.trigger.keywords ?? []).some((kw) =>

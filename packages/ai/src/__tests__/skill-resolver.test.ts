@@ -139,4 +139,48 @@ describe('skill-resolver', () => {
     expect(slugs).toContain('skill-a');
     expect(slugs).not.toContain('skill-b');
   });
+
+  // T7: mode:intent fires when intent matches, regardless of message text
+  it('intent mode fires when intent matches even without keyword in message', () => {
+    _registerSkillForTesting(
+      makeSkill({
+        slug: 'objection-style',
+        trigger: { mode: 'intent', intents: ['objection'], keywords: ['competitor'] },
+      }),
+    );
+    const results = resolveSkills(
+      makeCtx({ intent: { type: 'objection', confidence: 0.9 }, messageText: 'I have concerns' }),
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0]?.slug).toBe('objection-style');
+  });
+
+  // T8: mode:intent keyword fallback fires when intent doesn't match but keyword appears
+  it('intent mode keyword fallback fires when intent does not match but keyword appears', () => {
+    _registerSkillForTesting(
+      makeSkill({
+        slug: 'objection-style',
+        trigger: { mode: 'intent', intents: ['objection'], keywords: ['competitor'] },
+      }),
+    );
+    const results = resolveSkills(
+      makeCtx({ intent: { type: 'greeting', confidence: 0.9 }, messageText: 'We use a competitor' }),
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0]?.slug).toBe('objection-style');
+  });
+
+  // T9: mode:intent does NOT fire when neither intent nor keyword matches
+  it('intent mode does not fire when neither intent nor keyword matches', () => {
+    _registerSkillForTesting(
+      makeSkill({
+        slug: 'objection-style',
+        trigger: { mode: 'intent', intents: ['objection'], keywords: ['competitor'] },
+      }),
+    );
+    const results = resolveSkills(
+      makeCtx({ intent: { type: 'greeting', confidence: 0.9 }, messageText: 'Hello there' }),
+    );
+    expect(results).toHaveLength(0);
+  });
 });

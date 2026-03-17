@@ -305,7 +305,8 @@ Step 9:  Build system prompt — pass resolvedSkills
 
 ## P2 — Skill Content + Archetype Trim
 
-#### NC-306 [ ] Write platform sales skills (5 files)
+#### NC-306 [x] Write platform sales skills (5 files)
+Created 5 sales skill `.md` files (`objection-competitor`, `objection-pricing`, `discovery-questions`, `closing-techniques`, `upsell-after-booking`). Extended `resolver.ts` `case 'intent'` with keyword fallback (spec §3.1). Added `skill-files.test.ts` (6 tests T1–T6) + extended `skill-resolver.test.ts` with T7–T9 (keyword-fallback coverage). `pnpm type-check` passes.
 
 Write the first batch of sales skills as `.md` files. These encode the deep procedural knowledge currently in the monolithic sales archetype prompt, but with more depth and examples.
 
