@@ -223,7 +223,8 @@ Algorithm:
 
 ## P1 — Prompt + Pipeline Integration
 
-#### NC-304 [ ] Prompt builder integration — inject skills into system prompt
+#### NC-304 [x] Prompt builder integration — inject skills into system prompt
+Extended `PromptContext` with optional `resolvedSkills?: ResolvedSkill[]`; added `--- ACTIVE SKILLS ---` injection block after archetype framework, before personality; 4 tests in `skill-prompt-injection.test.ts`. `pnpm type-check` passes.
 
 Add a skill section to `buildSystemPrompt()` between the archetype framework and personality sections.
 
