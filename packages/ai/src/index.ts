@@ -62,3 +62,15 @@ import './archetypes/index.js';
 import './modules/index.js';
 
 export { summarizeConversation } from './summarize-conversation.js';
+
+// Skill registry + resolver
+export {
+  getSkill,
+  getAllSkills,
+  getSkillsByType,
+  _clearSkillRegistry,
+  _registerSkillForTesting,
+  _loadFromDirectory,
+} from './skills/index.js';
+export { resolveSkills, SKILL_TOKEN_CAP } from './skills/resolver.js';
+export type { SkillDefinition, SkillResolutionContext, ResolvedSkill, SkillTrigger, SkillTriggerMode, SkillType } from './skills/types.js';

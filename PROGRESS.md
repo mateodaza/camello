@@ -14,6 +14,7 @@
 
 | ID | Task | Date | Notes |
 |----|------|------|-------|
+| NC-303 | Skill registry + resolver | Mar 17 | Updated `skills/types.ts` (new `SkillResolutionContext`/`ResolvedSkill`). Created `skills/index.ts` (registry, load/get/clear helpers) and `skills/resolver.ts` (5-step algorithm with intent/keyword/conflict/token-budget). Test fixture `fixtures/skills/test-skill.md` + `skill-resolver.test.ts` (6 tests). `pnpm type-check` passes. |
 | NC-302 | Skill types + frontmatter parser | Mar 17 | Created `packages/ai/src/skills/types.ts` (SkillDefinition, ResolvedSkill, SkillResolutionContext, SkillTrigger types) and `packages/ai/src/skills/parser.ts` (parseSkillFile, filterLocale, estimateTokens — no yaml dep, custom line-by-line parser). 4 tests in `skill-parser.test.ts`. `pnpm type-check` passes. |
 | NC-298 | Dead import cleanup | Mar 16 | Removed unused import names from 13 files in `apps/web/src/` — `screen`/`fireEvent`/`waitFor`/`within` from testing-library, `React` default, `fmtDate` from knowledge page. No logic changes; `pnpm type-check` passes. |
 | NC-297 | Stat strip mobile flex-wrap | Mar 16 | Added `flex-wrap gap-x-4 gap-y-1` to stat strip div in `conversations/page.tsx`. Pure CSS class change; type-check passes. |
@@ -1032,3 +1033,4 @@
 - **NC-297** — 2026-03-16 — `677fda8` — Session: 20260316-014155-camello
 - **NC-298** — 2026-03-16 — `9775aa2` — Session: 20260316-014155-camello
 - **NC-302** — 2026-03-17 — `cce67ce` — Session: 20260317-025334-camello
+- **NC-303** — 2026-03-17 — `b5886ce` — Session: 20260317-025334-camello

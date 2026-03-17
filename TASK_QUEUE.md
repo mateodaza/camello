@@ -177,7 +177,8 @@ export interface SkillResolutionContext {
 
 ---
 
-#### NC-303 [ ] Skill registry + resolver
+#### NC-303 [x] Skill registry + resolver
+Updated `types.ts` (new `SkillResolutionContext`/`ResolvedSkill` shapes). Created `skills/index.ts` (registry, `_loadFromDirectory`, `_clearSkillRegistry`, `_registerSkillForTesting`) and `skills/resolver.ts` (5-step algorithm, `SKILL_TOKEN_CAP=800`). Test fixture + 6 tests all pass. `pnpm type-check` clean.
 
 Load platform skill `.md` files from disk at import time. Implement the resolver that selects which skills to inject for a given message.
 

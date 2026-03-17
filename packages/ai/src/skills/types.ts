@@ -24,15 +24,17 @@ export interface SkillDefinition {
 }
 
 export interface ResolvedSkill {
-  definition: SkillDefinition;
+  slug: string;
+  name: string;
   body: string;
-  tokens: number;
+  priority: number;
+  source: 'platform' | 'tenant';
 }
 
 export interface SkillResolutionContext {
+  intent: { type: string; confidence: number };
+  messageText: string;
+  artifactType: string;
+  activeModuleSlugs: string[];
   locale: string;
-  agentType: SkillType;
-  activeModules: string[];
-  detectedIntents?: string[];
-  detectedKeywords?: string[];
 }
